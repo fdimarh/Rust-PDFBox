@@ -1,0 +1,2 @@
+//! Optional rendering adapter interfaces.
+
