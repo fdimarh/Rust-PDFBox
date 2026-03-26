@@ -79,6 +79,18 @@ impl CosName {
     pub fn root() -> Self {
         Self::new(b"Root".to_vec())
     }
+
+    pub fn prev() -> Self {
+        Self::new(b"Prev".to_vec())
+    }
+
+    pub fn info() -> Self {
+        Self::new(b"Info".to_vec())
+    }
+
+    pub fn encrypt() -> Self {
+        Self::new(b"Encrypt".to_vec())
+    }
 }
 
 impl fmt::Display for CosName {

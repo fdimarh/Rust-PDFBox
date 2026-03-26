@@ -30,9 +30,10 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 | Area | Status | Target Milestone | Notes |
 |---|---|---:|---|
-| COS object model | IP | M1 | ObjectId, CosName, CosDictionary, CosStream, CosObject enum implemented |
-| Lexer/parser | IP | M1 | Lexer (tokenizer) and Parser (object builder) implemented with full test coverage |
-| XRef + trailer (table/stream) | NS | M1 | |
+| COS object model | DV | M1 | ObjectId, CosName, CosDictionary, CosStream, CosObject enum — 31 tests |
+| Lexer/parser | DV | M1 | Lexer + Parser with lookahead, indirect refs, all COS types — 43 tests |
+| XRef + trailer (table/stream) | DV | M1 | Traditional xref table, XRef stream (uncompressed), startxref discovery, Prev chain, merged XRefTable — 11 tests |
+| Document::load baseline | DV | M1 | Header check, xref load, eager object store, catalog ref resolution — 6 tests |
 | Document/page model | NS | M2 | |
 | Content stream operators | NS | M2 | |
 | Font parsing + CMap | NS | M3 | |
@@ -46,14 +47,14 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 | Java PDFBox Area | Rust Module | Key Capability | Status | Target | Test Reference | Notes |
 |---|---|---|---|---:|---|---|
-| `org.apache.pdfbox.cos` | `src/cos/` | Primitive object types | IP | M1 | `cos::object::tests`, `cos::object_id::tests` | CosObject enum with all 8 types + Reference |
-| `org.apache.pdfbox.cos` | `src/cos/` | Dictionary/array/name helpers | IP | M1 | `cos::dictionary::tests`, `cos::name::tests` | Typed getters, insertion-order, well-known names |
-| `org.apache.pdfbox.pdfparser` | `src/parser/` | Header/startxref discovery | NS | M1 | | Pending xref module |
-| `org.apache.pdfbox.pdfparser` | `src/parser/` | Object parsing + indirect refs | IP | M1 | `parser::lexer::tests`, `parser::parser::tests` | Lexer + Parser with lookahead for indirect refs |
-| `org.apache.pdfbox.pdfparser` | `src/parser/` | XRef table parsing | NS | M1 | | |
-| `org.apache.pdfbox.pdfparser` | `src/parser/` | XRef stream parsing | NS | M1 | | |
+| `org.apache.pdfbox.cos` | `src/cos/` | Primitive object types | DV | M1 | `cos::object::tests`, `cos::object_id::tests` | CosObject enum with all 8 types + Reference |
+| `org.apache.pdfbox.cos` | `src/cos/` | Dictionary/array/name helpers | DV | M1 | `cos::dictionary::tests`, `cos::name::tests` | Typed getters, insertion-order, well-known names (prev, info, encrypt added) |
+| `org.apache.pdfbox.pdfparser` | `src/parser/` | Header/startxref discovery | DV | M1 | `parser::xref::tests::find_startxref_*` | `find_startxref` scans tail 1024 bytes, handles CRLF |
+| `org.apache.pdfbox.pdfparser` | `src/parser/` | Object parsing + indirect refs | DV | M1 | `parser::lexer::tests`, `parser::parser::tests` | Lexer + Parser with lookahead for indirect refs |
+| `org.apache.pdfbox.pdfparser` | `src/parser/` | XRef table parsing | DV | M1 | `parser::xref::tests::parse_traditional_xref_table_basic`, `load_xref_end_to_end` | 20 and 21-byte entry variants, subsection support, Prev chain follow |
+| `org.apache.pdfbox.pdfparser` | `src/parser/` | XRef stream parsing | PV | M1 | `parser::xref` | Uncompressed xref streams parsed; FlateDecode deferred to io/filter module |
 | `org.apache.pdfbox.pdfparser` | `src/parser/` | Object stream parsing | NS | M1 | | |
-| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | `Document::load` | NS | M1 | | |
+| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | `Document::load` | DV | M1 | `tests::loads_minimal_pdf`, `minimal_pdf_catalog_resolved`, `trailer_has_size` | Header + xref + eager object store + catalog ref resolution |
 | `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | Page tree traversal | NS | M2 | | |
 | `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | Resources access | NS | M2 | | |
 | content stream APIs | `src/content/` | Operator tokenization | NS | M2 | | |
@@ -94,6 +95,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- 2026-03-26: XRef table/stream parsing, `startxref` discovery, `Prev` chain following, merged `XRefTable`, `ObjectStore`, and full `Document::load` wired — 11 new xref tests + 6 Document tests. M1 complete (except compressed xref streams pending filter decoding).
 - 2026-03-13: Lexer and Parser implemented — tokenizer, object parser, indirect reference detection, indirect object definitions — 43 unit tests.
 - 2026-03-13: COS object model implemented (ObjectId, CosName, CosDictionary, CosStream, CosObject enum) — 31 unit tests.
 - 2026-03-13: Initial parity matrix created.
