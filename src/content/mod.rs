@@ -1,15 +1,4 @@
-//! Content stream operator.
-//!
-//! Tokenizes the raw bytes of a PDF content stream into a sequence of
-//! [`Operand`] values followed by an [`Operator`] name. This is the first
-//! stage of content stream processing.
-//!
-//! # PDF content stream structure
-//!
-//! A content stream is a sequence of:
-//!   `<operand>* <operator>`
-//! where operands are standard COS objects (numbers, names, strings, arrays,
-//! dicts) and the operator is a keyword such as `BT`, `Tf`, `Tj`, `ET`, `cm`.
+//! Content stream tokenizer, instruction parser, and graphics state machine.
 //!
 //! # Java PDFBox mapping
 //!
@@ -18,6 +7,11 @@
 //! | `PDFStreamEngine` (token loop) | [`ContentTokenizer`] |
 //! | `Operator` | [`Operator`] |
 //! | `COSBase` operand stack | [`ContentToken`] |
+//! | `PDGraphicsState` + `PDTextState` | [`graphics_state::GraphicsState`] |
+
+pub mod graphics_state;
+
+pub use graphics_state::{GraphicsState, Matrix, TextState};
 
 use crate::cos::{CosDictionary, CosObject};
 use crate::parser::lexer::{LexError, Lexer, Token};
