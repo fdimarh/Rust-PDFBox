@@ -1,6 +1,6 @@
 # PDFBox Parity Matrix (Java → Rust)
 
-_Last updated: 2026-03-26 — M0/M1/M2/M2+ complete, 211 tests passing._
+_Last updated: 2026-03-26 — M0/M1/M2/M2+/M3 complete, 256 tests passing._
 
 This document tracks feature parity between Apache Java PDFBox and this Rust port.
 
@@ -51,14 +51,14 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Content stream tokenizer | `DV` | M2 | 11 | ContentTokenizer, Operator, ContentToken |
 | Content stream instruction parser | `DV` | M2 | 8 | parse_content_stream, Instruction, operand stack |
 | Document pages() end-to-end | `DV` | M2 | 3 | pages(), page_count(), iter(), get() |
-| Graphics state model | `NS` | M3 | — | Tm, Td, TD, cm, q/Q stack |
-| Text operator dispatch | `NS` | M3 | — | Tj, TJ, ', " |
-| Font parsing (Type1) | `NS` | M3 | — | |
-| Font parsing (TrueType) | `NS` | M3 | — | |
-| Font parsing (Type0 / CID) | `NS` | M3 | — | |
-| ToUnicode CMap parser | `NS` | M3 | — | Priority entry point for Phase 3 |
-| Text extraction (content order) | `NS` | M3 | — | |
-| Positional heuristics | `NS` | M3 | — | |
+| Graphics state model | `DV` | M3 | 15 | Matrix, TextState, GraphicsState, q/Q stack, Tm/Td/TD/T*/Tf/TL/Tc/Tw/Tz/Ts |
+| Text operator dispatch | `DV` | M3 | — | Tj, TJ, ', " — implemented in extract_text |
+| ToUnicode CMap parser | `DV` | M3 | 10 | bfchar, bfrange sequential+array, 1/2/4-byte codes, surrogate pairs |
+| Text extraction MVP | `DV` | M3 | 14 | extract_text, TextChunk, Y-sort, line breaks, Latin-1 fallback |
+| Font parsing (Type1) | `NS` | M3+ | — | |
+| Font parsing (TrueType) | `NS` | M3+ | — | |
+| Font parsing (Type0 / CID) | `NS` | M3+ | — | |
+| Positional heuristics | `PV` | M3+ | — | Basic Y-sort + gap detection in chunks_to_string |
 | Full rewrite writer | `NS` | M4 | — | |
 | Incremental append writer | `NS` | M4 | — | |
 | Standard Security Handler | `NS` | M5 | — | |
@@ -66,7 +66,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Permission evaluation | `NS` | M5 | — | |
 | Compatibility harness | `NS` | M6 | — | Java vs Rust output diff |
 
-**Total tests passing: 211**
+**Total tests passing: 256**
 
 ---
 
@@ -94,15 +94,16 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | `o.a.p.pdmodel` | `src/lib.rs` | `Document::pages()` / `page_count()` | `DV` | M2 | `tests::document_page_count`, `document_pages_iter`, `document_pages_get_by_index` | End-to-end via real PDF bytes |
 | `o.a.p.contentstream` | `src/content/mod.rs` | Content stream tokenizer | `DV` | M2 | `content::tests` (11) | ContentTokenizer, Operator (14 predicates), ContentToken |
 | `o.a.p.contentstream` | `src/content/mod.rs` | Instruction parser | `DV` | M2 | `content::tests` (8) | parse_content_stream; T*, ', " operators; operand stack |
-| `o.a.p.contentstream` | `src/content/` | Graphics state model | `NS` | M3 | — | Tm, Td, TD, cm, q/Q — Phase 3 entry point |
-| `o.a.p.pdmodel.font` | `src/font/` | PDFont base | `NS` | M3 | — | |
-| `o.a.p.pdmodel.font` | `src/font/` | Type1 | `NS` | M3 | — | |
-| `o.a.p.pdmodel.font` | `src/font/` | TrueType | `NS` | M3 | — | |
-| `o.a.p.pdmodel.font` | `src/font/` | Type0 / CID | `NS` | M3 | — | |
-| `o.a.p.pdmodel.font` | `src/font/` | ToUnicode CMap | `NS` | M3 | — | Highest-priority Phase 3 item |
-| `o.a.p.text` | `src/text/` | PDFTextStripper | `NS` | M3 | — | |
-| `o.a.p.text` | `src/text/` | Content-order extraction | `NS` | M3 | — | |
-| `o.a.p.text` | `src/text/` | Positional heuristics | `NS` | M3 | — | |
+| `o.a.p.contentstream` | `src/content/` | Graphics state model | `DV` | M3 | `content::graphics_state::tests` (15) | Matrix, TextState, GraphicsState, q/Q, Tm/Td/TD/T*/Tf/TL/Tc/Tw/Tz/Ts |
+| `o.a.p.pdmodel.font` | `src/font/cmap.rs` | ToUnicode CMap | `DV` | M3 | `font::cmap::tests` (10) | bfchar, bfrange sequential+array, 1/2/4-byte, surrogate pairs |
+| `o.a.p.text` | `src/text/mod.rs` | extract_text MVP | `DV` | M3 | `text::tests` (14) | Tj/TJ/'/", CMap decode, Latin-1 fallback, Y-sort, TextChunk |
+| `o.a.p.pdmodel.font` | `src/font/` | PDFont base | `NS` | M3+ | — | |
+| `o.a.p.pdmodel.font` | `src/font/` | Type1 | `NS` | M3+ | — | |
+| `o.a.p.pdmodel.font` | `src/font/` | TrueType | `NS` | M3+ | — | |
+| `o.a.p.pdmodel.font` | `src/font/` | Type0 / CID | `NS` | M3+ | — | |
+| `o.a.p.text` | `src/text/` | PDFTextStripper | `PV` | M3+ | `text::tests` | MVP done; full stripper (columns, multi-page) pending |
+| `o.a.p.text` | `src/text/` | Content-order extraction | `DV` | M3 | `text::tests::tj_*` | Implemented via Y-sort heuristic |
+| `o.a.p.text` | `src/text/` | Positional heuristics | `PV` | M3+ | `text::tests::chunks_to_string_*` | Basic Y-gap + X-gap detection; column layout pending |
 | `o.a.p.pdfwriter` | `src/writer/` | Full rewrite writer | `NS` | M4 | — | |
 | `o.a.p.pdfwriter` | `src/writer/` | Incremental append writer | `NS` | M4 | — | |
 | `o.a.p.pdmodel.encryption` | `src/crypto/` | Standard Security Handler | `NS` | M5 | — | |
@@ -119,8 +120,8 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | M1 | COS + parser + xref + load | 94 | ✅ Done |
 | M2 | Page / content primitives | 127 | ✅ Done |
 | M2+ | Malformed / edge-case hardening | 211 | ✅ Done |
-| M3 | Text extraction MVP | TBD | 🔲 Next |
-| M4 | Writer + incremental save | TBD | 🔲 Planned |
+| M3 | Text extraction MVP | 256 | ✅ Done |
+| M4 | Writer + incremental save | TBD | 🔲 Next |
 | M5 | Encrypted PDF | TBD | 🔲 Planned |
 | M6 | v1 candidate | TBD | 🔲 Planned |
 
@@ -158,6 +159,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- **2026-03-26:** M3 complete — `src/content/graphics_state.rs` (GraphicsState, Matrix, TextState — 15 tests), `src/font/cmap.rs` (ToUnicode CMap parser — 10 tests), `src/text/mod.rs` (extract_text, TextChunk, Y-sort line breaks — 14 tests). Total: **256 tests passing**.
 - **2026-03-26:** M2+ hardening — `src/parser/malformed.rs` (84 unit tests: lexer edge tokens, parser malformed), `tests/parser_regression.rs` (27 integration tests). Fixed lexer `'` and `"` operator handling. Removed unused `CosName` import. Total: **211 tests passing**.
 - **2026-03-26:** M2 complete — `pdmodel::page` (Page, Rectangle, Resources), `pdmodel::page_tree` (PageTree, recursive walk, depth guard), `content` (ContentTokenizer, Operator predicates, parse_content_stream, Instruction). Lexer extended for `T*`/`'`/`"`. `Document::pages()` and `page_count()` wired. 33 new tests. Total: **127 tests**.
 - **2026-03-26:** M1 complete — XRef table/stream parsing, `startxref` discovery, `Prev` chain, merged `XRefTable`, `ObjectStore`, full `Document::load`. 11 xref tests + 6 Document tests. Total: **94 tests**.
