@@ -19,7 +19,7 @@
 //! | `Operator` | [`Operator`] |
 //! | `COSBase` operand stack | [`ContentToken`] |
 
-use crate::cos::{CosDictionary, CosName, CosObject};
+use crate::cos::{CosDictionary, CosObject};
 use crate::parser::lexer::{LexError, Lexer, Token};
 
 // ---------------------------------------------------------------------------

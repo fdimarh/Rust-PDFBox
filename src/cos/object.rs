@@ -122,6 +122,14 @@ impl CosObject {
         }
     }
 
+    /// Consumes `self` and returns the inner dictionary if this is a `Dictionary`.
+    pub fn into_dictionary(self) -> Option<CosDictionary> {
+        match self {
+            Self::Dictionary(d) => Some(d),
+            _ => None,
+        }
+    }
+
     /// Returns a reference to the stream if this is a `Stream`.
     pub fn as_stream(&self) -> Option<&CosStream> {
         match self {

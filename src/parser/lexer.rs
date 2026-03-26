@@ -152,6 +152,12 @@ impl<'a> Lexer<'a> {
                 self.read_name().map(|n| Some(Token::Name(n)))
             }
             b'+' | b'-' | b'.' | b'0'..=b'9' => self.read_number().map(Some),
+            // Content-stream operators that start with non-alpha chars.
+            // ' = move-to-next-line-and-show-text
+            // " = set-spacing-move-to-next-line-and-show-text
+            // These are single-byte operators; read_keyword_or_bool will
+            // collect any immediately following */' " chars as well.
+            b'\'' | b'"' => self.read_keyword_or_bool().map(Some),
             _ if b.is_ascii_alphabetic() => self.read_keyword_or_bool().map(Some),
             other => Err(LexError::unexpected(other, self.pos)),
         }
