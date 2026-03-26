@@ -311,8 +311,11 @@ impl<'a> Lexer<'a> {
 
     fn read_keyword_or_bool(&mut self) -> Result<Token, LexError> {
         let start = self.pos;
+        // Content-stream operators can contain non-alpha chars as suffix:
+        //   T*   '   "   (PDF spec Table 107)
+        // We allow: ascii alphabetic, *, ', " as keyword characters.
         while let Some(b) = self.peek() {
-            if b.is_ascii_alphabetic() {
+            if b.is_ascii_alphabetic() || matches!(b, b'*' | b'\'' | b'"') {
                 self.advance();
             } else {
                 break;

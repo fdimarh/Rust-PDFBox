@@ -1,4 +1,4 @@
-//! Rust port of Apache PDFBox — M1: header + xref + object store baseline.
+//! Rust port of Apache PDFBox — M2: document model, page tree, content streams.
 //!
 //! This crate provides a Rust implementation of PDF reading, following the
 //! architecture of Apache Java PDFBox. See `docs/porting/` for the porting plan.
@@ -258,6 +258,26 @@ impl Document {
     pub fn object_count(&self) -> usize {
         self.objects.len()
     }
+
+    /// Builds and returns the page tree for this document.
+    ///
+    /// Traverses the catalog → Pages tree, resolving all leaf pages from the
+    /// object store. Returns an error if the catalog or page tree is missing
+    /// or malformed.
+    pub fn pages(&self) -> PdfResult<pdmodel::PageTree<'_>> {
+        let catalog = self.catalog().ok_or_else(|| PdfError::Parse {
+            offset: None,
+            context: "cannot resolve catalog dictionary".to_string(),
+        })?;
+        pdmodel::PageTree::new(catalog, &self.objects)
+    }
+
+    /// Returns the total page count by building the page tree.
+    ///
+    /// Returns `0` if the page tree cannot be resolved.
+    pub fn page_count(&self) -> usize {
+        self.pages().map(|t| t.count()).unwrap_or(0)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -363,5 +383,68 @@ mod tests {
             doc.trailer().get_int(&CosName::new(b"Size".to_vec())),
             Some(3)
         );
+    }
+
+    /// Builds a minimal PDF with 2 real pages for phase-2 tests.
+    fn two_page_pdf() -> Vec<u8> {
+        let mut pdf = b"%PDF-1.4\n".to_vec();
+
+        // page 1
+        let p1_off = pdf.len() as u64;
+        pdf.extend_from_slice(b"3 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] >>\nendobj\n");
+        // page 2
+        let p2_off = pdf.len() as u64;
+        pdf.extend_from_slice(b"4 0 obj\n<< /Type /Page /MediaBox [0 0 595 842] >>\nendobj\n");
+        // Pages
+        let pages_off = pdf.len() as u64;
+        pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n");
+        // Catalog
+        let cat_off = pdf.len() as u64;
+        pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+        let xref_off = pdf.len();
+        let e1 = format!("{:010} 00000 n \r\n", cat_off);
+        let e2 = format!("{:010} 00000 n \r\n", pages_off);
+        let e3 = format!("{:010} 00000 n \r\n", p1_off);
+        let e4 = format!("{:010} 00000 n \r\n", p2_off);
+        pdf.extend_from_slice(b"xref\n0 5\n");
+        pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+        pdf.extend_from_slice(e1.as_bytes());
+        pdf.extend_from_slice(e2.as_bytes());
+        pdf.extend_from_slice(e3.as_bytes());
+        pdf.extend_from_slice(e4.as_bytes());
+        pdf.extend_from_slice(b"trailer\n<< /Size 5 /Root 1 0 R >>\n");
+        pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
+        pdf
+    }
+
+    #[test]
+    fn document_page_count() {
+        let pdf = two_page_pdf();
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+        assert_eq!(doc.page_count(), 2);
+    }
+
+    #[test]
+    fn document_pages_iter() {
+        let pdf = two_page_pdf();
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+        let tree = doc.pages().unwrap();
+        let pages: Vec<_> = tree.iter().collect();
+        assert_eq!(pages.len(), 2);
+        let mb0 = pages[0].media_box().unwrap();
+        assert_eq!(mb0.width(), 612.0);
+        let mb1 = pages[1].media_box().unwrap();
+        assert_eq!(mb1.width(), 595.0);
+    }
+
+    #[test]
+    fn document_pages_get_by_index() {
+        let pdf = two_page_pdf();
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+        let tree = doc.pages().unwrap();
+        let p0 = tree.get(0).unwrap();
+        assert_eq!(p0.rotation(), 0);
+        assert!(tree.get(2).is_none());
     }
 }

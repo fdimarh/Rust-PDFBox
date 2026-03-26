@@ -55,8 +55,13 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | `org.apache.pdfbox.pdfparser` | `src/parser/` | XRef stream parsing | PV | M1 | `parser::xref` | Uncompressed xref streams parsed; FlateDecode deferred to io/filter module |
 | `org.apache.pdfbox.pdfparser` | `src/parser/` | Object stream parsing | NS | M1 | | |
 | `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | `Document::load` | DV | M1 | `tests::loads_minimal_pdf`, `minimal_pdf_catalog_resolved`, `trailer_has_size` | Header + xref + eager object store + catalog ref resolution |
-| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | Page tree traversal | NS | M2 | | |
-| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | Resources access | NS | M2 | | |
+| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | Page tree traversal | DV | M2 | `pdmodel::page_tree::tests` (5 tests) | `PageTree::new`, `iter`, `get`, depth-guard, error on missing root |
+| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | `PDPage` attributes | DV | M2 | `pdmodel::page::tests` (6 tests) | `media_box`, `crop_box`, `rotation`, `resources`, `contents_object` |
+| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | Resources access | DV | M2 | `pdmodel::page::tests::resources_font_dict` | `font_dict`, `xobject_dict`, `ext_gstate_dict`, `color_space_dict` |
+| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | `Document::pages()` / `page_count()` | DV | M2 | `tests::document_page_count`, `document_pages_iter`, `document_pages_get_by_index` | End-to-end via real minimal PDF bytes |
+| `org.apache.pdfbox.contentstream` | `src/content/` | Content stream tokenizer | DV | M2 | `content::tests` (11 tokenizer tests) | `ContentTokenizer`, `Operator` with predicates, `ContentToken` |
+| `org.apache.pdfbox.contentstream` | `src/content/` | Instruction parser | DV | M2 | `content::tests` (8 instruction tests) | `parse_content_stream` groups operands + operator; handles `T*`, `'`, `"` |
+| `org.apache.pdfbox.pdmodel` | `src/pdmodel/` | Page model | NS | M2 | | |
 | content stream APIs | `src/content/` | Operator tokenization | NS | M2 | | |
 | content stream APIs | `src/content/` | Graphics/text state tracking | NS | M3 | | |
 | font handling | `src/font/` | Type1 support | NS | M3 | | |
@@ -95,6 +100,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- 2026-03-26: Phase 2 complete — `pdmodel::page` (Page, Rectangle, Resources), `pdmodel::page_tree` (PageTree, recursive walk, depth guard), `content` (ContentTokenizer, Operator predicates, parse_content_stream, Instruction). Lexer extended to support `T*`/`'`/`"` operators. Document::pages() and page_count() wired end-to-end. 33 new tests. Total: 127 tests.
 - 2026-03-26: XRef table/stream parsing, `startxref` discovery, `Prev` chain following, merged `XRefTable`, `ObjectStore`, and full `Document::load` wired — 11 new xref tests + 6 Document tests. M1 complete (except compressed xref streams pending filter decoding).
 - 2026-03-13: Lexer and Parser implemented — tokenizer, object parser, indirect reference detection, indirect object definitions — 43 unit tests.
 - 2026-03-13: COS object model implemented (ObjectId, CosName, CosDictionary, CosStream, CosObject enum) — 31 unit tests.
