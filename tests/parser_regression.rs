@@ -24,7 +24,17 @@ use rust_pdfbox::{Document, PdfError, PdfObjectId};
 /// Builds a complete PDF byte sequence from parts.
 /// Objects are passed as (id, raw_object_bytes) pairs and are laid out
 /// sequentially. The xref table and trailer are appended automatically.
+///
+/// `base_offset` is added to every object offset recorded in the xref table.
+/// Use this when the returned bytes will be appended after a prefix (e.g. a
+/// binary comment line) so that all xref offsets correctly reflect their
+/// position in the final combined buffer.
 fn build_pdf(version: &[u8], objects: &[(u32, &[u8])], root_id: u32) -> Vec<u8> {
+    build_pdf_with_base(version, objects, root_id, 0)
+}
+
+/// Like `build_pdf` but shifts every xref offset by `base_offset` bytes.
+fn build_pdf_with_base(version: &[u8], objects: &[(u32, &[u8])], root_id: u32, base_offset: usize) -> Vec<u8> {
     let mut pdf = b"%PDF-".to_vec();
     pdf.extend_from_slice(version);
     pdf.push(b'\n');
@@ -32,7 +42,7 @@ fn build_pdf(version: &[u8], objects: &[(u32, &[u8])], root_id: u32) -> Vec<u8> 
     let mut offsets: Vec<(u32, u64)> = Vec::new();
 
     for (id, body) in objects {
-        let offset = pdf.len() as u64;
+        let offset = (pdf.len() + base_offset) as u64;
         offsets.push((*id, offset));
         // Write: N 0 obj\n<body>\nendobj\n
         pdf.extend_from_slice(format!("{id} 0 obj\n").as_bytes());
@@ -43,7 +53,7 @@ fn build_pdf(version: &[u8], objects: &[(u32, &[u8])], root_id: u32) -> Vec<u8> 
     // xref table
     // We need entries for objects 0..max_id+1
     let max_id = objects.iter().map(|(id, _)| *id).max().unwrap_or(0);
-    let xref_offset = pdf.len();
+    let xref_offset = pdf.len() + base_offset;
 
     pdf.extend_from_slice(b"xref\n");
     pdf.extend_from_slice(format!("0 {}\n", max_id + 1).as_bytes());
@@ -142,15 +152,18 @@ fn reject_empty_bytes() {
 
 #[test]
 fn header_preceded_by_binary_comment() {
-    // Real PDFs often have %PDF-1.x preceded by binary comment line — still valid
-    let mut pdf = b"%\xe2\xe3\xcf\xd3\n".to_vec();
-    pdf.extend_from_slice(&build_pdf(
+    // Real PDFs often have %PDF-1.x preceded by binary comment line — still valid.
+    // The prefix is 5 bytes: b"%\xe2\xe3\xcf\xd3\n"
+    let prefix = b"%\xe2\xe3\xcf\xd3\n";
+    let mut pdf = prefix.to_vec();
+    pdf.extend_from_slice(&build_pdf_with_base(
         b"1.4",
         &[
             (1, b"<< /Type /Catalog /Pages 2 0 R >>"),
             (2, b"<< /Type /Pages /Kids [] /Count 0 >>"),
         ],
         1,
+        prefix.len(),  // shift all xref offsets by the prefix length
     ));
     // The header finder scans first 1024 bytes — should find %PDF-
     assert!(Document::load_from_bytes(&pdf).is_ok());
