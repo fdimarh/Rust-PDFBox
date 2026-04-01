@@ -34,8 +34,6 @@ impl Rc4 {
     }
 }
 
-// ...existing code...
-}
 
 #[cfg(test)]
 mod tests {
