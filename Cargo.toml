@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# RustCrypto ecosystem for cryptographic operations
+aes = "0.8"                          # AES block cipher
+cbc = "0.1"                          # CBC mode of operation
+rc4 = "0.1"                          # RC4 stream cipher
+md5 = "0.7"                          # MD5 hash
+cipher = "0.4"                       # Cipher trait definitions
 
 [[example]]
 name = "read_info"

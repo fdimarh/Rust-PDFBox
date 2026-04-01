@@ -1,44 +1,28 @@
-//! RC4 stream cipher — pure Rust, no external crates.
+//! RC4 stream cipher using RustCrypto rc4 crate.
 //!
 //! Used by PDF Standard Security Handler revisions 2 and 3 (40-bit and 128-bit
 //! RC4 encryption). Maps to Java PDFBox `ARCFourEncryption`.
 //!
 //! RC4 is a symmetric stream cipher: encrypt and decrypt are the same operation.
 
-/// RC4 stream cipher state.
+use rc4::Rc4 as Rc4Cipher;
+use cipher::StreamCipher;
+
+/// RC4 stream cipher wrapper.
 pub struct Rc4 {
-    s: [u8; 256],
-    i: u8,
-    j: u8,
+    cipher: Rc4Cipher,
 }
 
 impl Rc4 {
     /// Initialises RC4 with the given key (1–256 bytes).
     pub fn new(key: &[u8]) -> Self {
-        assert!(!key.is_empty() && key.len() <= 256, "RC4 key must be 1-256 bytes");
-        let mut s: [u8; 256] = core::array::from_fn(|i| i as u8);
-        let mut j: u8 = 0;
-        for i in 0u8..=255 {
-            j = j.wrapping_add(s[i as usize]).wrapping_add(key[i as usize % key.len()]);
-            s.swap(i as usize, j as usize);
-        }
-        Self { s, i: 0, j: 0 }
-    }
-
-    /// Processes one byte (XOR with keystream).
-    #[inline]
-    pub fn next_byte(&mut self) -> u8 {
-        self.i = self.i.wrapping_add(1);
-        self.j = self.j.wrapping_add(self.s[self.i as usize]);
-        self.s.swap(self.i as usize, self.j as usize);
-        self.s[self.s[self.i as usize].wrapping_add(self.s[self.j as usize]) as usize]
+        let cipher = Rc4Cipher::new(key.into());
+        Self { cipher }
     }
 
     /// Encrypts/decrypts `data` in-place.
     pub fn apply_keystream(&mut self, data: &mut [u8]) {
-        for byte in data.iter_mut() {
-            *byte ^= self.next_byte();
-        }
+        self.cipher.apply_keystream(data);
     }
 
     /// Convenience: encrypt/decrypt `plaintext` → new Vec.
@@ -48,6 +32,9 @@ impl Rc4 {
         rc4.apply_keystream(&mut out);
         out
     }
+}
+
+// ...existing code...
 }
 
 #[cfg(test)]
