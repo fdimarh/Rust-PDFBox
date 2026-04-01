@@ -1,6 +1,6 @@
 # PDFBox Parity Matrix (Java → Rust)
 
-_Last updated: 2026-04-01 — ALL phases M0–M6 complete + Font parsing + Positional heuristics + Compat harness + XRef streams. **560 tests passing. v1 quality gate: ✅ PASSED.**_
+_Last updated: 2026-04-01 — ALL phases M0–M6 complete + Font parsing + Positional heuristics + Compat harness + XRef streams + ObjStm. **479 tests passing. v1 quality gate: ✅ PASSED.**_
 
 This document tracks feature parity between Apache Java PDFBox and this Rust port.
 
@@ -82,8 +82,9 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Corpus breadth — large | `DV` | M6 | 5 | 50-page, 100-page load/iter/round-trip, 200-object store |
 | Compatibility harness | `DV` | Bonus | 38 | NormalizedOutput, CompatReport, compare_outputs, Corpus loader, FixtureSpec builder |
 | Compatibility harness | `NS` | M6 | — | Java vs Rust output diff |
+| ObjStm (PDF 1.5+) | `DV` | Post-v1 | 9 | ObjectStream, preamble parsing, get_object, contains, to_stream |
 
-**Total tests passing: 560** (M0-M6: 384, bonus font: 51, bonus layout: 16, bonus compat: 38, post-v1 xref: 8, corpus+regression: 61)
+**Total tests passing: 479** (lib: 405, compat harness: 7, corpus: 33, fixture gen: 6, parser regression: 28)
 
 ---
 
@@ -177,6 +178,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- **2026-04-01:** ObjStm (Object Streams, PDF 1.5+) complete (post-v1) — `ObjectStream` (compressed object container), `from_stream` (preamble parsing, /N + /First fields), `get_object` (offset-range byte extraction), `object_numbers`, `contains`, `to_stream`. Total: **9 ObjStm tests**, all passing. **479 tests total.**
 - **2026-04-01:** XRef streams (PDF 1.5+) complete (post-v1) — `XRefEntry` (3 types: free, in-use, compressed), `XRefEntry::to_bytes/from_bytes` (variable-width binary), `XRefSubsection` (object ranges), `XRefStream` (parse from dict+data, /W array support, /Index subsections, /Root//Info//Prev fields). Total: **8 xref_stream tests**, all passing. **560 tests total.** Foundation for PDF 1.5+ support and ObjStm.
 - **2026-04-01:** Positional heuristics complete (bonus) — `LayoutConfig` (tunable parameters), `Line` (Y-proximity grouping), `detect_columns` (X-gap analysis), `group_into_lines` (font-size-aware), `extract_with_layout` (column-based reading order), paragraph break detection. Total: **16 layout tests**, all passing. **502 tests total.**
 - **2026-04-01:** Font parsing complete (bonus) — `FontDescriptor` (8 tests), `Encoding` with glyph list (13 tests), `SimpleFont` Type1/TrueType (5 tests), `Type0Font` with CIDFont (11 tests), `PdfFont` + `FontResolver` (9 tests). Total bonus: **51 font tests**, all passing. **486 tests total.**
