@@ -4,3 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+
+[[example]]
+name = "read_info"
+path = "examples/read_info.rs"
+
+[[example]]
+name = "extract_text"
+path = "examples/extract_text.rs"
+
+[[bench]]
+name = "bench_core"
+path = "benches/bench_core.rs"
+harness = false

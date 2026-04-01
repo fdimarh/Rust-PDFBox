@@ -84,8 +84,13 @@ impl CosObject {
 
     /// Returns a reference to the byte-string if this is a `String`.
     pub fn as_string(&self) -> Option<&[u8]> {
+        match self { Self::String(s) => Some(s), _ => None, }
+    }
+
+    /// Returns the string bytes decoded as lossy UTF-8, or `None` if not a String.
+    pub fn as_string_lossy(&self) -> Option<std::borrow::Cow<'_, str>> {
         match self {
-            Self::String(s) => Some(s),
+            Self::String(s) => Some(String::from_utf8_lossy(s)),
             _ => None,
         }
     }
