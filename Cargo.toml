@@ -7,9 +7,10 @@ edition = "2024"
 # RustCrypto ecosystem for cryptographic operations
 aes = "0.8"                          # AES block cipher
 cbc = "0.1"                          # CBC mode of operation
-rc4 = "0.1"                          # RC4 stream cipher
-md5 = "0.7"                          # MD5 hash
+md-5 = "0.10"                        # MD5 hash (RustCrypto)
 cipher = "0.4"                       # Cipher trait definitions
+digest = "0.10"                      # Generic digest trait
+block-padding = "0.3"                # PKCS#7 and other padding schemes
 
 [[example]]
 name = "read_info"

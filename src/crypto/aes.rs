@@ -7,7 +7,8 @@
 
 use aes::Aes128;
 use cbc::Decryptor;
-use cipher::BlockDecrypt;
+use cipher::{KeyIvInit, BlockDecryptMut};
+use block_padding::Pkcs7;
 
 /// Decrypt data using AES in CBC mode with PKCS#7 padding.
 ///
@@ -31,7 +32,7 @@ pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u
 
     // Decrypt (padding removal is handled by the cipher)
     let mut plaintext = ciphertext.to_vec();
-    match cipher.decrypt_padded_mut::<block_padding::Pkcs7>(&mut plaintext) {
+    match cipher.decrypt_padded_mut::<Pkcs7>(&mut plaintext) {
         Ok(decrypted) => Some(decrypted.to_vec()),
         Err(_) => None,
     }

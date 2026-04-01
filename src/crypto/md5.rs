@@ -1,21 +1,19 @@
-//! MD5 hash using RustCrypto md5 crate.
+//! MD5 hash using RustCrypto md-5 crate.
 //!
 //! Used by the PDF Standard Security Handler (Rev 2, 3, 4) for key derivation
 //! and password validation.
 //!
 //! Reference: RFC 1321.
 
-use md5::Md5;
 use digest::Digest;
+use md5::Md5;
 
 /// Computes the MD5 digest of `input` and returns the 16-byte hash.
 pub fn md5(input: &[u8]) -> [u8; 16] {
     let mut hasher = Md5::new();
     hasher.update(input);
     let result = hasher.finalize();
-    let mut hash = [0u8; 16];
-    hash.copy_from_slice(&result);
-    hash
+    result.into()
 }
 
 #[cfg(test)]
