@@ -291,6 +291,21 @@ impl Document {
         let mut doc_writer = writer::Writer::new(writer);
         doc_writer.write_document(self)
     }
+
+    /// Appends an incremental update to `out`, writing only the changed objects.
+    ///
+    /// `original` must be the exact bytes this document was loaded from.
+    /// `changed` maps each new or modified `ObjectId` to its new body.
+    ///
+    /// See [`writer::IncrementalWriter`] for full details.
+    pub fn save_incremental<W: std_io::Write>(
+        &self,
+        original: &[u8],
+        changed: &std::collections::BTreeMap<PdfObjectId, cos::CosObject>,
+        out: &mut W,
+    ) -> std_io::Result<()> {
+        writer::IncrementalWriter::write_update(original, self, changed, out)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -463,22 +478,53 @@ mod tests {
 
     #[test]
     fn round_trip_save_and_reload() {
-        // 1. Create an in-memory PDF
         let original_pdf = two_page_pdf();
         let original_doc = Document::load_from_bytes(&original_pdf).unwrap();
         assert_eq!(original_doc.page_count(), 2);
 
-        // 2. Save it to a new buffer
         let mut saved_buffer = std::io::Cursor::new(Vec::new());
         original_doc.save_to(&mut saved_buffer).unwrap();
 
-        // 3. Reload the saved PDF
         let reloaded_doc = Document::load_from_bytes(saved_buffer.get_ref()).unwrap();
-
-        // 4. Verify its contents
         assert_eq!(reloaded_doc.page_count(), 2);
         let reloaded_pages = reloaded_doc.pages().unwrap();
         let page1_width = reloaded_pages.get(1).unwrap().media_box().unwrap().width();
         assert!((page1_width - 595.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn incremental_save_preserves_existing_pages() {
+        let original_pdf = two_page_pdf();
+        let doc = Document::load_from_bytes(&original_pdf).unwrap();
+        assert_eq!(doc.page_count(), 2);
+
+        // Append a new integer object (obj 5) incrementally
+        let mut changed = std::collections::BTreeMap::new();
+        changed.insert(ObjectId::new(5, 0), CosObject::Integer(99));
+
+        let mut out = Vec::new();
+        doc.save_incremental(&original_pdf, &changed, &mut out).unwrap();
+
+        // Updated document must still have 2 pages
+        let updated = Document::load_from_bytes(&out).unwrap();
+        assert_eq!(updated.page_count(), 2);
+        // New object must be visible
+        assert_eq!(
+            updated.objects.get(&ObjectId::new(5, 0)),
+            Some(&CosObject::Integer(99))
+        );
+    }
+
+    #[test]
+    fn incremental_save_starts_with_original_bytes() {
+        let original_pdf = minimal_pdf();
+        let doc = Document::load_from_bytes(&original_pdf).unwrap();
+        let changed = std::collections::BTreeMap::new();
+
+        let mut out = Vec::new();
+        doc.save_incremental(&original_pdf, &changed, &mut out).unwrap();
+
+        // First bytes must be identical to original
+        assert_eq!(&out[..original_pdf.len()], original_pdf.as_slice());
     }
 }
