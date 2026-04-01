@@ -1,6 +1,6 @@
 # PDFBox Parity Matrix (Java → Rust)
 
-_Last updated: 2026-04-01 — M0/M1/M2/M2+/M3/M4/M5 complete, 334 tests passing._
+_Last updated: 2026-04-01 — M0/M1/M2/M2+/M3/M4/M5/M6(partial) complete, 351 tests passing._
 
 This document tracks feature parity between Apache Java PDFBox and this Rust port.
 
@@ -66,9 +66,14 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | RC4 / AES decrypt | `DV` | M5 | 7 | `Rc4` — RFC 6229 vectors, encrypt/decrypt, in-place; AES stub |
 | Permission evaluation | `DV` | M5 | 5 | `Permissions` — all 8 flags, `from_bits_p`/`to_bits_p`, forced reserved bits |
 | MD5 hash (key derivation) | `DV` | M5 | 8 | `md5()` — RFC 1321 all 6 official vectors pass |
+| FlateDecode filter | `DV` | M6 | 3 | Pure-Rust deflate — stored block round-trip, bad-header error |
+| ASCIIHexDecode filter | `DV` | M6 | 4 | Whitespace tolerance, odd nibble, EOD |
+| ASCII85Decode filter | `DV` | M6 | 3 | `z` shorthand, partial group, EOD |
+| RunLengthDecode filter | `DV` | M6 | 3 | Literal, repeat, EOD |
+| `decode_stream` dispatch | `DV` | M6 | 4 | Passthrough, named, array chain, unknown error |
 | Compatibility harness | `NS` | M6 | — | Java vs Rust output diff |
 
-**Total tests passing: 334**
+**Total tests passing: 351**
 
 ---
 
@@ -126,7 +131,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | M3 | Text extraction MVP | 256 | ✅ Done |
 | M4 | Writer + incremental save | 297 | ✅ Done |
 | M5 | Encrypted PDF | 334 | ✅ Done |
-| M6 | v1 candidate hardening | TBD | 🔲 Next |
+| M6 | v1 candidate hardening | 351 | 🔲 In Progress |
 
 ---
 
@@ -162,6 +167,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- **2026-04-01:** M6 partial — `src/io/mod.rs` (FlateDecode pure-Rust deflate, ASCIIHexDecode, ASCII85Decode, RunLengthDecode, `decode_stream` dispatch — 17 tests), `CosObject::as_string_lossy`, `examples/read_info.rs`, `examples/extract_text.rs`, `benches/bench_core.rs`. Total: **351 tests passing** (323 unit + 28 integration).
 - **2026-04-01:** M5 complete — `src/crypto/permissions.rs` (Permissions, 5 tests), `src/crypto/rc4.rs` (RC4, RFC 6229, 7 tests), `src/crypto/md5.rs` (MD5, RFC 1321, 8 tests), `src/crypto/handlers.rs` (StandardSecurityHandler, key derivation Rev 2/3/4, user/owner auth, per-object key, 17 tests). Total: **334 tests passing** (306 unit + 28 integration).
 - **2026-04-01:** M4 complete — `src/writer/incremental.rs` (`IncrementalWriter::write_update`, subsection xref grouping, `/Prev` chain, `Document::save_incremental` — 9 unit + 2 lib integration tests). Also fixed: M4 partial (serializer 8 tests, full-rewrite writer, round-trip). Total: **297 tests passing** (269 unit + 28 integration).
 - **2026-04-01:** M4 partial — `src/writer/serializer.rs` (COS object serializer, 8 tests), `src/writer/writer.rs` (full-rewrite writer, xref table, trailer), `Document::save`/`save_to`, round-trip test. All compile errors and warnings resolved. Total: **286 tests passing** (258 unit + 28 integration). Incremental append writer pending.
