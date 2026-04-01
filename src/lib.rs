@@ -112,6 +112,10 @@ pub type PdfResult<T> = Result<T, PdfError>;
 // ---------------------------------------------------------------------------
 
 pub use crypto::{AuthResult, EncryptionDict, Permissions, StandardSecurityHandler};
+pub use font::{
+    BaseEncoding, Encoding, FontBBox, FontDescriptor, FontFlags, FontResolver,
+    GlyphWidths, PdfFont, SimpleFont, SimpleFontSubtype, Type0Font, glyph_name_to_char,
+};
 pub use io::FilterError;
 pub use pdmodel::{Page, PageTree};
 pub use text::extract_text;

@@ -91,6 +91,10 @@ impl CosName {
     pub fn encrypt() -> Self {
         Self::new(b"Encrypt".to_vec())
     }
+
+    pub fn subtype() -> Self {
+        Self::new(b"Subtype".to_vec())
+    }
 }
 
 impl fmt::Display for CosName {

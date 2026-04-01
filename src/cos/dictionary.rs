@@ -108,6 +108,16 @@ impl CosDictionary {
         self.entries.iter().map(|(_, v)| v)
     }
 
+    /// Alias for `insert` — sets (or replaces) a key-value pair.
+    pub fn set(&mut self, key: CosName, value: CosObject) {
+        self.insert(key, value);
+    }
+
+    /// Gets a numeric value (Integer or Real) as `f64` for a given key.
+    pub fn get_number(&self, key: &CosName) -> Option<f64> {
+        self.get(key)?.as_number()
+    }
+
     // ---- Convenience typed getters ----
 
     /// Gets a name value for a given key.
