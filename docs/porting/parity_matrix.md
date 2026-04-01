@@ -1,6 +1,6 @@
 # PDFBox Parity Matrix (Java → Rust)
 
-_Last updated: 2026-03-26 — M0/M1/M2/M2+/M3 complete, 256 tests passing._
+_Last updated: 2026-04-01 — M0/M1/M2/M2+/M3/M4(partial) complete, 286 tests passing._
 
 This document tracks feature parity between Apache Java PDFBox and this Rust port.
 
@@ -59,14 +59,15 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Font parsing (TrueType) | `NS` | M3+ | — | |
 | Font parsing (Type0 / CID) | `NS` | M3+ | — | |
 | Positional heuristics | `PV` | M3+ | — | Basic Y-sort + gap detection in chunks_to_string |
-| Full rewrite writer | `NS` | M4 | — | |
+| Full rewrite writer | `DV` | M4 | 1+1 | `Writer::write_document` + round-trip via `tests::round_trip_save_and_reload` |
+| COS object serializer | `DV` | M4 | 8 | `Serializer` — all `CosObject` variants, name hex-escape, indirect object |
 | Incremental append writer | `NS` | M4 | — | |
 | Standard Security Handler | `NS` | M5 | — | |
 | RC4 / AES decrypt | `NS` | M5 | — | |
 | Permission evaluation | `NS` | M5 | — | |
 | Compatibility harness | `NS` | M6 | — | Java vs Rust output diff |
 
-**Total tests passing: 256**
+**Total tests passing: 286**
 
 ---
 
@@ -122,7 +123,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | M2 | Page / content primitives | 127 | ✅ Done |
 | M2+ | Malformed / edge-case hardening | 211 | ✅ Done |
 | M3 | Text extraction MVP | 256 | ✅ Done |
-| M4 | Writer + incremental save | TBD | 🔲 Next |
+| M4 | Writer + incremental save | 286 | 🔲 Partial (rewrite ✅; incremental 🔲) |
 | M5 | Encrypted PDF | TBD | 🔲 Planned |
 | M6 | v1 candidate | TBD | 🔲 Planned |
 
@@ -160,6 +161,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- **2026-04-01:** M4 partial — `src/writer/serializer.rs` (COS object serializer, 8 tests), `src/writer/writer.rs` (full-rewrite writer, xref table, trailer), `Document::save`/`save_to`, round-trip test. All compile errors and warnings resolved. Total: **286 tests passing** (258 unit + 28 integration). Incremental append writer pending.
 - **2026-03-26:** M3 complete — `src/content/graphics_state.rs` (GraphicsState, Matrix, TextState — 15 tests), `src/font/cmap.rs` (ToUnicode CMap parser — 10 tests), `src/text/mod.rs` (extract_text, TextChunk, Y-sort line breaks — 14 tests). Total: **256 tests passing**.
 - **2026-03-26:** M2+ hardening — `src/parser/malformed.rs` (84 unit tests: lexer edge tokens, parser malformed), `tests/parser_regression.rs` (27 integration tests). Fixed lexer `'` and `"` operator handling. Removed unused `CosName` import. Total: **211 tests passing**.
 - **2026-03-26:** M2 complete — `pdmodel::page` (Page, Rectangle, Resources), `pdmodel::page_tree` (PageTree, recursive walk, depth guard), `content` (ContentTokenizer, Operator predicates, parse_content_stream, Instruction). Lexer extended for `T*`/`'`/`"`. `Document::pages()` and `page_count()` wired. 33 new tests. Total: **127 tests**.
