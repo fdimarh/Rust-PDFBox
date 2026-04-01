@@ -33,6 +33,7 @@ pub use cos::ObjectId as PdfObjectId;
 // ---------------------------------------------------------------------------
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum PdfError {
     Io(std_io::Error),
     Parse {
@@ -105,6 +106,146 @@ impl From<ParseError> for PdfError {
 }
 
 pub type PdfResult<T> = Result<T, PdfError>;
+
+// ---------------------------------------------------------------------------
+// Public re-exports for crate users
+// ---------------------------------------------------------------------------
+
+pub use crypto::{AuthResult, EncryptionDict, Permissions, StandardSecurityHandler};
+pub use io::FilterError;
+pub use pdmodel::{Page, PageTree};
+pub use text::extract_text;
+
+// ---------------------------------------------------------------------------
+// RecoveryReport — accumulates warnings from lenient loading
+// ---------------------------------------------------------------------------
+
+/// Summary of recovery actions taken during [`Document::load_lenient`].
+///
+/// Inspect this to understand what was wrong with the PDF and what was salvaged.
+#[derive(Debug, Default, Clone)]
+#[non_exhaustive]
+pub struct RecoveryReport {
+    /// Human-readable warning messages, one per recovery action.
+    pub warnings: Vec<String>,
+    /// `true` if the xref/startxref was broken and a linear scan was used.
+    pub xref_recovered: bool,
+    /// Number of individual objects that could not be parsed and were skipped.
+    pub objects_skipped: usize,
+}
+
+impl RecoveryReport {
+    /// Returns `true` if no warnings were recorded (clean load in lenient mode).
+    pub fn is_clean(&self) -> bool {
+        self.warnings.is_empty()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Linear object scan — fallback when xref is missing or broken
+// ---------------------------------------------------------------------------
+
+/// Scans `bytes` sequentially for `N G obj` patterns and builds a best-effort
+/// [`XRefTable`] from the found objects. Also attempts to recover the trailer.
+///
+/// This is the same strategy used by Adobe Reader and Java PDFBox in
+/// lenient/recovery mode.
+fn linear_scan_xref(bytes: &[u8], report: &mut RecoveryReport) -> XRefTable {
+    use parser::xref::XRefTable;
+    let mut table = XRefTable::new();
+    let mut found = 0usize;
+
+    // Scan for "N G obj" at every byte position
+    let len = bytes.len();
+    let mut i = 0;
+    while i < len {
+        // Quick pre-filter: is this a digit?
+        if !bytes[i].is_ascii_digit() { i += 1; continue; }
+
+        // Try to parse "N G obj" at position i
+        if let Some((obj_num, generation, body_start)) = try_parse_obj_header(bytes, i) {
+            let id = ObjectId::new(obj_num, generation as u16);
+            // Only record first occurrence (highest priority in a broken file)
+            if table.get(&id).is_none() {
+                table.insert_if_absent(
+                    id,
+                    parser::xref::XRefEntry::InUse { offset: i as u64, generation: generation as u16 },
+                );
+                found += 1;
+            }
+            // Advance past the object header to avoid re-matching
+            i = body_start;
+            continue;
+        }
+
+        // Also look for "trailer" keyword to recover the trailer dict
+        if i + 7 <= len && &bytes[i..i+7] == b"trailer" {
+            let after = &bytes[i+7..];
+            let mut p = Parser::new(after);
+            if let Ok(Some(CosObject::Dictionary(d))) = p.parse_object() {
+                table.merge_trailer(&d);
+            }
+        }
+
+        i += 1;
+    }
+
+    report.warnings.push(format!("linear scan found {found} objects"));
+    table
+}
+
+/// Tries to parse an indirect object header `N G obj` starting at `pos`.
+/// Returns `(object_number, generation, body_start_pos)` on success.
+fn try_parse_obj_header(bytes: &[u8], pos: usize) -> Option<(u32, u32, usize)> {
+    let slice = &bytes[pos..];
+    let (obj_num, rest1) = parse_u32_prefix(slice)?;
+    let rest1 = skip_spaces(rest1);
+    let (generation, rest2) = parse_u32_prefix(rest1)?;
+    let rest2 = skip_spaces(rest2);
+    if rest2.len() < 3 || &rest2[..3] != b"obj" { return None; }
+    if rest2.len() > 3 && rest2[3].is_ascii_alphanumeric() { return None; }
+    let consumed = (slice.len() - rest2.len()) + 3;
+    Some((obj_num, generation, pos + consumed))
+}
+
+fn parse_u32_prefix(bytes: &[u8]) -> Option<(u32, &[u8])> {
+    if bytes.is_empty() || !bytes[0].is_ascii_digit() { return None; }
+    let end = bytes.iter().position(|b| !b.is_ascii_digit()).unwrap_or(bytes.len());
+    let n: u32 = std::str::from_utf8(&bytes[..end]).ok()?.parse().ok()?;
+    Some((n, &bytes[end..]))
+}
+
+fn skip_spaces(bytes: &[u8]) -> &[u8] {
+    let end = bytes.iter().position(|b| !matches!(b, b' '|b'\t'|b'\r'|b'\n'|b'\x0c'|b'\x00')).unwrap_or(bytes.len());
+    &bytes[end..]
+}
+
+/// If `obj` is a `CosObject::Stream` with empty `.data` (parser placeholder),
+/// locate the `stream` keyword in `slice` and read the actual bytes using
+/// the `/Length` entry from the stream's dictionary.
+fn backfill_stream_data(obj: CosObject, slice: &[u8]) -> CosObject {
+    let CosObject::Stream(mut stream) = obj else { return obj; };
+    if !stream.data.is_empty() { return CosObject::Stream(stream); }
+
+    // Get declared length
+    let length = stream.dictionary
+        .get(&CosName::new(b"Length".to_vec()))
+        .and_then(|v: &CosObject| v.as_integer())
+        .unwrap_or(0) as usize;
+    if length == 0 { return CosObject::Stream(stream); }
+
+    // Find "stream" keyword in slice
+    const KW: &[u8] = b"stream";
+    let stream_kw_pos = slice.windows(KW.len()).position(|w| w == KW);
+    let Some(kw_pos) = stream_kw_pos else { return CosObject::Stream(stream); };
+    let data_start = kw_pos + KW.len(); // position right after "stream"
+
+    if let Ok(data) = parser::xref::read_stream_data(slice, data_start, length) {
+        stream.data = data;
+    }
+
+    CosObject::Stream(stream)
+}
 
 // ---------------------------------------------------------------------------
 // Object store — lazy in-memory object cache keyed by ObjectId
@@ -213,6 +354,9 @@ impl Document {
                 let mut parser = Parser::new(slice);
                 match parser.parse_indirect_object() {
                     Ok(Some((_parsed_id, obj))) => {
+                        // If the object is a stream with empty data (parser placeholder),
+                        // backfill the actual bytes from the raw slice.
+                        let obj = backfill_stream_data(obj, slice);
                         objects.insert(id.clone(), obj);
                     }
                     Ok(None) => {}
@@ -277,6 +421,74 @@ impl Document {
     /// Returns `0` if the page tree cannot be resolved.
     pub fn page_count(&self) -> usize {
         self.pages().map(|t| t.count()).unwrap_or(0)
+    }
+
+    /// Loads a PDF document from a byte slice, recovering as much as possible
+    /// from structural errors (broken xref, malformed objects, missing header).
+    ///
+    /// Unlike [`load_from_bytes`], this method:
+    /// - Accepts files whose `%PDF-` header is missing or at an offset > 0.
+    /// - Falls back to a linear scan when `startxref` / xref parsing fails.
+    /// - Skips individual objects that cannot be parsed rather than aborting.
+    /// - Always returns `Ok`, accumulating warnings in the [`RecoveryReport`].
+    ///
+    /// Maps to Java PDFBox `PDFParser` lenient mode.
+    pub fn load_lenient(bytes: &[u8]) -> (Self, RecoveryReport) {
+        let mut report = RecoveryReport::default();
+
+        // ---- 1. Header leniency: warn but continue if missing ----
+        if !looks_like_pdf_header(bytes) {
+            report.warnings.push(
+                "missing or non-standard %PDF- header — attempting recovery".into(),
+            );
+        }
+
+        // ---- 2. Try normal xref path; on failure, fall back to linear scan ----
+        let xref = match parser::xref::load_xref(bytes) {
+            Ok(x) => x,
+            Err(e) => {
+                report.warnings.push(format!(
+                    "xref/startxref parse failed ({e}) — falling back to linear object scan"
+                ));
+                report.xref_recovered = true;
+                linear_scan_xref(bytes, &mut report)
+            }
+        };
+
+        // ---- 3. Eagerly parse all in-use objects, skipping failures ----
+        let mut objects = ObjectStore::new();
+        let mut skipped = 0usize;
+        for (id, entry) in xref.iter() {
+            if let XRefEntry::InUse { offset, .. } = entry {
+                let offset = *offset as usize;
+                if offset == 0 || offset >= bytes.len() {
+                    skipped += 1;
+                    continue;
+                }
+                let slice = &bytes[offset..];
+                let mut p = Parser::new(slice);
+                match p.parse_indirect_object() {
+                    Ok(Some((_pid, obj))) => {
+                        let obj = backfill_stream_data(obj, slice);
+                        objects.insert(id.clone(), obj);
+                    }
+                    Ok(None) => { skipped += 1; }
+                    Err(e) => {
+                        skipped += 1;
+                        report.warnings.push(format!(
+                            "skipped object {} {}: {e}",
+                            id.object_number, id.generation
+                        ));
+                    }
+                }
+            }
+        }
+        if skipped > 0 {
+            report.objects_skipped = skipped;
+        }
+
+        let doc = Self { source_len: bytes.len(), xref, objects };
+        (doc, report)
     }
 
     /// Saves the document to a file path using a full-rewrite save.
