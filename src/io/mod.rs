@@ -8,9 +8,13 @@
 //! | `ASCIIHexDecode` | ✅ |
 //! | `ASCII85Decode` | ✅ |
 //! | `RunLengthDecode` | ✅ |
-//! | `LZWDecode` / `CCITTFaxDecode` / `DCTDecode` | 🔲 stub |
+//! | `LZWDecode` | ✅ (post-v1) |
+//! | `CCITTFaxDecode` / `DCTDecode` | 🔲 stub |
+
+pub mod lzw;
 
 use crate::cos::CosObject;
+use lzw::LzwDecoder;
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -41,14 +45,16 @@ fn apply_filter(data: &[u8], name: &[u8]) -> Result<Vec<u8>, FilterError> {
         b"ASCIIHexDecode" | b"AHx" => ascii_hex_decode(data),
         b"ASCII85Decode" | b"A85" => ascii85_decode(data),
         b"RunLengthDecode" | b"RL" => run_length_decode(data),
-        b"LZWDecode" | b"LZW" | b"CCITTFaxDecode" | b"CCF"
+        b"LZWDecode" | b"LZW" => {
+            LzwDecoder::decode(data)
+                .map_err(|e| FilterError::DecodeFailed(format!("LZW: {}", e)))
+        },
+        b"CCITTFaxDecode" | b"CCF"
         | b"DCTDecode" | b"DCT" | b"JPXDecode" | b"Crypt" => Ok(data.to_vec()),
         _ => Err(FilterError::UnknownFilter(String::from_utf8_lossy(name).into_owned())),
     }
 }
 
-// ---------------------------------------------------------------------------
-// Error
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq)]
