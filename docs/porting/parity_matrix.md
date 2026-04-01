@@ -1,6 +1,6 @@
 # PDFBox Parity Matrix (Java → Rust)
 
-_Last updated: 2026-04-01 — M0/M1/M2/M2+/M3/M4(partial) complete, 286 tests passing._
+_Last updated: 2026-04-01 — M0/M1/M2/M2+/M3/M4/M5 complete, 334 tests passing._
 
 This document tracks feature parity between Apache Java PDFBox and this Rust port.
 
@@ -62,12 +62,13 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Full rewrite writer | `DV` | M4 | 1+1 | `Writer::write_document` + round-trip via `tests::round_trip_save_and_reload` |
 | COS object serializer | `DV` | M4 | 8 | `Serializer` — all `CosObject` variants, name hex-escape, indirect object |
 | Incremental append writer | `DV` | M4 | 9+2 | `IncrementalWriter::write_update` — subsection xref, `/Prev` chain, `Document::save_incremental` |
-| Standard Security Handler | `NS` | M5 | — | |
-| RC4 / AES decrypt | `NS` | M5 | — | |
-| Permission evaluation | `NS` | M5 | — | |
+| Standard Security Handler | `DV` | M5 | 17 | `StandardSecurityHandler` — key derivation Rev 2/3/4, user/owner auth, per-object key, RC4 decrypt |
+| RC4 / AES decrypt | `DV` | M5 | 7 | `Rc4` — RFC 6229 vectors, encrypt/decrypt, in-place; AES stub |
+| Permission evaluation | `DV` | M5 | 5 | `Permissions` — all 8 flags, `from_bits_p`/`to_bits_p`, forced reserved bits |
+| MD5 hash (key derivation) | `DV` | M5 | 8 | `md5()` — RFC 1321 all 6 official vectors pass |
 | Compatibility harness | `NS` | M6 | — | Java vs Rust output diff |
 
-**Total tests passing: 297**
+**Total tests passing: 334**
 
 ---
 
@@ -124,8 +125,8 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | M2+ | Malformed / edge-case hardening | 211 | ✅ Done |
 | M3 | Text extraction MVP | 256 | ✅ Done |
 | M4 | Writer + incremental save | 297 | ✅ Done |
-| M5 | Encrypted PDF | TBD | 🔲 Next |
-| M6 | v1 candidate | TBD | 🔲 Planned |
+| M5 | Encrypted PDF | 334 | ✅ Done |
+| M6 | v1 candidate hardening | TBD | 🔲 Next |
 
 ---
 
@@ -161,6 +162,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- **2026-04-01:** M5 complete — `src/crypto/permissions.rs` (Permissions, 5 tests), `src/crypto/rc4.rs` (RC4, RFC 6229, 7 tests), `src/crypto/md5.rs` (MD5, RFC 1321, 8 tests), `src/crypto/handlers.rs` (StandardSecurityHandler, key derivation Rev 2/3/4, user/owner auth, per-object key, 17 tests). Total: **334 tests passing** (306 unit + 28 integration).
 - **2026-04-01:** M4 complete — `src/writer/incremental.rs` (`IncrementalWriter::write_update`, subsection xref grouping, `/Prev` chain, `Document::save_incremental` — 9 unit + 2 lib integration tests). Also fixed: M4 partial (serializer 8 tests, full-rewrite writer, round-trip). Total: **297 tests passing** (269 unit + 28 integration).
 - **2026-04-01:** M4 partial — `src/writer/serializer.rs` (COS object serializer, 8 tests), `src/writer/writer.rs` (full-rewrite writer, xref table, trailer), `Document::save`/`save_to`, round-trip test. All compile errors and warnings resolved. Total: **286 tests passing** (258 unit + 28 integration). Incremental append writer pending.
 - **2026-03-26:** M3 complete — `src/content/graphics_state.rs` (GraphicsState, Matrix, TextState — 15 tests), `src/font/cmap.rs` (ToUnicode CMap parser — 10 tests), `src/text/mod.rs` (extract_text, TextChunk, Y-sort line breaks — 14 tests). Total: **256 tests passing**.
