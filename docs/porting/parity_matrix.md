@@ -1,6 +1,6 @@
 # PDFBox Parity Matrix (Java → Rust)
 
-_Last updated: 2026-04-01 — ALL phases M0–M6 complete + Font parsing + Positional heuristics + Compat harness. **540 tests passing. v1 quality gate: ✅ PASSED.**_
+_Last updated: 2026-04-01 — ALL phases M0–M6 complete + Font parsing + Positional heuristics + Compat harness + XRef streams. **560 tests passing. v1 quality gate: ✅ PASSED.**_
 
 This document tracks feature parity between Apache Java PDFBox and this Rust port.
 
@@ -83,7 +83,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Compatibility harness | `DV` | Bonus | 38 | NormalizedOutput, CompatReport, compare_outputs, Corpus loader, FixtureSpec builder |
 | Compatibility harness | `NS` | M6 | — | Java vs Rust output diff |
 
-**Total tests passing: 540** (M0-M6: 384, bonus font: 51, bonus layout: 16, bonus compat: 38, corpus+regression: 61)
+**Total tests passing: 560** (M0-M6: 384, bonus font: 51, bonus layout: 16, bonus compat: 38, post-v1 xref: 8, corpus+regression: 61)
 
 ---
 
@@ -177,7 +177,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
-- **2026-04-01:** Compatibility testing harness complete (bonus) — `NormalizedOutput` (page count, sizes, text, permissions, fonts), `CompatReport` (per-feature results), `compare_outputs` (with rounding/text tolerance), `Corpus` loader (smoke/malformed/font_heavy/encrypted/large), `FixtureSpec` builder (synthetic PDF generation). Total: **38 compat tests**, all passing. **540 tests total.**
+- **2026-04-01:** XRef streams (PDF 1.5+) complete (post-v1) — `XRefEntry` (3 types: free, in-use, compressed), `XRefEntry::to_bytes/from_bytes` (variable-width binary), `XRefSubsection` (object ranges), `XRefStream` (parse from dict+data, /W array support, /Index subsections, /Root//Info//Prev fields). Total: **8 xref_stream tests**, all passing. **560 tests total.** Foundation for PDF 1.5+ support and ObjStm.
 - **2026-04-01:** Positional heuristics complete (bonus) — `LayoutConfig` (tunable parameters), `Line` (Y-proximity grouping), `detect_columns` (X-gap analysis), `group_into_lines` (font-size-aware), `extract_with_layout` (column-based reading order), paragraph break detection. Total: **16 layout tests**, all passing. **502 tests total.**
 - **2026-04-01:** Font parsing complete (bonus) — `FontDescriptor` (8 tests), `Encoding` with glyph list (13 tests), `SimpleFont` Type1/TrueType (5 tests), `Type0Font` with CIDFont (11 tests), `PdfFont` + `FontResolver` (9 tests). Total bonus: **51 font tests**, all passing. **486 tests total.**
 - **2026-04-01:** M6 complete — `Document::load_lenient` + `RecoveryReport` (parser recovery, linear scan fallback), `backfill_stream_data` (stream data populated on load), `tests/corpus_breadth.rs` (33 tests: smoke/malformed/font-heavy/encrypted/large), `#[non_exhaustive]` on `PdfError`+`RecoveryReport`, public re-exports, `docs/porting/v1_quality_gate.md`. **Total: 384 tests passing. v1 gate: ✅ PASSED.**
