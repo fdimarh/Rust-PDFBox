@@ -1,6 +1,6 @@
 # PDFBox Parity Matrix (Java → Rust)
 
-_Last updated: 2026-04-01 — ALL phases M0–M6 complete + Font parsing + Positional heuristics. **502 tests passing. v1 quality gate: ✅ PASSED.**_
+_Last updated: 2026-04-01 — ALL phases M0–M6 complete + Font parsing + Positional heuristics + Compat harness. **540 tests passing. v1 quality gate: ✅ PASSED.**_
 
 This document tracks feature parity between Apache Java PDFBox and this Rust port.
 
@@ -62,6 +62,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Font parsing (Type0 / CID) | `DV` | Bonus | 11 | Type0Font, DescendantFont, CIDSystemInfo, /W array (range+list), Identity-H/V |
 | FontResolver | `DV` | Bonus | 9 | Unified PdfFont enum, per-page font lookup, type dispatch |
 | Positional heuristics | `DV` | Bonus | 16 | Column detection, line grouping, word/paragraph spacing, extract_with_layout |
+| Compatibility harness | `DV` | Bonus | 38 | NormalizedOutput, CompatReport, compare_outputs, Corpus loader, FixtureSpec builder |
 | Full rewrite writer | `DV` | M4 | 1+1 | `Writer::write_document` + round-trip via `tests::round_trip_save_and_reload` |
 | COS object serializer | `DV` | M4 | 8 | `Serializer` — all `CosObject` variants, name hex-escape, indirect object |
 | Incremental append writer | `DV` | M4 | 9+2 | `IncrementalWriter::write_update` — subsection xref, `/Prev` chain, `Document::save_incremental` |
@@ -79,9 +80,10 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | `backfill_stream_data` | `DV` | M6 | 2 | Stream data populated from raw bytes (Tj text extraction works end-to-end) |
 | Corpus breadth — smoke | `DV` | M6 | 7 | Single-page A4/Letter, 5/10-page, media box, round-trip, incremental |
 | Corpus breadth — large | `DV` | M6 | 5 | 50-page, 100-page load/iter/round-trip, 200-object store |
+| Compatibility harness | `DV` | Bonus | 38 | NormalizedOutput, CompatReport, compare_outputs, Corpus loader, FixtureSpec builder |
 | Compatibility harness | `NS` | M6 | — | Java vs Rust output diff |
 
-**Total tests passing: 502** (M0-M6: 384, bonus font: 51, bonus layout: 16, corpus+regression: 61)
+**Total tests passing: 540** (M0-M6: 384, bonus font: 51, bonus layout: 16, bonus compat: 38, corpus+regression: 61)
 
 ---
 
@@ -175,6 +177,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- **2026-04-01:** Compatibility testing harness complete (bonus) — `NormalizedOutput` (page count, sizes, text, permissions, fonts), `CompatReport` (per-feature results), `compare_outputs` (with rounding/text tolerance), `Corpus` loader (smoke/malformed/font_heavy/encrypted/large), `FixtureSpec` builder (synthetic PDF generation). Total: **38 compat tests**, all passing. **540 tests total.**
 - **2026-04-01:** Positional heuristics complete (bonus) — `LayoutConfig` (tunable parameters), `Line` (Y-proximity grouping), `detect_columns` (X-gap analysis), `group_into_lines` (font-size-aware), `extract_with_layout` (column-based reading order), paragraph break detection. Total: **16 layout tests**, all passing. **502 tests total.**
 - **2026-04-01:** Font parsing complete (bonus) — `FontDescriptor` (8 tests), `Encoding` with glyph list (13 tests), `SimpleFont` Type1/TrueType (5 tests), `Type0Font` with CIDFont (11 tests), `PdfFont` + `FontResolver` (9 tests). Total bonus: **51 font tests**, all passing. **486 tests total.**
 - **2026-04-01:** M6 complete — `Document::load_lenient` + `RecoveryReport` (parser recovery, linear scan fallback), `backfill_stream_data` (stream data populated on load), `tests/corpus_breadth.rs` (33 tests: smoke/malformed/font-heavy/encrypted/large), `#[non_exhaustive]` on `PdfError`+`RecoveryReport`, public re-exports, `docs/porting/v1_quality_gate.md`. **Total: 384 tests passing. v1 gate: ✅ PASSED.**
