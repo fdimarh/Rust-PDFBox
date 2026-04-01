@@ -104,7 +104,8 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | `o.a.p.text` | `src/text/` | PDFTextStripper | `PV` | M3+ | `text::tests` | MVP done; full stripper (columns, multi-page) pending |
 | `o.a.p.text` | `src/text/` | Content-order extraction | `DV` | M3 | `text::tests::tj_*` | Implemented via Y-sort heuristic |
 | `o.a.p.text` | `src/text/` | Positional heuristics | `PV` | M3+ | `text::tests::chunks_to_string_*` | Basic Y-gap + X-gap detection; column layout pending |
-| `o.a.p.pdfwriter` | `src/writer/` | Full rewrite writer | `NS` | M4 | — | |
+| `o.a.p.pdfwriter` | `src/writer/writer.rs` | Full rewrite writer | `DV` | M4 | `lib.rs#round_trip_save_and_reload` | `Document::save_to` with full object and xref serialization |
+| `o.a.p.pdfwriter` | `src/writer/serializer.rs` | COS Object Serializer | `DV` | M4 | `writer::serializer::tests` | Writes all `CosObject` variants to correct syntax |
 | `o.a.p.pdfwriter` | `src/writer/` | Incremental append writer | `NS` | M4 | — | |
 | `o.a.p.pdmodel.encryption` | `src/crypto/` | Standard Security Handler | `NS` | M5 | — | |
 | `o.a.p.pdmodel.encryption` | `src/crypto/` | RC4 / AES | `NS` | M5 | — | |

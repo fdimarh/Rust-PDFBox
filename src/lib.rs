@@ -278,6 +278,19 @@ impl Document {
     pub fn page_count(&self) -> usize {
         self.pages().map(|t| t.count()).unwrap_or(0)
     }
+
+    /// Saves the document to a file path using a full-rewrite save.
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> std_io::Result<()> {
+        let file = std::fs::File::create(path)?;
+        let mut writer = std::io::BufWriter::new(file);
+        self.save_to(&mut writer)
+    }
+
+    /// Saves the document to a mutable writer using a full-rewrite save.
+    pub fn save_to<W: std::io::Write + std::io::Seek>(&self, writer: &mut W) -> std_io::Result<()> {
+        let mut doc_writer = writer::Writer::new(writer);
+        doc_writer.write_document(self)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -446,5 +459,26 @@ mod tests {
         let p0 = tree.get(0).unwrap();
         assert_eq!(p0.rotation(), 0);
         assert!(tree.get(2).is_none());
+    }
+
+    #[test]
+    fn round_trip_save_and_reload() {
+        // 1. Create an in-memory PDF
+        let original_pdf = two_page_pdf();
+        let original_doc = Document::load_from_bytes(&original_pdf).unwrap();
+        assert_eq!(original_doc.page_count(), 2);
+
+        // 2. Save it to a new buffer
+        let mut saved_buffer = std::io::Cursor::new(Vec::new());
+        original_doc.save_to(&mut saved_buffer).unwrap();
+
+        // 3. Reload the saved PDF
+        let reloaded_doc = Document::load_from_bytes(saved_buffer.get_ref()).unwrap();
+
+        // 4. Verify its contents
+        assert_eq!(reloaded_doc.page_count(), 2);
+        let reloaded_pages = reloaded_doc.pages().unwrap();
+        let page1_width = reloaded_pages.get(1).unwrap().media_box().unwrap().width();
+        assert!((page1_width - 595.0).abs() < 1e-6);
     }
 }
