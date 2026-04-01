@@ -118,7 +118,7 @@ pub use font::{
 };
 pub use io::FilterError;
 pub use pdmodel::{Page, PageTree};
-pub use text::extract_text;
+pub use text::{extract_text, LayoutConfig};
 
 // ---------------------------------------------------------------------------
 // RecoveryReport — accumulates warnings from lenient loading

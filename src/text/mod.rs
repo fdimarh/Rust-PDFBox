@@ -12,17 +12,30 @@
 //! 5. Sort by Y descending then X ascending (reading order heuristic).
 //! 6. Insert line breaks when Y changes by more than half the font size.
 //!
+//! # Layout analysis (Phase 3+)
+//!
+//! The `layout` module implements positional heuristics for more accurate
+//! text ordering:
+//! - Column detection (X-axis gap analysis)
+//! - Line grouping (Y-proximity with font-size threshold)
+//! - Word spacing (inter-chunk gap heuristics)
+//! - Paragraph breaks (large Y-gaps)
+//!
 //! # Java PDFBox mapping
 //!
 //! | Java class | Rust type |
 //! |---|---|
 //! | `PDFTextStripper` | [`extract_text`] |
 //! | `TextPosition` | [`TextChunk`] |
+//! | Layout heuristics | [`layout`] module |
+
+pub mod layout;
 
 use crate::content::graphics_state::GraphicsState;
 use crate::content::{parse_content_stream, Instruction};
 use crate::cos::CosObject;
 use crate::font::ToUnicodeCMap;
+pub use layout::LayoutConfig;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -58,6 +71,19 @@ pub struct TextChunk {
 pub fn extract_text(stream_data: &[u8], cmap: Option<&ToUnicodeCMap>) -> String {
     let chunks = extract_chunks(stream_data, cmap);
     chunks_to_string(&chunks)
+}
+
+/// Extract text using advanced layout analysis (columns, paragraphs, etc).
+///
+/// Uses configurable heuristics from `LayoutConfig` to detect columns,
+/// group lines, and order text in reading order.
+pub fn extract_text_with_layout(
+    stream_data: &[u8],
+    cmap: Option<&ToUnicodeCMap>,
+    config: &LayoutConfig,
+) -> String {
+    let chunks = extract_chunks(stream_data, cmap);
+    layout::extract_with_layout(&chunks, config)
 }
 
 /// Extract text chunks (with position) from a content stream.
