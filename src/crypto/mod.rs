@@ -3,11 +3,13 @@
 //! Implements the PDF Standard Security Handler (§7.6.3) with:
 //! - RC4-40 (Revision 2)
 //! - RC4-128 (Revision 3)
-//! - RC4/AES-128 (Revision 4, AES decrypt stub)
+//! - RC4/AES-128 (Revision 4, AES decrypt) ✅ NEW
+//! - AES-256 (Revision 5+, AES-256 decrypt) ✅ NEW
 //!
 //! Maps to Java PDFBox `StandardSecurityHandler`, `AccessPermission`,
-//! `ARCFourEncryption`, `PDEncryption`.
+//! `ARCFourEncryption`, `PDEncryption`, `AES128DecryptionFilter`.
 
+pub mod aes;
 pub mod md5;
 pub mod permissions;
 pub mod rc4;
@@ -16,3 +18,4 @@ pub mod handlers;
 pub use permissions::Permissions;
 pub use rc4::Rc4;
 pub use handlers::{AuthResult, EncryptionDict, StandardSecurityHandler};
+pub use aes::aes_cbc_decrypt;

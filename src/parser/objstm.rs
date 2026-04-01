@@ -62,7 +62,6 @@ impl ObjectStream {
 
         // Parse preamble: contains N pairs of (obj_num, offset)
         let mut entries = BTreeMap::new();
-        let mut pos = 0;
 
         // Preamble is whitespace-separated decimal integers
         let preamble_str = String::from_utf8_lossy(&data[..first.min(data.len() as u32) as usize]);
@@ -173,7 +172,7 @@ mod tests {
         let mut full_data = preamble.as_bytes().to_vec();
         full_data.resize(100, 0); // Pad to 100 bytes
 
-        let dict = crate::cos::CosDictionary::new();
+        let _dict = crate::cos::CosDictionary::new();
         // In real usage, dict would have N=3, First=preamble.len()
         // For this test, we manually create the stream
 
