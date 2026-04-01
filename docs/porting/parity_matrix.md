@@ -1,6 +1,6 @@
 # PDFBox Parity Matrix (Java → Rust)
 
-_Last updated: 2026-04-01 — ALL phases M0–M6 complete. **384 tests passing. v1 quality gate: ✅ PASSED.**_
+_Last updated: 2026-04-01 — ALL phases M0–M6 complete + Font parsing bonus. **486 tests passing. v1 quality gate: ✅ PASSED.**_
 
 This document tracks feature parity between Apache Java PDFBox and this Rust port.
 
@@ -55,9 +55,12 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Text operator dispatch | `DV` | M3 | — | Tj, TJ, ', " — implemented in extract_text |
 | ToUnicode CMap parser | `DV` | M3 | 10 | bfchar, bfrange sequential+array, 1/2/4-byte codes, surrogate pairs |
 | Text extraction MVP | `DV` | M3 | 14 | extract_text, TextChunk, Y-sort, line breaks, Latin-1 fallback |
-| Font parsing (Type1) | `NS` | M3+ | — | |
-| Font parsing (TrueType) | `NS` | M3+ | — | |
-| Font parsing (Type0 / CID) | `NS` | M3+ | — | |
+| Font descriptor parsing | `DV` | Bonus | 8 | FontDescriptor, flags, metrics, bbox, ascent/descent |
+| Font encoding parsing | `DV` | Bonus | 13 | WinAnsi, MacRoman, Standard, PDFDoc, Differences, glyph names |
+| Font parsing (Type1) | `DV` | Bonus | 5 | SimpleFont, Type1/MMType1, per-char widths, ToUnicode integration |
+| Font parsing (TrueType) | `DV` | Bonus | 5 | SimpleFont, TrueType subtype, same encoding/widths/CMap pipeline |
+| Font parsing (Type0 / CID) | `DV` | Bonus | 11 | Type0Font, DescendantFont, CIDSystemInfo, /W array (range+list), Identity-H/V |
+| FontResolver | `DV` | Bonus | 9 | Unified PdfFont enum, per-page font lookup, type dispatch |
 | Positional heuristics | `PV` | M3+ | — | Basic Y-sort + gap detection in chunks_to_string |
 | Full rewrite writer | `DV` | M4 | 1+1 | `Writer::write_document` + round-trip via `tests::round_trip_save_and_reload` |
 | COS object serializer | `DV` | M4 | 8 | `Serializer` — all `CosObject` variants, name hex-escape, indirect object |
@@ -78,7 +81,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 | Corpus breadth — large | `DV` | M6 | 5 | 50-page, 100-page load/iter/round-trip, 200-object store |
 | Compatibility harness | `NS` | M6 | — | Java vs Rust output diff |
 
-**Total tests passing: 384**
+**Total tests passing: 486** (M0-M6: 384, bonus font: 51, corpus+regression: 61)
 
 ---
 
@@ -172,6 +175,7 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- **2026-04-01:** Font parsing complete (bonus) — `FontDescriptor` (8 tests), `Encoding` with glyph list (13 tests), `SimpleFont` Type1/TrueType (5 tests), `Type0Font` with CIDFont (11 tests), `PdfFont` + `FontResolver` (9 tests). Total bonus: **51 font tests**, all passing. **486 tests total.**
 - **2026-04-01:** M6 complete — `Document::load_lenient` + `RecoveryReport` (parser recovery, linear scan fallback), `backfill_stream_data` (stream data populated on load), `tests/corpus_breadth.rs` (33 tests: smoke/malformed/font-heavy/encrypted/large), `#[non_exhaustive]` on `PdfError`+`RecoveryReport`, public re-exports, `docs/porting/v1_quality_gate.md`. **Total: 384 tests passing. v1 gate: ✅ PASSED.**
 - **2026-04-01:** M6 partial — `src/io/mod.rs` (FlateDecode pure-Rust deflate, ASCIIHexDecode, ASCII85Decode, RunLengthDecode, `decode_stream` dispatch — 17 tests), `CosObject::as_string_lossy`, `examples/read_info.rs`, `examples/extract_text.rs`, `benches/bench_core.rs`. Total: **351 tests passing** (323 unit + 28 integration).
 - **2026-04-01:** M5 complete — `src/crypto/permissions.rs` (Permissions, 5 tests), `src/crypto/rc4.rs` (RC4, RFC 6229, 7 tests), `src/crypto/md5.rs` (MD5, RFC 1321, 8 tests), `src/crypto/handlers.rs` (StandardSecurityHandler, key derivation Rev 2/3/4, user/owner auth, per-object key, 17 tests). Total: **334 tests passing** (306 unit + 28 integration).
