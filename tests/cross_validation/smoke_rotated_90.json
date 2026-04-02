@@ -1,15 +1,15 @@
 {
-  "file": "smoke/a4_single_page.pdf",
+  "file": "smoke/rotated_90.pdf",
   "source": "java_pdfbox_3.0.7",
-  "description": "Single A4 page (595x842 pt), no content",
+  "description": "Single page rotated 90 degrees",
   "pdf_version": "1.6",
   "page_count": 1,
   "pages": [
     {
       "index": 0,
-      "width": 595.3,
-      "height": 841.9,
-      "rotation": 0,
+      "width": 612.0,
+      "height": 792.0,
+      "rotation": 90,
       "text_len_min": 0,
       "text_len_max": 9999,
       "text_contains": []

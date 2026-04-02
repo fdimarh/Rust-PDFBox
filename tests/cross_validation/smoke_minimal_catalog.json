@@ -1,0 +1,20 @@
+{
+  "file": "smoke/minimal_catalog.pdf",
+  "source": "java_pdfbox_3.0.7",
+  "description": "Minimal valid PDF: 0-page catalog",
+  "pdf_version": "1.6",
+  "page_count": 0,
+  "pages": [
+  ],
+  "permissions": {
+    "print": true,
+    "copy": true,
+    "modify": true,
+    "annotate": true
+  },
+  "fonts": [],
+  "metadata": {
+    "title": null,
+    "author": null
+  }
+}

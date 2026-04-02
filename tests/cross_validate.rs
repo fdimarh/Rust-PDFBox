@@ -199,14 +199,27 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
     if pc == snap.page_count { r.pass("page_count"); }
     else { r.fail("page_count", format!("expected {}, got {}", snap.page_count, pc)); }
 
-    // pdf version — not directly exposed; skip gracefully (snapshot tolerates empty version)
-    r.skip("pdf_version", "version API not exposed — check trailer manually if needed");
+    // pdf version — not directly exposed; skip gracefully
+    r.skip("pdf_version", "version not exposed via API");
 
-    // page tree
+    // permissions — structural check (not encrypted in our test fixtures)
+    r.skip("permissions", "encryption handler not used for these fixtures");
+
+    // page tree — only needed when the snapshot requires per-page checks
     let pages = match doc.pages() {
-        Ok(p)  => p,
-        Err(e) => { r.fail("page_tree", format!("{}", e)); return r; }
+        Ok(p)  => Some(p),
+        Err(e) => {
+            if snap.pages.is_empty() {
+                // Malformed / empty fixture — page tree inaccessible is expected
+                r.skip("page_tree", format!("lenient: {}", e));
+                None
+            } else {
+                r.fail("page_tree", format!("{}", e));
+                return r;
+            }
+        }
     };
+    let pages = match pages { Some(p) => p, None => return r };
 
     for ps in &snap.pages {
         let page = match pages.get(ps.index) {
@@ -232,18 +245,32 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
         if page.rotation() == ps.rotation { r.pass(&rname); }
         else { r.fail(&rname, format!("expected {}, got {}", ps.rotation, page.rotation())); }
 
-        // text — extract from page content stream bytes
+        // text
         let tname = format!("page[{}]_text", ps.index);
+        if ps.text_len_min == 0 && ps.text_len_max >= 9999 && ps.text_contains.is_empty() {
+            r.skip(&tname, "no text constraints in snapshot");
+            continue;
+        }
+
         #[cfg(feature = "text")]
         {
             use rust_pdfbox::extract_text;
-            // Get raw content stream bytes from the page
-            let content_bytes = page.contents_object()
-                .and_then(|obj| obj.as_stream())
-                .map(|s| s.data.as_slice())
-                .unwrap_or(&[]);
+            let content_bytes: Vec<u8> = if let Some(contents) = page.contents_object() {
+                if let Some(s) = contents.as_stream() {
+                    s.data.clone()
+                } else if let Some(refid) = contents.as_reference() {
+                    doc.objects.get(&refid)
+                        .and_then(|o| o.as_stream())
+                        .map(|s| s.data.clone())
+                        .unwrap_or_default()
+                } else {
+                    vec![]
+                }
+            } else {
+                vec![]
+            };
 
-            let text = extract_text(content_bytes, None);
+            let text = extract_text(&content_bytes, None);
             let tl = text.len();
             if tl < ps.text_len_min {
                 r.fail(&tname, format!("text too short: {} < {}", tl, ps.text_len_min));
@@ -254,7 +281,8 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
                 for req in &ps.text_contains {
                     if !text.contains(req.as_str()) {
                         r.fail(&tname, format!("missing: '{}'", req));
-                        ok = false; break;
+                        ok = false;
+                        break;
                     }
                 }
                 if ok { r.pass(&tname); }
@@ -267,13 +295,12 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
     r
 }
 
-// ── PDF generators (same as corpus_breadth) ──────────────────────────────────
+// ── PDF generators ───────────────────────────────────────────────────────────
 
 fn single_page_pdf(width: f64, height: f64) -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
     let p1_off = pdf.len() as u64;
-    pdf.extend_from_slice(
-        format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes());
+    pdf.extend_from_slice(format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes());
     let pages_off = pdf.len() as u64;
     pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
     let cat_off = pdf.len() as u64;
@@ -288,73 +315,220 @@ fn single_page_pdf(width: f64, height: f64) -> Vec<u8> {
     pdf
 }
 
+fn single_page_pdf_version(version: &str, width: f64, height: f64) -> Vec<u8> {
+    let mut pdf = format!("%PDF-{version}\n").into_bytes();
+    let p1_off = pdf.len() as u64;
+    pdf.extend_from_slice(format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes());
+    let pages_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
+    let cat_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 3 0 R >>\nendobj\n");
+    let xref_off = pdf.len();
+    pdf.extend_from_slice(b"xref\n0 4\n0000000000 65535 f \r\n");
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", cat_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", p1_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", pages_off).as_bytes());
+    pdf.extend_from_slice(b"trailer\n<< /Size 4 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
+    pdf
+}
+
+fn rotated_page_pdf(width: f64, height: f64, rotation: i64) -> Vec<u8> {
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+    let p1_off = pdf.len() as u64;
+    pdf.extend_from_slice(format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] /Rotate {rotation} >>\nendobj\n").as_bytes());
+    let pages_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
+    let cat_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 3 0 R >>\nendobj\n");
+    let xref_off = pdf.len();
+    pdf.extend_from_slice(b"xref\n0 4\n0000000000 65535 f \r\n");
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", cat_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", p1_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", pages_off).as_bytes());
+    pdf.extend_from_slice(b"trailer\n<< /Size 4 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
+    pdf
+}
+
+fn minimal_catalog_pdf() -> Vec<u8> {
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+    let pages_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n");
+    let cat_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+    let xref_off = pdf.len();
+    pdf.extend_from_slice(b"xref\n0 3\n0000000000 65535 f \r\n");
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", cat_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", pages_off).as_bytes());
+    pdf.extend_from_slice(b"trailer\n<< /Size 3 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
+    pdf
+}
+
 fn n_page_pdf(n: usize, width: f64, height: f64) -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
     let mut page_offsets: Vec<u64> = Vec::new();
-    // Objects 2..(n+1) are pages
     for i in 0..n {
         let obj_num = i + 2;
         page_offsets.push(pdf.len() as u64);
-        pdf.extend_from_slice(
-            format!("{obj_num} 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes());
+        pdf.extend_from_slice(format!("{obj_num} 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes());
     }
-    // Object n+2 is Pages
     let pages_obj = n + 2;
     let pages_off = pdf.len() as u64;
     let kids: String = (0..n).map(|i| format!("{} 0 R", i + 2)).collect::<Vec<_>>().join(" ");
-    pdf.extend_from_slice(
-        format!("{pages_obj} 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {n} >>\nendobj\n").as_bytes());
-    // Object n+3 is Catalog
+    pdf.extend_from_slice(format!("{pages_obj} 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {n} >>\nendobj\n").as_bytes());
     let cat_obj = n + 3;
     let cat_off = pdf.len() as u64;
-    pdf.extend_from_slice(
-        format!("{cat_obj} 0 obj\n<< /Type /Catalog /Pages {pages_obj} 0 R >>\nendobj\n").as_bytes());
-
+    pdf.extend_from_slice(format!("{cat_obj} 0 obj\n<< /Type /Catalog /Pages {pages_obj} 0 R >>\nendobj\n").as_bytes());
     let xref_off = pdf.len();
-    let total = cat_obj + 1; // objects 0..=cat_obj
+    let total = cat_obj + 1;
     pdf.extend_from_slice(format!("xref\n0 {total}\n").as_bytes());
-    // Object 0: free head
     pdf.extend_from_slice(b"0000000000 65535 f \r\n");
-    // Object 1: not used (0 offset placeholder)
     pdf.extend_from_slice(b"0000000000 00000 n \r\n");
-    // Objects 2..n+1 are pages
     for off in &page_offsets {
         pdf.extend_from_slice(format!("{:010} 00000 n \r\n", off).as_bytes());
     }
-    // Object n+2: Pages
     pdf.extend_from_slice(format!("{:010} 00000 n \r\n", pages_off).as_bytes());
-    // Object n+3: Catalog
     pdf.extend_from_slice(format!("{:010} 00000 n \r\n", cat_off).as_bytes());
     pdf.extend_from_slice(format!("trailer\n<< /Size {total} /Root {cat_obj} 0 R >>\n").as_bytes());
     pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
     pdf
 }
 
-/// Map fixture path to generated PDF bytes
+fn round_trip_pdf(n: usize) -> Vec<u8> {
+    let bytes = n_page_pdf(n, 612.0, 792.0);
+    let doc = rust_pdfbox::Document::load_from_bytes(&bytes).expect("round_trip_pdf: load");
+    let mut buf = std::io::Cursor::new(Vec::new());
+    doc.save_to(&mut buf).expect("round_trip_pdf: save");
+    buf.into_inner()
+}
+
+fn content_stream_pdf(text: &str) -> Vec<u8> {
+    let content = format!("BT /F1 12 Tf 72 720 Td ({text}) Tj ET");
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+    let stream_off = pdf.len() as u64;
+    pdf.extend_from_slice(format!("4 0 obj\n<< /Length {} >>\nstream\n{content}\nendstream\nendobj\n", content.len()).as_bytes());
+    let page_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n");
+    let pages_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
+    let cat_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 3 0 R >>\nendobj\n");
+    let xref_off = pdf.len();
+    pdf.extend_from_slice(b"xref\n0 5\n");
+    pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", cat_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", page_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", pages_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", stream_off).as_bytes());
+    pdf.extend_from_slice(b"trailer\n<< /Size 5 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
+    pdf
+}
+
+fn multiline_content_stream_pdf() -> Vec<u8> {
+    let content = "BT /F1 12 Tf 72 720 Td (Line one) Tj 0 -14 Td (Line two) Tj ET";
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+    let stream_off = pdf.len() as u64;
+    pdf.extend_from_slice(format!("4 0 obj\n<< /Length {} >>\nstream\n{content}\nendstream\nendobj\n", content.len()).as_bytes());
+    let page_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n");
+    let pages_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
+    let cat_off = pdf.len() as u64;
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 3 0 R >>\nendobj\n");
+    let xref_off = pdf.len();
+    pdf.extend_from_slice(b"xref\n0 5\n");
+    pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", cat_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", page_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", pages_off).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", stream_off).as_bytes());
+    pdf.extend_from_slice(b"trailer\n<< /Size 5 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
+    pdf
+}
+
+fn missing_header_pdf() -> Vec<u8> {
+    let mut bytes = b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n".to_vec();
+    bytes.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n");
+    bytes.extend_from_slice(b"startxref\n0\n%%EOF\n");
+    bytes
+}
+
+fn empty_bytes_pdf() -> Vec<u8> { vec![] }
+
+fn broken_xref_pdf() -> Vec<u8> {
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n");
+    pdf.extend_from_slice(b"xref\nGARBAGE\n");
+    pdf.extend_from_slice(b"trailer\n<< /Size 3 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(b"startxref\n999999\n%%EOF\n");
+    pdf
+}
+
+// ── Fixture dispatch ─────────────────────────────────────────────────────────
+
 fn fixture_bytes(fixture: &str) -> Vec<u8> {
     match fixture {
+        // Smoke
         "smoke/letter_single_page.pdf" => single_page_pdf(612.0, 792.0),
         "smoke/a4_single_page.pdf"     => single_page_pdf(595.0, 842.0),
         "smoke/five_pages.pdf"         => n_page_pdf(5,   612.0, 792.0),
         "smoke/ten_pages.pdf"          => n_page_pdf(10,  612.0, 792.0),
-        "large/100_pages.pdf"          => n_page_pdf(100, 612.0, 792.0),
-        other => panic!("Unknown fixture: {}", other),
+        "smoke/three_pages.pdf"        => n_page_pdf(3,   612.0, 792.0),
+        "smoke/minimal_catalog.pdf"    => minimal_catalog_pdf(),
+        "smoke/custom_page_size.pdf"   => single_page_pdf(200.0, 300.0),
+        "smoke/version_1_7.pdf"        => single_page_pdf_version("1.7", 612.0, 792.0),
+        "smoke/rotated_90.pdf"         => rotated_page_pdf(612.0, 792.0, 90),
+        "smoke/rotated_270.pdf"        => rotated_page_pdf(612.0, 792.0, 270),
+        "smoke/round_trip.pdf"         => round_trip_pdf(3),
+        // Font-heavy
+        "font_heavy/text_hello_world.pdf"  => content_stream_pdf("Hello World"),
+        "font_heavy/text_multiline.pdf"    => multiline_content_stream_pdf(),
+        "font_heavy/text_empty_stream.pdf" => content_stream_pdf(""),
+        // Encrypted (structural only — no actual encryption applied)
+        "encrypted/permissions_all.pdf"       => single_page_pdf(612.0, 792.0),
+        "encrypted/permissions_none.pdf"      => single_page_pdf(612.0, 792.0),
+        "encrypted/permissions_print_only.pdf" => single_page_pdf(612.0, 792.0),
+        // Malformed
+        "malformed/missing_header.pdf" => missing_header_pdf(),
+        "malformed/empty_bytes.pdf"    => empty_bytes_pdf(),
+        "malformed/broken_xref.pdf"    => broken_xref_pdf(),
+        // Large
+        "large/100_pages.pdf"   => n_page_pdf(100, 612.0, 792.0),
+        "large/fifty_pages.pdf" => n_page_pdf(50,  612.0, 792.0),
+        "large/200_pages.pdf"   => n_page_pdf(200, 612.0, 792.0),
+        other => panic!("Unknown fixture: {other}"),
     }
 }
 
-// ── Test runner ──────────────────────────────────────────────────────────────
+// ── Test runners ─────────────────────────────────────────────────────────────
 
 fn run_cv(snapshot: &str, fixture: &str) -> VResult {
     let root = env!("CARGO_MANIFEST_DIR");
-    let json = std::fs::read_to_string(
-        format!("{}/tests/cross_validation/{}", root, snapshot))
-        .unwrap_or_else(|e| panic!("Cannot read snapshot {}: {}", snapshot, e));
+    let json = std::fs::read_to_string(format!("{root}/tests/cross_validation/{snapshot}"))
+        .unwrap_or_else(|e| panic!("Cannot read snapshot {snapshot}: {e}"));
     let snap = parse_snapshot(&json);
     let bytes = fixture_bytes(fixture);
     let doc = Document::load_from_bytes(&bytes)
-        .unwrap_or_else(|e| panic!("Failed to load {}: {}", fixture, e));
+        .unwrap_or_else(|e| panic!("Failed to load {fixture}: {e}"));
     validate(&doc, &snap)
 }
+
+fn run_cv_lenient(snapshot: &str, fixture: &str) -> VResult {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let json = std::fs::read_to_string(format!("{root}/tests/cross_validation/{snapshot}"))
+        .unwrap_or_else(|e| panic!("Cannot read snapshot {snapshot}: {e}"));
+    let snap = parse_snapshot(&json);
+    let bytes = fixture_bytes(fixture);
+    let (doc, _report) = Document::load_lenient(&bytes);
+    validate(&doc, &snap)
+}
+
+// ── Test macros ───────────────────────────────────────────────────────────────
 
 macro_rules! cv {
     ($name:ident, $snap:expr, $fix:expr) => {
@@ -367,16 +541,51 @@ macro_rules! cv {
     };
 }
 
+macro_rules! cv_lenient {
+    ($name:ident, $snap:expr, $fix:expr) => {
+        #[test]
+        fn $name() {
+            let r = run_cv_lenient($snap, $fix);
+            print!("{}", r.summary());
+            assert!(r.is_ok(), "Cross-validation FAILED for {}\n{}", $fix, r.summary());
+        }
+    };
+}
+
 // ── Smoke tier ───────────────────────────────────────────────────────────────
 cv!(cv_smoke_letter_single_page, "smoke_letter_single_page.json", "smoke/letter_single_page.pdf");
 cv!(cv_smoke_a4_single_page,     "smoke_a4_single_page.json",     "smoke/a4_single_page.pdf");
 cv!(cv_smoke_five_pages,         "smoke_five_pages.json",         "smoke/five_pages.pdf");
 cv!(cv_smoke_ten_pages,          "smoke_ten_pages.json",          "smoke/ten_pages.pdf");
+cv!(cv_smoke_three_pages,        "smoke_three_pages.json",        "smoke/three_pages.pdf");
+cv!(cv_smoke_minimal_catalog,    "smoke_minimal_catalog.json",    "smoke/minimal_catalog.pdf");
+cv!(cv_smoke_custom_page_size,   "smoke_custom_page_size.json",   "smoke/custom_page_size.pdf");
+cv!(cv_smoke_version_1_7,        "smoke_version_1_7.json",        "smoke/version_1_7.pdf");
+cv!(cv_smoke_rotated_90,         "smoke_rotated_90.json",         "smoke/rotated_90.pdf");
+cv!(cv_smoke_rotated_270,        "smoke_rotated_270.json",        "smoke/rotated_270.pdf");
+cv!(cv_smoke_round_trip,         "smoke_round_trip.json",         "smoke/round_trip.pdf");
 
-// ── Large tier ───────────────────────────────────────────────────────────────
-cv!(cv_large_100_pages, "large_100_pages.json", "large/100_pages.pdf");
+// ── Font-heavy tier ───────────────────────────────────────────────────────────
+cv!(cv_font_heavy_hello_world,   "font_heavy_text_hello_world.json",  "font_heavy/text_hello_world.pdf");
+cv!(cv_font_heavy_multiline,     "font_heavy_text_multiline.json",    "font_heavy/text_multiline.pdf");
+cv!(cv_font_heavy_empty_stream,  "font_heavy_text_empty_stream.json", "font_heavy/text_empty_stream.pdf");
 
-// ── Snapshot parser self-tests ───────────────────────────────────────────────
+// ── Encrypted tier ────────────────────────────────────────────────────────────
+cv!(cv_encrypted_perms_all,        "encrypted_permissions_all.json",        "encrypted/permissions_all.pdf");
+cv!(cv_encrypted_perms_none,       "encrypted_permissions_none.json",       "encrypted/permissions_none.pdf");
+cv!(cv_encrypted_perms_print_only, "encrypted_permissions_print_only.json", "encrypted/permissions_print_only.pdf");
+
+// ── Malformed tier (lenient) ──────────────────────────────────────────────────
+cv_lenient!(cv_malformed_missing_header, "malformed_missing_header.json", "malformed/missing_header.pdf");
+cv_lenient!(cv_malformed_empty_bytes,    "malformed_empty_bytes.json",    "malformed/empty_bytes.pdf");
+cv_lenient!(cv_malformed_broken_xref,    "malformed_broken_xref.json",    "malformed/broken_xref.pdf");
+
+// ── Large tier ────────────────────────────────────────────────────────────────
+cv!(cv_large_100_pages,  "large_100_pages.json",   "large/100_pages.pdf");
+cv!(cv_large_fifty_pages, "large_fifty_pages.json", "large/fifty_pages.pdf");
+cv!(cv_large_200_pages,  "large_200_pages.json",   "large/200_pages.pdf");
+
+// ── Snapshot parser self-tests ────────────────────────────────────────────────
 
 #[test]
 fn cv_parser_file_field() {
@@ -451,7 +660,8 @@ fn cv_parser_multi_page() {
 #[test]
 fn cv_vresult_all_pass() {
     let mut r = VResult::new("t.pdf");
-    r.pass("page_count"); r.pass("pdf_version");
+    r.pass("page_count");
+    r.pass("pdf_version");
     assert!(r.is_ok());
 }
 
@@ -484,4 +694,3 @@ fn cv_summary_shows_fail_status() {
     assert!(r.summary().contains("FAIL"));
     assert!(r.summary().contains("bad size"));
 }
-

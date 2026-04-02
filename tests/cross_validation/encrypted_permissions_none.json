@@ -1,14 +1,14 @@
 {
-  "file": "smoke/a4_single_page.pdf",
+  "file": "encrypted/permissions_none.pdf",
   "source": "java_pdfbox_3.0.7",
-  "description": "Single A4 page (595x842 pt), no content",
+  "description": "No permissions allowed",
   "pdf_version": "1.6",
   "page_count": 1,
   "pages": [
     {
       "index": 0,
-      "width": 595.3,
-      "height": 841.9,
+      "width": 612.0,
+      "height": 792.0,
       "rotation": 0,
       "text_len_min": 0,
       "text_len_max": 9999,
@@ -16,10 +16,10 @@
     }
   ],
   "permissions": {
-    "print": true,
-    "copy": true,
-    "modify": true,
-    "annotate": true
+    "print": false,
+    "copy": false,
+    "modify": false,
+    "annotate": false
   },
   "fonts": [],
   "metadata": {

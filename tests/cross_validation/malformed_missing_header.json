@@ -1,0 +1,20 @@
+{
+  "file": "malformed/missing_header.pdf",
+  "source": "java_pdfbox_3.0.7",
+  "description": "No %PDF- header — lenient recovery",
+  "pdf_version": "",
+  "page_count": 0,
+  "pages": [],
+  "permissions": {
+    "print": true,
+    "copy": true,
+    "modify": true,
+    "annotate": true
+  },
+  "fonts": [],
+  "metadata": {
+    "title": null,
+    "author": null
+  },
+  "lenient": true
+}

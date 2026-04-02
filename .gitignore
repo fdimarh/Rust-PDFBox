@@ -1,1 +1,5 @@
 /target
+
+# Java build artifacts
+*.class
+*.jar

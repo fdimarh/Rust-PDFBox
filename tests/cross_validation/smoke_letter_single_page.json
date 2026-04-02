@@ -1,7 +1,8 @@
 {
   "file": "smoke/letter_single_page.pdf",
-  "source": "java_pdfbox_3.0",
-  "pdf_version": "1.4",
+  "source": "java_pdfbox_3.0.7",
+  "description": "Single US Letter page (612x792 pt), no content",
+  "pdf_version": "1.6",
   "page_count": 1,
   "pages": [
     {
@@ -21,6 +22,8 @@
     "annotate": true
   },
   "fonts": [],
-  "metadata": { "title": null, "author": null }
+  "metadata": {
+    "title": null,
+    "author": null
+  }
 }
-
