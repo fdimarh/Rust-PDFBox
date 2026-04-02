@@ -33,6 +33,7 @@ use std::fs::File;
 use std::io as std_io;
 use std::io::Read;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use cos::{CosDictionary, CosName, CosObject, ObjectId};
 use parser::xref::{XRefEntry, XRefTable};
@@ -309,6 +310,90 @@ impl ObjectStore {
     pub fn is_empty(&self) -> bool {
         self.objects.is_empty()
     }
+
+    /// Resolve a reference chain: if `obj` is a `Reference`, follow it through
+    /// the store until a non-reference value is found (or the chain breaks).
+    pub fn resolve<'a>(&'a self, obj: &'a CosObject) -> Option<&'a CosObject> {
+        let mut cur = obj;
+        for _ in 0..16 {
+            match cur {
+                CosObject::Reference(id) => {
+                    cur = self.objects.get(id)?;
+                }
+                other => return Some(other),
+            }
+        }
+        None // circular / too deep
+    }
+}
+
+// ---------------------------------------------------------------------------
+// StreamCache — on-demand stream decoding with selective caching
+// ---------------------------------------------------------------------------
+
+/// On-demand stream filter decoder with a selective in-memory cache.
+///
+/// Stream bytes (e.g. FlateDecode content streams) are decoded lazily — only
+/// when first requested — and the result is kept in a bounded cache so
+/// repeated access is O(1).
+///
+/// This maps to the deferred decode strategy used by Java PDFBox's
+/// `COSStream.createInputStream()`.
+#[derive(Debug, Default, Clone)]
+pub struct StreamCache {
+    /// Decoded bytes keyed by ObjectId.
+    cache: HashMap<ObjectId, Arc<[u8]>>,
+}
+
+impl StreamCache {
+    /// Creates an empty cache.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns the decoded bytes for `id`, decoding and caching on first call.
+    ///
+    /// Looks up the stream object in `store`, applies its `/Filter` pipeline,
+    /// and stores the result. Returns `None` if the object is not a stream or
+    /// cannot be decoded.
+    pub fn get_decoded(
+        &mut self,
+        id: &ObjectId,
+        store: &ObjectStore,
+    ) -> Option<Arc<[u8]>> {
+        // Fast path — already cached.
+        if let Some(cached) = self.cache.get(id) {
+            return Some(Arc::clone(cached));
+        }
+
+        // Decode on demand.
+        let stream = store.get(id)?.as_stream()?;
+        let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec()));
+        let decoded = io::decode_stream(&stream.data, filter).ok()?;
+        let arc: Arc<[u8]> = decoded.into();
+        self.cache.insert(*id, Arc::clone(&arc));
+        Some(arc)
+    }
+
+    /// Returns the decoded bytes if already in the cache, without decoding.
+    pub fn peek(&self, id: &ObjectId) -> Option<Arc<[u8]>> {
+        self.cache.get(id).map(Arc::clone)
+    }
+
+    /// Evicts a single entry from the cache, freeing memory.
+    pub fn evict(&mut self, id: &ObjectId) {
+        self.cache.remove(id);
+    }
+
+    /// Clears the entire cache.
+    pub fn clear(&mut self) {
+        self.cache.clear();
+    }
+
+    /// Returns the number of currently cached streams.
+    pub fn cached_count(&self) -> usize {
+        self.cache.len()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +407,8 @@ impl ObjectStore {
 /// - The trailer [`CosDictionary`].
 /// - The [`ObjectStore`] of all eagerly loaded in-use objects.
 /// - Page count and catalog reference (when available).
+/// - A [`StreamCache`] for on-demand stream decoding with selective caching.
+/// - The raw source bytes as a shared `Arc<[u8]>` buffer for zero-copy sharing.
 ///
 /// Maps to `PDDocument` in Java PDFBox.
 #[derive(Debug, Clone)]
@@ -332,6 +419,12 @@ pub struct Document {
     pub xref: XRefTable,
     /// All eagerly loaded indirect objects.
     pub objects: ObjectStore,
+    /// Shared source bytes — `Arc<[u8]>` so callers can hold a reference
+    /// without copying. `None` when the document was constructed without
+    /// retaining the raw buffer (e.g. after a write round-trip).
+    source_bytes: Option<Arc<[u8]>>,
+    /// On-demand stream decoder cache — populated lazily on first decode.
+    stream_cache: Arc<Mutex<StreamCache>>,
 }
 
 impl Document {
@@ -446,12 +539,108 @@ impl Document {
             source_len: bytes.len(),
             xref,
             objects,
+            source_bytes: Some(Arc::from(bytes)),
+            stream_cache: Arc::new(Mutex::new(StreamCache::new())),
         })
     }
 
     /// Returns the raw input length.
     pub fn source_len(&self) -> usize {
         self.source_len
+    }
+
+    /// Returns a shared reference to the original source bytes, if retained.
+    ///
+    /// The `Arc<[u8]>` can be cloned cheaply — all clones share the same
+    /// underlying allocation with no copy. Returns `None` for documents that
+    /// were constructed without retaining the buffer (e.g. after a save/reload
+    /// round-trip through a `Cursor`).
+    pub fn source_bytes(&self) -> Option<Arc<[u8]>> {
+        self.source_bytes.as_ref().map(Arc::clone)
+    }
+
+    /// Lazily resolves an indirect object by `id`.
+    ///
+    /// First checks the in-memory [`ObjectStore`]. If not found and the
+    /// source bytes are retained (`source_bytes` is `Some`), attempts to
+    /// locate the object via the xref table and parse it on demand, then
+    /// inserts it into the store for future O(1) access.
+    ///
+    /// This implements the *lazy-load* ownership model: objects not accessed
+    /// at load time are only parsed when first requested.
+    pub fn get_object(&mut self, id: &ObjectId) -> Option<&CosObject> {
+        // Fast path — already in store.
+        if self.objects.get(id).is_some() {
+            return self.objects.get(id);
+        }
+
+        // Lazy path — parse from raw source bytes via xref.
+        let entry = self.xref.get(id)?.clone();
+        let raw: Arc<[u8]> = self.source_bytes.as_ref()?.clone();
+
+        match entry {
+            XRefEntry::InUse { offset, .. } => {
+                let offset = offset as usize;
+                if offset == 0 || offset >= raw.len() {
+                    return None;
+                }
+                let slice = &raw[offset..];
+                let mut p = Parser::new(slice);
+                if let Ok(Some((_pid, obj))) = p.parse_indirect_object() {
+                    let obj = backfill_stream_data(obj, slice);
+                    self.objects.insert(*id, obj);
+                }
+            }
+            XRefEntry::Compressed { stream_object_number, .. } => {
+                // Expand the parent ObjStm (already loaded in Step 4b) — just
+                // re-check the store. If still absent, nothing we can do here.
+                let stream_id = ObjectId::new(stream_object_number, 0);
+                let cos_stream = self.objects.get(&stream_id)?.as_stream()?.clone();
+                let filter = cos_stream.dictionary
+                    .get(&CosName::new(b"Filter".to_vec())).cloned();
+                let decoded = io::decode_stream(&cos_stream.data, filter.as_ref()).ok()?;
+                let objstm = parser::ObjectStream::from_stream(&cos_stream.dictionary, decoded)?;
+                if let Some(obj_bytes) = objstm.get_object(id.object_number) {
+                    let mut p = Parser::new(obj_bytes);
+                    if let Ok(Some(obj)) = p.parse_object() {
+                        self.objects.insert(*id, obj);
+                    }
+                }
+            }
+            XRefEntry::Free { .. } => return None,
+        }
+
+        self.objects.get(id)
+    }
+
+    /// Returns decoded stream bytes for the object at `id`, using the
+    /// [`StreamCache`] for on-demand decoding with selective caching.
+    ///
+    /// On first call the raw stream data is decoded through its `/Filter`
+    /// pipeline and the result is stored as `Arc<[u8]>`. Subsequent calls
+    /// return the cached `Arc` — a cheap reference-count increment, no copy.
+    ///
+    /// Returns `None` if `id` is not a stream object or decoding fails.
+    pub fn get_decoded_stream(&self, id: &ObjectId) -> Option<Arc<[u8]>> {
+        self.stream_cache
+            .lock()
+            .ok()?
+            .get_decoded(id, &self.objects)
+    }
+
+    /// Evicts a cached decoded stream from the [`StreamCache`], freeing memory.
+    pub fn evict_stream(&self, id: &ObjectId) {
+        if let Ok(mut cache) = self.stream_cache.lock() {
+            cache.evict(id);
+        }
+    }
+
+    /// Returns the number of currently cached decoded streams.
+    pub fn cached_stream_count(&self) -> usize {
+        self.stream_cache
+            .lock()
+            .map(|c| c.cached_count())
+            .unwrap_or(0)
     }
 
     /// Returns the trailer dictionary from the merged xref.
@@ -562,7 +751,13 @@ impl Document {
             report.objects_skipped = skipped;
         }
 
-        let doc = Self { source_len: bytes.len(), xref, objects };
+        let doc = Self {
+            source_len: bytes.len(),
+            xref,
+            objects,
+            source_bytes: Some(Arc::from(bytes)),
+            stream_cache: Arc::new(Mutex::new(StreamCache::new())),
+        };
         (doc, report)
     }
 
@@ -800,6 +995,173 @@ mod tests {
             updated.objects.get(&ObjectId::new(5, 0)),
             Some(&CosObject::Integer(99))
         );
+    }
+
+    #[test]
+    fn source_bytes_retained_as_arc() {
+        let pdf = minimal_pdf();
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+
+        // source_bytes() returns Some — bytes are retained
+        let arc = doc.source_bytes().expect("source bytes should be retained");
+        assert_eq!(arc.len(), pdf.len());
+        assert_eq!(&arc[..5], b"%PDF-");
+
+        // Cheap clone — same allocation, no copy
+        let arc2 = doc.source_bytes().unwrap();
+        assert!(Arc::ptr_eq(&arc, &arc2));
+    }
+
+    #[test]
+    fn get_object_lazy_load_from_xref() {
+        let pdf = two_page_pdf();
+        // Load without expanding specific objects, then lazy-resolve one
+        let mut doc = Document::load_from_bytes(&pdf).unwrap();
+
+        // Pages object (id 2 0) should be accessible — either eagerly loaded
+        // or lazily resolved on first call
+        let pages_id = ObjectId::new(2, 0);
+        let obj = doc.get_object(&pages_id);
+        assert!(obj.is_some(), "Pages object should be resolvable");
+        let dict = obj.unwrap().as_dictionary().unwrap();
+        assert_eq!(
+            dict.get_name(&CosName::type_name()),
+            Some(&CosName::new(b"Pages".to_vec()))
+        );
+    }
+
+    #[test]
+    fn get_object_returns_none_for_missing() {
+        let pdf = minimal_pdf();
+        let mut doc = Document::load_from_bytes(&pdf).unwrap();
+        // Object 999 does not exist
+        assert!(doc.get_object(&ObjectId::new(999, 0)).is_none());
+    }
+
+    #[test]
+    fn object_store_resolve_follows_references() {
+        let pdf = two_page_pdf();
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+
+        // Catalog /Pages is a Reference — resolve it
+        let catalog = doc.catalog().unwrap();
+        let pages_ref = catalog.get(&CosName::new(b"Pages".to_vec())).unwrap();
+        assert!(matches!(pages_ref, CosObject::Reference(_)));
+
+        // resolve() follows the reference
+        let resolved = doc.objects.resolve(pages_ref);
+        assert!(resolved.is_some());
+        let dict = resolved.unwrap().as_dictionary().unwrap();
+        assert_eq!(
+            dict.get_name(&CosName::type_name()),
+            Some(&CosName::new(b"Pages".to_vec()))
+        );
+    }
+
+    #[test]
+    fn object_store_resolve_non_reference_is_identity() {
+        let pdf = minimal_pdf();
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+        let int_obj = CosObject::Integer(42);
+        // Non-reference resolves to itself
+        let resolved = doc.objects.resolve(&int_obj);
+        assert_eq!(resolved, Some(&CosObject::Integer(42)));
+    }
+
+    #[test]
+    fn stream_cache_decode_on_demand() {
+        // Build a PDF with a FlateDecode content stream
+        let content = b"BT /F1 12 Tf 72 720 Td (Hello) Tj ET";
+        let compressed = {
+            use std::io::Write;
+            let mut enc = flate2::write::ZlibEncoder::new(
+                Vec::new(),
+                flate2::Compression::default(),
+            );
+            enc.write_all(content).unwrap();
+            enc.finish().unwrap()
+        };
+
+        let mut pdf = b"%PDF-1.4\n".to_vec();
+        let stream_off = pdf.len() as u64;
+        let dict_str = format!(
+            "5 0 obj\n<< /Length {} /Filter /FlateDecode >>\nstream\n",
+            compressed.len()
+        );
+        pdf.extend_from_slice(dict_str.as_bytes());
+        pdf.extend_from_slice(&compressed);
+        pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+        let page_off = pdf.len() as u64;
+        pdf.extend_from_slice(
+            b"3 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] /Contents 5 0 R >>\nendobj\n",
+        );
+        let pages_off = pdf.len() as u64;
+        pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+        let cat_off = pdf.len() as u64;
+        pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+        let xref_off = pdf.len();
+        let e1 = format!("{:010} 00000 n \r\n", cat_off);
+        let e2 = format!("{:010} 00000 n \r\n", pages_off);
+        let e3 = format!("{:010} 00000 n \r\n", page_off);
+        let e5 = format!("{:010} 00000 n \r\n", stream_off);
+        pdf.extend_from_slice(b"xref\n0 6\n");
+        pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+        pdf.extend_from_slice(e1.as_bytes());
+        pdf.extend_from_slice(e2.as_bytes());
+        pdf.extend_from_slice(e3.as_bytes());
+        pdf.extend_from_slice(b"0000000000 65535 f \r\n"); // obj 4 free
+        pdf.extend_from_slice(e5.as_bytes());
+        pdf.extend_from_slice(b"trailer\n<< /Size 6 /Root 1 0 R >>\n");
+        pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
+
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+
+        // Initially nothing is cached
+        assert_eq!(doc.cached_stream_count(), 0);
+
+        // Decode on demand
+        let stream_id = ObjectId::new(5, 0);
+        let decoded = doc.get_decoded_stream(&stream_id);
+        assert!(decoded.is_some(), "should decode FlateDecode stream");
+        let decoded_bytes = decoded.unwrap();
+        assert_eq!(decoded_bytes.as_ref(), content.as_slice());
+
+        // Now cached
+        assert_eq!(doc.cached_stream_count(), 1);
+
+        // Second call returns same Arc — no re-decode
+        let decoded2 = doc.get_decoded_stream(&stream_id).unwrap();
+        assert!(Arc::ptr_eq(&decoded_bytes, &decoded2));
+
+        // Evict and verify cache is cleared
+        doc.evict_stream(&stream_id);
+        assert_eq!(doc.cached_stream_count(), 0);
+    }
+
+    #[test]
+    fn stream_cache_returns_none_for_non_stream() {
+        let pdf = minimal_pdf();
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+        // Object 1 is a Dictionary, not a stream
+        let result = doc.get_decoded_stream(&ObjectId::new(1, 0));
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn arc_source_bytes_can_be_shared_cheaply() {
+        let pdf = minimal_pdf();
+        let doc = Document::load_from_bytes(&pdf).unwrap();
+
+        let a1 = doc.source_bytes().unwrap();
+        let a2 = doc.source_bytes().unwrap();
+        let a3 = a1.clone(); // cheap — same allocation
+
+        // All three point to the same allocation
+        assert!(Arc::ptr_eq(&a1, &a2));
+        assert!(Arc::ptr_eq(&a1, &a3));
+        assert_eq!(Arc::strong_count(&a1), 4); // doc internal + a1 + a2 + a3
     }
 
     #[test]

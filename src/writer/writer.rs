@@ -125,6 +125,8 @@ mod tests {
             source_len: 0,
             xref: Default::default(),
             objects,
+            source_bytes: None,
+            stream_cache: std::sync::Arc::new(std::sync::Mutex::new(crate::StreamCache::new())),
         };
         // Override trailer for the test
         let mut doc_with_trailer = doc.clone();
