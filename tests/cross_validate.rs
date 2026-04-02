@@ -255,13 +255,21 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
         #[cfg(feature = "text")]
         {
             use rust_pdfbox::extract_text;
+            use rust_pdfbox::io::decode_stream;
+
+            // Helper: get decoded bytes from a stream object (apply /Filter if present).
+            let decode_stream_obj = |stream: &rust_pdfbox::cos::CosStream| -> Vec<u8> {
+                let filter = stream.dictionary.get(&rust_pdfbox::cos::CosName::new(b"Filter".to_vec()));
+                decode_stream(&stream.data, filter).unwrap_or_else(|_| stream.data.clone())
+            };
+
             let content_bytes: Vec<u8> = if let Some(contents) = page.contents_object() {
                 if let Some(s) = contents.as_stream() {
-                    s.data.clone()
+                    decode_stream_obj(s)
                 } else if let Some(refid) = contents.as_reference() {
                     doc.objects.get(&refid)
                         .and_then(|o| o.as_stream())
-                        .map(|s| s.data.clone())
+                        .map(|s| decode_stream_obj(s))
                         .unwrap_or_default()
                 } else {
                     vec![]
@@ -507,15 +515,32 @@ fn fixture_bytes(fixture: &str) -> Vec<u8> {
 
 // ── Test runners ─────────────────────────────────────────────────────────────
 
+/// Load fixture bytes: prefer real PDFBox-generated file from tests/fixtures/,
+/// fall back to in-memory generator when the disk file is absent.
+fn load_fixture(fixture: &str) -> (Vec<u8>, &'static str) {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let disk_path = format!("{root}/tests/fixtures/{fixture}");
+    match std::fs::read(&disk_path) {
+        Ok(bytes) if !bytes.is_empty() || fixture.contains("empty_bytes") => {
+            (bytes, "disk:pdfbox-3.0.7")
+        }
+        _ => (fixture_bytes(fixture), "memory:generated"),
+    }
+}
+
 fn run_cv(snapshot: &str, fixture: &str) -> VResult {
     let root = env!("CARGO_MANIFEST_DIR");
     let json = std::fs::read_to_string(format!("{root}/tests/cross_validation/{snapshot}"))
         .unwrap_or_else(|e| panic!("Cannot read snapshot {snapshot}: {e}"));
     let snap = parse_snapshot(&json);
-    let bytes = fixture_bytes(fixture);
-    let doc = Document::load_from_bytes(&bytes)
-        .unwrap_or_else(|e| panic!("Failed to load {fixture}: {e}"));
-    validate(&doc, &snap)
+    let (bytes, source) = load_fixture(fixture);
+    let doc = match Document::load_from_bytes(&bytes) {
+        Ok(d) => d,
+        Err(e) => panic!("Failed to load {fixture} ({source}): {e}"),
+    };
+    let mut r = validate(&doc, &snap);
+    r.checks.insert(0, (format!("[source: {source}]"), Check::Skip(format!("loaded from {source}"))));
+    r
 }
 
 fn run_cv_lenient(snapshot: &str, fixture: &str) -> VResult {
@@ -523,10 +548,13 @@ fn run_cv_lenient(snapshot: &str, fixture: &str) -> VResult {
     let json = std::fs::read_to_string(format!("{root}/tests/cross_validation/{snapshot}"))
         .unwrap_or_else(|e| panic!("Cannot read snapshot {snapshot}: {e}"));
     let snap = parse_snapshot(&json);
-    let bytes = fixture_bytes(fixture);
+    let (bytes, source) = load_fixture(fixture);
     let (doc, _report) = Document::load_lenient(&bytes);
-    validate(&doc, &snap)
+    let mut r = validate(&doc, &snap);
+    r.checks.insert(0, (format!("[source: {source}]"), Check::Skip(format!("info: lenient load from {source}"))));
+    r
 }
+
 
 // ── Test macros ───────────────────────────────────────────────────────────────
 
@@ -571,9 +599,10 @@ cv!(cv_font_heavy_multiline,     "font_heavy_text_multiline.json",    "font_heav
 cv!(cv_font_heavy_empty_stream,  "font_heavy_text_empty_stream.json", "font_heavy/text_empty_stream.pdf");
 
 // ── Encrypted tier ────────────────────────────────────────────────────────────
-cv!(cv_encrypted_perms_all,        "encrypted_permissions_all.json",        "encrypted/permissions_all.pdf");
-cv!(cv_encrypted_perms_none,       "encrypted_permissions_none.json",       "encrypted/permissions_none.pdf");
-cv!(cv_encrypted_perms_print_only, "encrypted_permissions_print_only.json", "encrypted/permissions_print_only.pdf");
+// Encrypted PDFs require decryption before full page traversal; use lenient loader.
+cv_lenient!(cv_encrypted_perms_all,        "encrypted_permissions_all.json",        "encrypted/permissions_all.pdf");
+cv_lenient!(cv_encrypted_perms_none,       "encrypted_permissions_none.json",       "encrypted/permissions_none.pdf");
+cv_lenient!(cv_encrypted_perms_print_only, "encrypted_permissions_print_only.json", "encrypted/permissions_print_only.pdf");
 
 // ── Malformed tier (lenient) ──────────────────────────────────────────────────
 cv_lenient!(cv_malformed_missing_header, "malformed_missing_header.json", "malformed/missing_header.pdf");

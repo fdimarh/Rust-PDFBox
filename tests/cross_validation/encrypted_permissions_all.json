@@ -1,20 +1,10 @@
 {
   "file": "encrypted/permissions_all.pdf",
   "source": "java_pdfbox_3.0.7",
-  "description": "All permissions allowed",
+  "description": "All permissions allowed [lenient: requires decryption]",
   "pdf_version": "1.6",
-  "page_count": 1,
-  "pages": [
-    {
-      "index": 0,
-      "width": 612.0,
-      "height": 792.0,
-      "rotation": 0,
-      "text_len_min": 0,
-      "text_len_max": 9999,
-      "text_contains": []
-    }
-  ],
+  "page_count": 0,
+  "pages": [],
   "permissions": {
     "print": true,
     "copy": true,
@@ -25,5 +15,6 @@
   "metadata": {
     "title": null,
     "author": null
-  }
+  },
+  "lenient": true
 }

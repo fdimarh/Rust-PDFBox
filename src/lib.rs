@@ -367,7 +367,7 @@ impl Document {
         // Step 2 & 3 — xref discovery and parsing.
         let xref = parser::xref::load_xref(bytes)?;
 
-        // Step 4 — eagerly parse all in-use objects referenced in xref.
+        // Step 4a — load all InUse (direct byte-offset) objects.
         let mut objects = ObjectStore::new();
         for (id, entry) in xref.iter() {
             if let XRefEntry::InUse { offset, .. } = entry {
@@ -387,6 +387,56 @@ impl Document {
                     Ok(None) => {}
                     Err(_) => {
                         // Non-fatal: skip malformed individual objects.
+                    }
+                }
+            }
+        }
+
+        // Step 4b — expand Compressed objects (PDF 1.5+ ObjStm).
+        // Collect all compressed entries first to avoid borrowing `xref` while mutating `objects`.
+        let compressed: Vec<(ObjectId, u32, u32)> = xref
+            .iter()
+            .filter_map(|(id, entry)| {
+                if let XRefEntry::Compressed { stream_object_number, index_in_stream } = entry {
+                    Some((id.clone(), *stream_object_number, *index_in_stream))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Build a cache of decoded ObjStm streams to avoid re-decoding the same stream.
+        let mut objstm_cache: std::collections::HashMap<u32, parser::ObjectStream> =
+            std::collections::HashMap::new();
+
+        for (id, stream_obj_num, _index_in_stream) in compressed {
+            // Skip if already loaded (e.g. from a Prev update).
+            if objects.get(&id).is_some() {
+                continue;
+            }
+
+            // Decode and cache the ObjStm on first use.
+            if !objstm_cache.contains_key(&stream_obj_num) {
+                let stream_id = ObjectId::new(stream_obj_num, 0);
+                let cos_stream = match objects.get(&stream_id).and_then(|o| o.as_stream()) {
+                    Some(s) => s.clone(),
+                    None => continue,
+                };
+                let filter_obj = cos_stream.dictionary.get(&CosName::new(b"Filter".to_vec())).cloned();
+                let decoded = io::decode_stream(&cos_stream.data, filter_obj.as_ref())
+                    .unwrap_or_else(|_| cos_stream.data.clone());
+                if let Some(s) = parser::ObjectStream::from_stream(&cos_stream.dictionary, decoded) {
+                    objstm_cache.insert(stream_obj_num, s);
+                }
+            }
+
+            let obj_num = id.object_number;
+            if let Some(objstm) = objstm_cache.get(&stream_obj_num) {
+                // get_object takes the object number, returns raw bytes
+                if let Some(obj_bytes) = objstm.get_object(obj_num) {
+                    let mut p = Parser::new(obj_bytes);
+                    if let Ok(Some(obj)) = p.parse_object() {
+                        objects.insert(id, obj);
                     }
                 }
             }

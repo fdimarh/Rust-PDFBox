@@ -361,8 +361,33 @@ fn parse_xref_stream(
         .parse_indirect_object()?
         .ok_or_else(|| ParseError::new("expected indirect xref stream object", start))?;
 
+    // Backfill stream data — the parser leaves `data` empty as a placeholder.
+    // We re-read the raw bytes using the /Length entry and the `stream` keyword position.
     let stream = match obj {
-        CosObject::Stream(s) => s,
+        CosObject::Stream(mut s) => {
+            if s.data.is_empty() {
+                let length = s.dictionary
+                    .get(&CosName::new(b"Length".to_vec()))
+                    .and_then(|v| v.as_integer())
+                    .unwrap_or(0) as usize;
+                if length > 0 {
+                    if let Some(kw_pos) = slice.windows(6).position(|w| w == b"stream") {
+                        let data_start = kw_pos + 6;
+                        // skip one \r\n or \n after the keyword
+                        let data_start = if data_start < slice.len() && slice[data_start] == b'\r' {
+                            data_start + 2
+                        } else if data_start < slice.len() && slice[data_start] == b'\n' {
+                            data_start + 1
+                        } else {
+                            data_start
+                        };
+                        let end = (data_start + length).min(slice.len());
+                        s.data = slice[data_start..end].to_vec();
+                    }
+                }
+            }
+            s
+        }
         other => {
             return Err(ParseError::new(
                 format!("xref stream must be a stream object, got {other:?}"),
@@ -419,16 +444,21 @@ fn parse_xref_stream(
         vec![(0, size)]
     };
 
-    // NOTE: For now we store the raw bytes from the stream as-is (no filter decoding).
-    // Filter decoding (FlateDecode etc.) will be implemented in the io/filter module.
-    // We parse only if the stream data appears to be uncompressed (no /Filter).
-    let has_filter = dict.get(&CosName::new(b"Filter".to_vec())).is_some();
-    if has_filter {
-        // Can't decode yet — record that this xref section is deferred.
-        // We still parse the trailer and follow the Prev chain.
-    } else {
-        // Parse uncompressed stream data.
-        let stream_data = &stream.data;
+    // Decode stream data (apply /Filter if present, e.g. FlateDecode)
+    let decoded_data: Vec<u8> = {
+        let filter = dict.get(&CosName::new(b"Filter".to_vec()));
+        let raw = &stream.data;
+        if filter.is_some() {
+            crate::io::decode_stream(raw, filter)
+                .unwrap_or_else(|_| raw.to_vec())
+        } else {
+            raw.to_vec()
+        }
+    };
+
+    {
+        // Parse decoded stream data.
+        let stream_data = &decoded_data;
         let mut byte_pos = 0usize;
 
         for (first_obj, count) in &index_pairs {
@@ -453,7 +483,10 @@ fn parse_xref_stream(
                 let field3 = read_be_uint(entry_bytes, w[0] + w[1], w[2]);
 
                 let obj_num = first_obj + i;
-                let id = ObjectId::new(obj_num, field3 as u16);
+                // For type-2 (Compressed) entries, field3 is the index-within-stream,
+                // not the generation number. Compressed objects always have generation 0.
+                let generation = match entry_type { 2 => 0u16, _ => field3 as u16 };
+                let id = ObjectId::new(obj_num, generation);
 
                 let entry = match entry_type {
                     0 => XRefEntry::Free {
