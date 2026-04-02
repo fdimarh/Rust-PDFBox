@@ -1,0 +1,26 @@
+{
+  "file": "smoke/a4_single_page.pdf",
+  "source": "java_pdfbox_3.0",
+  "pdf_version": "1.4",
+  "page_count": 1,
+  "pages": [
+    {
+      "index": 0,
+      "width": 595.0,
+      "height": 842.0,
+      "rotation": 0,
+      "text_len_min": 0,
+      "text_len_max": 9999,
+      "text_contains": []
+    }
+  ],
+  "permissions": {
+    "print": true,
+    "copy": true,
+    "modify": true,
+    "annotate": true
+  },
+  "fonts": [],
+  "metadata": { "title": null, "author": null }
+}
+
