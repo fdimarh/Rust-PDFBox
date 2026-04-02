@@ -22,6 +22,7 @@ pub mod io;
 pub mod parser;
 pub mod pdmodel;
 pub mod render;
+pub mod signing;
 #[cfg(feature = "text")]
 pub mod text;
 pub mod writer;
@@ -309,6 +310,12 @@ impl ObjectStore {
     /// Returns `true` when the store is empty.
     pub fn is_empty(&self) -> bool {
         self.objects.is_empty()
+    }
+
+    /// Returns the maximum object number stored, or 0 if empty.
+    /// Used to allocate the next free object ID.
+    pub fn max_object_number(&self) -> u32 {
+        self.objects.keys().map(|id| id.object_number).max().unwrap_or(0)
     }
 
     /// Resolve a reference chain: if `obj` is a `Reference`, follow it through

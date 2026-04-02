@@ -178,6 +178,10 @@ impl IncrementalWriter {
         let mut buf = Vec::new();
         buf.extend_from_slice(b"xref\n");
 
+        // PDF spec §7.5.4: incremental xref must include object 0 free entry.
+        buf.extend_from_slice(b"0 1\n");
+        buf.extend_from_slice(b"0000000000 65535 f \n");
+
         // Build sorted list of (object_number, generation, offset)
         let entries: Vec<(u32, u16, u64)> = offsets
             .iter()
@@ -210,8 +214,10 @@ impl IncrementalWriter {
             let count = subsection.len();
             buf.extend_from_slice(format!("{start} {count}\n").as_bytes());
             for (_num, generation, offset) in subsection {
+                // PDF spec §7.5.4: each xref entry must be exactly 20 bytes:
+                // oooooooooo ggggg n \r\n  (10+1+5+1+1+2 = 20)
                 buf.extend_from_slice(
-                    format!("{:010} {:05} n \r\n", offset, generation).as_bytes(),
+                    format!("{:010} {:05} n\r\n", offset, generation).as_bytes(),
                 );
             }
         }

@@ -146,7 +146,7 @@ impl<'a> Parser<'a> {
             }
             Token::Real(n) => Ok(Some(CosObject::Real(n))),
             Token::LiteralString(s) => Ok(Some(CosObject::String(s))),
-            Token::HexString(s) => Ok(Some(CosObject::String(s))),
+            Token::HexString(s) => Ok(Some(CosObject::HexString(s))),
             Token::Name(n) => Ok(Some(CosObject::Name(n))),
             Token::Keyword(ref kw) if kw == b"null" => Ok(Some(CosObject::Null)),
             Token::ArrayStart => self.parse_array().map(Some),
@@ -361,9 +361,12 @@ mod tests {
 
     #[test]
     fn parse_hex_string() {
+        // Hex strings <HEXDIGITS> must be preserved as HexString so they
+        // round-trip through the serializer as <...> (not literal strings).
+        // This is required for /ID fields and other binary-safe entries.
         assert_eq!(
             parse_one(b"<48656C6C6F>"),
-            CosObject::String(b"Hello".to_vec())
+            CosObject::HexString(b"Hello".to_vec())
         );
     }
 

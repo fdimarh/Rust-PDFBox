@@ -28,6 +28,9 @@ pub enum CosObject {
     Real(f64),
     /// A byte-string (literal or hex-encoded in syntax).
     String(Vec<u8>),
+    /// A byte-string that must be serialized as a hex string `<AABB…>`.
+    /// Used by the signing module to produce the `/Contents` placeholder.
+    HexString(Vec<u8>),
     /// A name object (decoded bytes, no leading `/`).
     Name(CosName),
     /// An ordered array of objects.
@@ -82,9 +85,12 @@ impl CosObject {
         }
     }
 
-    /// Returns a reference to the byte-string if this is a `String`.
+    /// Returns a reference to the byte-string if this is a `String` or `HexString`.
     pub fn as_string(&self) -> Option<&[u8]> {
-        match self { Self::String(s) => Some(s), _ => None, }
+        match self {
+            Self::String(s) | Self::HexString(s) => Some(s),
+            _ => None,
+        }
     }
 
     /// Returns the string bytes decoded as lossy UTF-8, or `None` if not a String.
@@ -159,6 +165,7 @@ impl CosObject {
             Self::Integer(_) => "Integer",
             Self::Real(_) => "Real",
             Self::String(_) => "String",
+            Self::HexString(_) => "HexString",
             Self::Name(_) => "Name",
             Self::Array(_) => "Array",
             Self::Dictionary(_) => "Dictionary",
@@ -180,6 +187,13 @@ impl fmt::Display for CosObject {
                 write!(f, "<")?;
                 for byte in s {
                     write!(f, "{byte:02X}")?;
+                }
+                write!(f, ">")
+            }
+            Self::HexString(s) => {
+                write!(f, "<")?;
+                for byte in s {
+                    write!(f, "{byte:02x}")?;
                 }
                 write!(f, ">")
             }

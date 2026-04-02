@@ -23,6 +23,23 @@ cipher = { version = "0.4", optional = true }
 digest = { version = "0.10", optional = true }
 block-padding = { version = "0.3", optional = true }
 
+# Digital-signature support (used by the `signing` module and example)
+sha2 = "0.10"
+rsa       = { version = "0.9", features = ["sha2"] }
+p256      = { version = "0.13", features = ["pkcs8", "ecdsa"] }
+der       = { version = "0.7",  features = ["derive", "oid"] }
+pkcs8     = { version = "0.10", features = ["pem"] }
+pkcs1     = { version = "0.7",  features = ["pem"] }
+pem-rfc7468 = "0.7"
+rand      = "0.8"
+chrono    = { version = "0.4", default-features = false, features = ["std", "clock"] }
+
+# CMS / PKCS#7 builder — same crate as rust_pdf_signing to produce
+# identical CMS blobs that Adobe/Foxit accept.
+cryptographic-message-syntax = "0.28.0"
+x509-certificate = "0.25.0"
+bcder = "0.7.6"
+
 [[example]]
 name = "read_info"
 path = "examples/read_info.rs"
@@ -30,6 +47,10 @@ path = "examples/read_info.rs"
 [[example]]
 name = "extract_text"
 path = "examples/extract_text.rs"
+
+[[example]]
+name = "digital_sign"
+path = "examples/digital_sign.rs"
 
 [dev-dependencies]
 flate2 = "1"

@@ -26,6 +26,7 @@ impl<'a, W: Write> Serializer<'a, W> {
             CosObject::Integer(n) => write!(self.writer, "{n}")?,
             CosObject::Real(n) => write!(self.writer, "{n}")?,
             CosObject::String(bytes) => self.write_string(bytes)?,
+            CosObject::HexString(bytes) => self.write_hex_string(bytes)?,
             CosObject::Name(name) => self.write_name(name)?,
             CosObject::Array(arr) => self.write_array(arr)?,
             CosObject::Dictionary(dict) => self.write_dictionary(dict)?,
@@ -43,8 +44,7 @@ impl<'a, W: Write> Serializer<'a, W> {
         Ok(())
     }
 
-    fn write_string(&mut self, bytes: &[u8]) -> io::Result<()> {
-        self.writer.write_all(b"(")?;
+    fn write_string(&mut self, bytes: &[u8]) -> io::Result<()> {        self.writer.write_all(b"(")?;
         for &byte in bytes {
             match byte {
                 b'(' | b')' | b'\\' => {
@@ -60,6 +60,17 @@ impl<'a, W: Write> Serializer<'a, W> {
             }
         }
         self.writer.write_all(b")")?;
+        Ok(())
+    }
+
+    /// Writes bytes as a PDF hex string: `<0a1b2c…>`.
+    /// Used for binary data like the /Contents CMS blob in digital signatures.
+    fn write_hex_string(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.writer.write_all(b"<")?;
+        for &byte in bytes {
+            write!(self.writer, "{byte:02x}")?;
+        }
+        self.writer.write_all(b">")?;
         Ok(())
     }
 
