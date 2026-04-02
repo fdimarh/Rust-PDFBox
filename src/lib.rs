@@ -1,16 +1,28 @@
-//! Rust port of Apache PDFBox — M2: document model, page tree, content streams.
+//! Rust port of Apache PDFBox — comprehensive PDF reading and writing.
 //!
-//! This crate provides a Rust implementation of PDF reading, following the
-//! architecture of Apache Java PDFBox. See `docs/porting/` for the porting plan.
+//! This crate provides a Rust implementation of PDF reading and writing,
+//! following the architecture of Apache Java PDFBox.
+//!
+//! # Features
+//!
+//! - `text` (default): Text extraction and font handling (CMap, Type1, TrueType, Type0)
+//! - `crypto` (default): Encryption/decryption (RC4, AES, MD5) and permissions
+//! - `layout` (default): Advanced layout analysis (column detection, reading order)
+//! - `full`: All features enabled
+//!
+//! See `docs/porting/` for the porting plan and detailed architecture.
 
 pub mod content;
 pub mod cos;
+#[cfg(feature = "crypto")]
 pub mod crypto;
+#[cfg(feature = "text")]
 pub mod font;
 pub mod io;
 pub mod parser;
 pub mod pdmodel;
 pub mod render;
+#[cfg(feature = "text")]
 pub mod text;
 pub mod writer;
 
@@ -111,14 +123,23 @@ pub type PdfResult<T> = Result<T, PdfError>;
 // Public re-exports for crate users
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "crypto")]
 pub use crypto::{AuthResult, EncryptionDict, Permissions, StandardSecurityHandler};
+
+#[cfg(feature = "text")]
 pub use font::{
     BaseEncoding, Encoding, FontBBox, FontDescriptor, FontFlags, FontResolver,
     GlyphWidths, PdfFont, SimpleFont, SimpleFontSubtype, Type0Font, glyph_name_to_char,
 };
+
 pub use io::FilterError;
 pub use pdmodel::{Page, PageTree};
-pub use text::{extract_text, LayoutConfig};
+
+#[cfg(feature = "text")]
+pub use text::extract_text;
+
+#[cfg(feature = "layout")]
+pub use text::LayoutConfig;
 
 // ---------------------------------------------------------------------------
 // RecoveryReport — accumulates warnings from lenient loading

@@ -3,14 +3,25 @@ name = "rust-pdfbox"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["text", "crypto", "layout"]
+## Text extraction and font handling
+text = []
+## Encryption/decryption and permissions
+crypto = ["dep:aes", "dep:cbc", "dep:md-5", "dep:cipher", "dep:digest", "dep:block-padding"]
+## Advanced layout analysis (column detection, reading order)
+layout = []
+## All features enabled
+full = ["text", "crypto", "layout"]
+
 [dependencies]
 # RustCrypto ecosystem for cryptographic operations
-aes = "0.8"                          # AES block cipher
-cbc = "0.1"                          # CBC mode of operation
-md-5 = "0.10"                        # MD5 hash (RustCrypto)
-cipher = "0.4"                       # Cipher trait definitions
-digest = "0.10"                      # Generic digest trait
-block-padding = "0.3"                # PKCS#7 and other padding schemes
+aes = { version = "0.8", optional = true }
+cbc = { version = "0.1", optional = true }
+md-5 = { version = "0.10", optional = true }
+cipher = { version = "0.4", optional = true }
+digest = { version = "0.10", optional = true }
+block-padding = { version = "0.3", optional = true }
 
 [[example]]
 name = "read_info"

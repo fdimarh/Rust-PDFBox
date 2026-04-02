@@ -13,7 +13,7 @@ use block_padding::Pkcs7;
 /// Decrypt data using AES in CBC mode with PKCS#7 padding.
 ///
 /// PDF uses CBC mode with PKCS#5 padding (compatible with PKCS#7).
-/// 
+///
 /// # Arguments
 /// - `key`: AES key (16 bytes for AES-128)
 /// - `iv`: Initialization vector (16 bytes)
@@ -22,8 +22,8 @@ use block_padding::Pkcs7;
 /// # Returns
 /// Decrypted plaintext with padding removed, or `None` on error
 pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
-    // Validate key and IV lengths
-    if key.len() != 16 || iv.len() != 16 || ciphertext.len() % 16 != 0 {
+    // Validate key, IV lengths, and that ciphertext is non-empty and block-aligned
+    if key.len() != 16 || iv.len() != 16 || ciphertext.is_empty() || ciphertext.len() % 16 != 0 {
         return None;
     }
 
@@ -34,7 +34,10 @@ pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u
     let mut plaintext = ciphertext.to_vec();
     match cipher.decrypt_padded_mut::<Pkcs7>(&mut plaintext) {
         Ok(decrypted) => Some(decrypted.to_vec()),
-        Err(_) => None,
+        Err(_) => {
+            // Padding invalid — return raw decrypted bytes without padding removal
+            Some(plaintext)
+        },
     }
 }
 

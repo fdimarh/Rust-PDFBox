@@ -10,9 +10,6 @@ pub struct LzwDecoder {
     code_size: usize,
     next_code: u16,
     table: Vec<Vec<u8>>,
-    buffer: Vec<u8>,
-    bit_buffer: u32,
-    bits_in_buffer: u8,
 }
 
 impl LzwDecoder {
@@ -20,11 +17,8 @@ impl LzwDecoder {
     pub fn new() -> Self {
         let mut decoder = Self {
             code_size: 9,
-            next_code: 258,  // Codes 0-255 are single bytes, 256-257 are special
+            next_code: 258,
             table: Vec::with_capacity(4096),
-            buffer: Vec::new(),
-            bit_buffer: 0,
-            bits_in_buffer: 0,
         };
 
         // Initialize table with single-byte codes
