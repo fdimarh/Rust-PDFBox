@@ -52,13 +52,22 @@ pub struct CmsOptions {
     pub sub_filter: &'static str,
     /// RFC 3161 TSA URL for a signature timestamp (unsigned attribute).
     pub timestamp_url: Option<String>,
+    /// Include `adbe-revocationInfoArchival` CRL data in CMS signed attributes.
+    pub include_crl: bool,
+    /// Include `adbe-revocationInfoArchival` OCSP data in CMS signed attributes.
+    pub include_ocsp: bool,
+    /// PEM cert chain — needed to fetch CRL/OCSP when include_crl/ocsp is true.
+    pub cert_chain_pem: String,
 }
 
 impl Default for CmsOptions {
     fn default() -> Self {
         Self {
-            sub_filter: "adbe.pkcs7.detached",
-            timestamp_url: None,
+            sub_filter:     "adbe.pkcs7.detached",
+            timestamp_url:  None,
+            include_crl:    false,
+            include_ocsp:   false,
+            cert_chain_pem: String::new(),
         }
     }
 }
@@ -154,6 +163,25 @@ pub fn build_cms_signed_data_with_opts(
         signing_certificate_v2_oid,
         vec![AttributeValue::new(signing_certificate_v2_value)],
     );
+
+    // ── optional adbe-revocationInfoArchival signed attribute ─────────────
+    // Mirrors rust_pdf_signing `build_adbe_revocation_attribute`.
+    // For PKCS7 LTV: Adobe checks for CRL/OCSP in the CMS signed attributes.
+    if opts.include_crl || opts.include_ocsp {
+        let chain_for_rev = if opts.cert_chain_pem.is_empty() {
+            certs.clone()
+        } else {
+            CapturedX509Certificate::from_pem_multiple(&opts.cert_chain_pem)
+                .unwrap_or_else(|_| certs.clone())
+        };
+        if let Some((oid, values)) = crate::signing::ltv::build_adbe_revocation_attribute(
+            &chain_for_rev,
+            opts.include_crl,
+            opts.include_ocsp,
+        ) {
+            signer = signer.signed_attribute(oid, values);
+        }
+    }
 
     // ── optional signature timestamp (unsigned attribute via TSA) ─────────
     if let Some(tsa_url) = &opts.timestamp_url {

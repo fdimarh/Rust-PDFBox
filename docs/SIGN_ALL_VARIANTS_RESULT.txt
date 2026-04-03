@@ -32,7 +32,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 invisible (no timestamp)
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044710+00'00'
     ByteRange      : [0, 19262, 84800, 485]
     Covers file    : true
     Digest valid   : true
@@ -94,7 +94,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 visible rect
     Contact        : alice@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044714+00'00'
     ByteRange      : [0, 19268, 84806, 1005]
     Covers file    : true
     Digest valid   : true
@@ -155,7 +155,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 no CRL
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044715+00'00'
     ByteRange      : [0, 19242, 84780, 485]
     Covers file    : true
     Digest valid   : true
@@ -216,7 +216,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 explicit CRL
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044715+00'00'
     ByteRange      : [0, 19248, 84786, 485]
     Covers file    : true
     Digest valid   : true
@@ -277,7 +277,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 OCSP only
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044716+00'00'
     ByteRange      : [0, 19245, 84783, 485]
     Covers file    : true
     Digest valid   : true
@@ -338,7 +338,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 CRL+OCSP
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044717+00'00'
     ByteRange      : [0, 19244, 84782, 485]
     Covers file    : true
     Digest valid   : true
@@ -389,7 +389,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85267 bytes
+  ✅ Signed PDF: 95306 bytes
   Output   : "signed_outputs/07_pkcs7_dss.pdf"
 
   Verifying …
@@ -399,14 +399,14 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 with DSS
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044719+00'00'
     ByteRange      : [0, 19244, 84782, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : false
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : false
     Certificates   : 3
       [0] Subject  : good-ca
@@ -425,7 +425,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/07_pkcs7_dss.pdf  (85267 bytes)
+   ✅  Output: signed_outputs/07_pkcs7_dss.pdf  (95306 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [08_pkcs7_crl_dss]
@@ -450,7 +450,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85266 bytes
+  ✅ Signed PDF: 95305 bytes
   Output   : "signed_outputs/08_pkcs7_crl_dss.pdf"
 
   Verifying …
@@ -460,14 +460,14 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 CRL+DSS
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044721+00'00'
     ByteRange      : [0, 19243, 84781, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : false
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : false
     Certificates   : 3
       [0] Subject  : good-ca
@@ -486,7 +486,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/08_pkcs7_crl_dss.pdf  (85266 bytes)
+   ✅  Output: signed_outputs/08_pkcs7_crl_dss.pdf  (95305 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [09_pkcs7_crl_ocsp_dss]
@@ -511,7 +511,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85271 bytes
+  ✅ Signed PDF: 95310 bytes
   Output   : "signed_outputs/09_pkcs7_crl_ocsp_dss.pdf"
 
   Verifying …
@@ -521,14 +521,14 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 CRL+OCSP+DSS
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044724+00'00'
     ByteRange      : [0, 19248, 84786, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : false
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : false
     Certificates   : 3
       [0] Subject  : good-ca
@@ -547,7 +547,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/09_pkcs7_crl_ocsp_dss.pdf  (85271 bytes)
+   ✅  Output: signed_outputs/09_pkcs7_crl_ocsp_dss.pdf  (95310 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [10_pkcs7_custom_field]
@@ -582,7 +582,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 custom field name
     Contact        : signer@example.com
-    Signing time   : D:20260403035030+00'00'
+    Signing time   : D:20260403044727+00'00'
     ByteRange      : [0, 19253, 84791, 486]
     Covers file    : true
     Digest valid   : true
@@ -645,7 +645,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 full metadata
     Contact        : alice@corp.example
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044729+00'00'
     ByteRange      : [0, 19283, 84821, 485]
     Covers file    : true
     Digest valid   : true
@@ -708,7 +708,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 visible page-1 all metadata
     Contact        : charlie@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044730+00'00'
     ByteRange      : [0, 19292, 84830, 1023]
     Covers file    : true
     Digest valid   : true
@@ -769,7 +769,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 reserved 16k
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044731+00'00'
     ByteRange      : [0, 19248, 52018, 485]
     Covers file    : true
     Digest valid   : true
@@ -830,7 +830,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 reserved 64k
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044732+00'00'
     ByteRange      : [0, 19248, 150322, 486]
     Covers file    : true
     Digest valid   : true
@@ -891,7 +891,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B invisible
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044733+00'00'
     ByteRange      : [0, 19249, 84787, 485]
     Covers file    : true
     Digest valid   : true
@@ -953,7 +953,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B visible rect
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044733+00'00'
     ByteRange      : [0, 19270, 84808, 1006]
     Covers file    : true
     Digest valid   : true
@@ -1014,7 +1014,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B no CRL
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044733+00'00'
     ByteRange      : [0, 19246, 84784, 485]
     Covers file    : true
     Digest valid   : true
@@ -1075,7 +1075,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B with CRL
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044733+00'00'
     ByteRange      : [0, 19248, 84786, 485]
     Covers file    : true
     Digest valid   : true
@@ -1136,7 +1136,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B with DSS
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044733+00'00'
     ByteRange      : [0, 19248, 84786, 485]
     Covers file    : true
     Digest valid   : true
@@ -1197,7 +1197,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B custom field
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044733+00'00'
     ByteRange      : [0, 19252, 84790, 483]
     Covers file    : true
     Digest valid   : true
@@ -1260,7 +1260,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B full metadata
     Contact        : bob@example.de
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044733+00'00'
     ByteRange      : [0, 19284, 84822, 485]
     Covers file    : true
     Digest valid   : true
@@ -1321,7 +1321,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B reserved 48k
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044734+00'00'
     ByteRange      : [0, 19252, 117558, 486]
     Covers file    : true
     Digest valid   : true
@@ -1382,7 +1382,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-T invisible (DigiCert TSA)
     Contact        : signer@example.com
-    Signing time   : D:20260403035031+00'00'
+    Signing time   : D:20260403044734+00'00'
     ByteRange      : [0, 19266, 84804, 485]
     Covers file    : true
     Digest valid   : true
@@ -1444,7 +1444,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-T visible
     Contact        : signer@example.com
-    Signing time   : D:20260403035033+00'00'
+    Signing time   : D:20260403044735+00'00'
     ByteRange      : [0, 19266, 84804, 1002]
     Covers file    : true
     Digest valid   : true
@@ -1495,7 +1495,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85273 bytes
+  ✅ Signed PDF: 95312 bytes
   Output   : "signed_outputs/25_pades_blt_invisible.pdf"
 
   Verifying …
@@ -1505,14 +1505,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LT invisible
     Contact        : signer@example.com
-    Signing time   : D:20260403035034+00'00'
+    Signing time   : D:20260403044736+00'00'
     ByteRange      : [0, 19250, 84788, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -1531,7 +1531,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/25_pades_blt_invisible.pdf  (85273 bytes)
+   ✅  Output: signed_outputs/25_pades_blt_invisible.pdf  (95312 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [26_pades_blt_visible]
@@ -1557,7 +1557,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85806 bytes
+  ✅ Signed PDF: 95845 bytes
   Output   : "signed_outputs/26_pades_blt_visible.pdf"
 
   Verifying …
@@ -1567,14 +1567,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LT visible
     Contact        : signer@example.com
-    Signing time   : D:20260403035034+00'00'
+    Signing time   : D:20260403044740+00'00'
     ByteRange      : [0, 19266, 84804, 1002]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -1593,7 +1593,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/26_pades_blt_visible.pdf  (85806 bytes)
+   ✅  Output: signed_outputs/26_pades_blt_visible.pdf  (95845 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [27_pades_blta_invisible]
@@ -1618,7 +1618,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85274 bytes
+  ✅ Signed PDF: 161696 bytes
   Output   : "signed_outputs/27_pades_blta_invisible.pdf"
 
   Verifying …
@@ -1628,14 +1628,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LTA invisible
     Contact        : signer@example.com
-    Signing time   : D:20260403035035+00'00'
+    Signing time   : D:20260403044743+00'00'
     ByteRange      : [0, 19251, 84789, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -1650,11 +1650,39 @@
            Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
            Serial   : 01
            Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+  Signature [2] ✅: field='DocTimestamp1363710663'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.RFC3161
+    Reason         : -
+    Contact        : -
+    Signing time   : -
+    ByteRange      : [0, 95658, 161196, 500]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : true
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : DigiCert SHA256 RSA4096 Timestamp Responder 2025 1
+           Issuer   : CN=DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1, O=DigiCert, Inc., C=US
+           Serial   : 0A80EF184B8DF10582D1C476A7957468
+           Valid    : 2025-06-04 00:00:00 UTC → 2036-09-03 23:59:59 UTC
+      [1] Subject  : DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1
+           Issuer   : CN=DigiCert Trusted Root G4, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0DC7AC5705FF21992E4043220C3A4986
+           Valid    : 2025-05-07 00:00:00 UTC → 2038-01-14 23:59:59 UTC
+      [2] Subject  : DigiCert Trusted Root G4
+           Issuer   : CN=DigiCert Assured ID Root CA, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0E9B188EF9D02DE7EFDB50E20840185A
+           Valid    : 2022-08-01 00:00:00 UTC → 2031-11-09 23:59:59 UTC
 
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/27_pades_blta_invisible.pdf  (85274 bytes)
+   ✅  Output: signed_outputs/27_pades_blta_invisible.pdf  (161696 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [28_pkcs7_tsa_invisible]
@@ -1689,7 +1717,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA invisible
     Contact        : signer@example.com
-    Signing time   : D:20260403035036+00'00'
+    Signing time   : D:20260403044748+00'00'
     ByteRange      : [0, 19251, 84789, 485]
     Covers file    : true
     Digest valid   : true
@@ -1751,7 +1779,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA visible rect
     Contact        : alice@example.com
-    Signing time   : D:20260403035036+00'00'
+    Signing time   : D:20260403044750+00'00'
     ByteRange      : [0, 19271, 84809, 1008]
     Covers file    : true
     Digest valid   : true
@@ -1812,7 +1840,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA no CRL
     Contact        : signer@example.com
-    Signing time   : D:20260403035037+00'00'
+    Signing time   : D:20260403044751+00'00'
     ByteRange      : [0, 19248, 84786, 485]
     Covers file    : true
     Digest valid   : true
@@ -1873,7 +1901,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA explicit CRL
     Contact        : signer@example.com
-    Signing time   : D:20260403035038+00'00'
+    Signing time   : D:20260403044752+00'00'
     ByteRange      : [0, 19254, 84792, 485]
     Covers file    : true
     Digest valid   : true
@@ -1934,7 +1962,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA OCSP only
     Contact        : signer@example.com
-    Signing time   : D:20260403035038+00'00'
+    Signing time   : D:20260403044754+00'00'
     ByteRange      : [0, 19251, 84789, 485]
     Covers file    : true
     Digest valid   : true
@@ -1995,7 +2023,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA CRL+OCSP
     Contact        : signer@example.com
-    Signing time   : D:20260403035039+00'00'
+    Signing time   : D:20260403044756+00'00'
     ByteRange      : [0, 19250, 84788, 485]
     Covers file    : true
     Digest valid   : true
@@ -2046,7 +2074,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85273 bytes
+  ✅ Signed PDF: 95312 bytes
   Output   : "signed_outputs/34_pkcs7_tsa_dss.pdf"
 
   Verifying …
@@ -2056,14 +2084,14 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA with DSS
     Contact        : signer@example.com
-    Signing time   : D:20260403035039+00'00'
+    Signing time   : D:20260403044758+00'00'
     ByteRange      : [0, 19250, 84788, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -2082,7 +2110,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/34_pkcs7_tsa_dss.pdf  (85273 bytes)
+   ✅  Output: signed_outputs/34_pkcs7_tsa_dss.pdf  (95312 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [35_pkcs7_tsa_crl_dss]
@@ -2107,7 +2135,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85272 bytes
+  ✅ Signed PDF: 95311 bytes
   Output   : "signed_outputs/35_pkcs7_tsa_crl_dss.pdf"
 
   Verifying …
@@ -2117,14 +2145,14 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA CRL+DSS
     Contact        : signer@example.com
-    Signing time   : D:20260403035040+00'00'
+    Signing time   : D:20260403044802+00'00'
     ByteRange      : [0, 19249, 84787, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -2143,7 +2171,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/35_pkcs7_tsa_crl_dss.pdf  (85272 bytes)
+   ✅  Output: signed_outputs/35_pkcs7_tsa_crl_dss.pdf  (95311 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [36_pkcs7_tsa_crl_ocsp_dss]
@@ -2168,7 +2196,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85277 bytes
+  ✅ Signed PDF: 95316 bytes
   Output   : "signed_outputs/36_pkcs7_tsa_crl_ocsp_dss.pdf"
 
   Verifying …
@@ -2178,14 +2206,14 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA CRL+OCSP+DSS
     Contact        : signer@example.com
-    Signing time   : D:20260403035041+00'00'
+    Signing time   : D:20260403044806+00'00'
     ByteRange      : [0, 19254, 84792, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -2204,7 +2232,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/36_pkcs7_tsa_crl_ocsp_dss.pdf  (85277 bytes)
+   ✅  Output: signed_outputs/36_pkcs7_tsa_crl_ocsp_dss.pdf  (95316 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [37_pkcs7_tsa_custom_field]
@@ -2239,7 +2267,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA custom field
     Contact        : signer@example.com
-    Signing time   : D:20260403035042+00'00'
+    Signing time   : D:20260403044810+00'00'
     ByteRange      : [0, 19254, 84792, 481]
     Covers file    : true
     Digest valid   : true
@@ -2302,7 +2330,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA full metadata
     Contact        : alice.tsa@corp.example
-    Signing time   : D:20260403035043+00'00'
+    Signing time   : D:20260403044811+00'00'
     ByteRange      : [0, 19297, 84835, 485]
     Covers file    : true
     Digest valid   : true
@@ -2365,7 +2393,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : PKCS7 + TSA visible all metadata
     Contact        : charlie.tsa@example.com
-    Signing time   : D:20260403035043+00'00'
+    Signing time   : D:20260403044813+00'00'
     ByteRange      : [0, 19292, 84830, 1019]
     Covers file    : true
     Digest valid   : true
@@ -2426,7 +2454,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B + TSA invisible
     Contact        : signer@example.com
-    Signing time   : D:20260403035044+00'00'
+    Signing time   : D:20260403044815+00'00'
     ByteRange      : [0, 19255, 84793, 485]
     Covers file    : true
     Digest valid   : true
@@ -2488,7 +2516,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-B + TSA visible
     Contact        : signer@example.com
-    Signing time   : D:20260403035044+00'00'
+    Signing time   : D:20260403044815+00'00'
     ByteRange      : [0, 19273, 84811, 1009]
     Covers file    : true
     Digest valid   : true
@@ -2549,7 +2577,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-T + TSA invisible
     Contact        : signer@example.com
-    Signing time   : D:20260403035044+00'00'
+    Signing time   : D:20260403044815+00'00'
     ByteRange      : [0, 19255, 84793, 485]
     Covers file    : true
     Digest valid   : true
@@ -2611,7 +2639,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-T + TSA visible
     Contact        : signer@example.com
-    Signing time   : D:20260403035045+00'00'
+    Signing time   : D:20260403044815+00'00'
     ByteRange      : [0, 19276, 84814, 1012]
     Covers file    : true
     Digest valid   : true
@@ -2672,7 +2700,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-T + TSA + CRL
     Contact        : signer@example.com
-    Signing time   : D:20260403035045+00'00'
+    Signing time   : D:20260403044816+00'00'
     ByteRange      : [0, 19251, 84789, 485]
     Covers file    : true
     Digest valid   : true
@@ -2733,7 +2761,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-T + TSA + OCSP
     Contact        : signer@example.com
-    Signing time   : D:20260403035046+00'00'
+    Signing time   : D:20260403044818+00'00'
     ByteRange      : [0, 19252, 84790, 485]
     Covers file    : true
     Digest valid   : true
@@ -2796,7 +2824,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-T + TSA full metadata
     Contact        : bob.bt@example.de
-    Signing time   : D:20260403035047+00'00'
+    Signing time   : D:20260403044819+00'00'
     ByteRange      : [0, 19293, 84831, 485]
     Covers file    : true
     Digest valid   : true
@@ -2847,7 +2875,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85279 bytes
+  ✅ Signed PDF: 95318 bytes
   Output   : "signed_outputs/47_pades_blt_tsa_invisible.pdf"
 
   Verifying …
@@ -2857,14 +2885,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LT + TSA invisible
     Contact        : signer@example.com
-    Signing time   : D:20260403035047+00'00'
+    Signing time   : D:20260403044820+00'00'
     ByteRange      : [0, 19256, 84794, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -2883,7 +2911,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/47_pades_blt_tsa_invisible.pdf  (85279 bytes)
+   ✅  Output: signed_outputs/47_pades_blt_tsa_invisible.pdf  (95318 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [48_pades_blt_tsa_visible]
@@ -2909,7 +2937,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85826 bytes
+  ✅ Signed PDF: 95865 bytes
   Output   : "signed_outputs/48_pades_blt_tsa_visible.pdf"
 
   Verifying …
@@ -2919,14 +2947,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LT + TSA visible
     Contact        : signer@example.com
-    Signing time   : D:20260403035048+00'00'
+    Signing time   : D:20260403044823+00'00'
     ByteRange      : [0, 19276, 84814, 1012]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -2945,7 +2973,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/48_pades_blt_tsa_visible.pdf  (85826 bytes)
+   ✅  Output: signed_outputs/48_pades_blt_tsa_visible.pdf  (95865 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [49_pades_blt_tsa_crl]
@@ -2970,7 +2998,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85275 bytes
+  ✅ Signed PDF: 95314 bytes
   Output   : "signed_outputs/49_pades_blt_tsa_crl.pdf"
 
   Verifying …
@@ -2980,14 +3008,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LT + TSA + CRL
     Contact        : signer@example.com
-    Signing time   : D:20260403035049+00'00'
+    Signing time   : D:20260403044827+00'00'
     ByteRange      : [0, 19252, 84790, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -3006,7 +3034,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/49_pades_blt_tsa_crl.pdf  (85275 bytes)
+   ✅  Output: signed_outputs/49_pades_blt_tsa_crl.pdf  (95314 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [50_pades_blt_tsa_crl_ocsp]
@@ -3031,7 +3059,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85280 bytes
+  ✅ Signed PDF: 95319 bytes
   Output   : "signed_outputs/50_pades_blt_tsa_crl_ocsp.pdf"
 
   Verifying …
@@ -3041,14 +3069,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LT + TSA + CRL+OCSP
     Contact        : signer@example.com
-    Signing time   : D:20260403035049+00'00'
+    Signing time   : D:20260403044831+00'00'
     ByteRange      : [0, 19257, 84795, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -3067,7 +3095,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/50_pades_blt_tsa_crl_ocsp.pdf  (85280 bytes)
+   ✅  Output: signed_outputs/50_pades_blt_tsa_crl_ocsp.pdf  (95319 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [51_pades_blt_tsa_full_metadata]
@@ -3094,7 +3122,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85316 bytes
+  ✅ Signed PDF: 95355 bytes
   Output   : "signed_outputs/51_pades_blt_tsa_full_metadata.pdf"
 
   Verifying …
@@ -3104,14 +3132,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LT + TSA full metadata
     Contact        : carol.lt@example.com
-    Signing time   : D:20260403035050+00'00'
+    Signing time   : D:20260403044835+00'00'
     ByteRange      : [0, 19293, 84831, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -3130,7 +3158,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/51_pades_blt_tsa_full_metadata.pdf  (85316 bytes)
+   ✅  Output: signed_outputs/51_pades_blt_tsa_full_metadata.pdf  (95355 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [52_pades_blta_tsa_invisible]
@@ -3155,7 +3183,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85280 bytes
+  ✅ Signed PDF: 161702 bytes
   Output   : "signed_outputs/52_pades_blta_tsa_invisible.pdf"
 
   Verifying …
@@ -3165,14 +3193,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LTA + TSA invisible
     Contact        : signer@example.com
-    Signing time   : D:20260403035050+00'00'
+    Signing time   : D:20260403044839+00'00'
     ByteRange      : [0, 19257, 84795, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -3187,11 +3215,39 @@
            Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
            Serial   : 01
            Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+  Signature [2] ✅: field='DocTimestamp3442499778'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.RFC3161
+    Reason         : -
+    Contact        : -
+    Signing time   : -
+    ByteRange      : [0, 95664, 161202, 500]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : true
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : DigiCert SHA256 RSA4096 Timestamp Responder 2025 1
+           Issuer   : CN=DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1, O=DigiCert, Inc., C=US
+           Serial   : 0A80EF184B8DF10582D1C476A7957468
+           Valid    : 2025-06-04 00:00:00 UTC → 2036-09-03 23:59:59 UTC
+      [1] Subject  : DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1
+           Issuer   : CN=DigiCert Trusted Root G4, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0DC7AC5705FF21992E4043220C3A4986
+           Valid    : 2025-05-07 00:00:00 UTC → 2038-01-14 23:59:59 UTC
+      [2] Subject  : DigiCert Trusted Root G4
+           Issuer   : CN=DigiCert Assured ID Root CA, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0E9B188EF9D02DE7EFDB50E20840185A
+           Valid    : 2022-08-01 00:00:00 UTC → 2031-11-09 23:59:59 UTC
 
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/52_pades_blta_tsa_invisible.pdf  (85280 bytes)
+   ✅  Output: signed_outputs/52_pades_blta_tsa_invisible.pdf  (161702 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [53_pades_blta_tsa_visible]
@@ -3217,7 +3273,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85830 bytes
+  ✅ Signed PDF: 162252 bytes
   Output   : "signed_outputs/53_pades_blta_tsa_visible.pdf"
 
   Verifying …
@@ -3227,14 +3283,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LTA + TSA visible
     Contact        : signer@example.com
-    Signing time   : D:20260403035051+00'00'
+    Signing time   : D:20260403044843+00'00'
     ByteRange      : [0, 19278, 84816, 1014]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -3249,11 +3305,39 @@
            Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
            Serial   : 01
            Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+  Signature [2] ✅: field='DocTimestamp2220484800'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.RFC3161
+    Reason         : -
+    Contact        : -
+    Signing time   : -
+    ByteRange      : [0, 96214, 161752, 500]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : true
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : DigiCert SHA256 RSA4096 Timestamp Responder 2025 1
+           Issuer   : CN=DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1, O=DigiCert, Inc., C=US
+           Serial   : 0A80EF184B8DF10582D1C476A7957468
+           Valid    : 2025-06-04 00:00:00 UTC → 2036-09-03 23:59:59 UTC
+      [1] Subject  : DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1
+           Issuer   : CN=DigiCert Trusted Root G4, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0DC7AC5705FF21992E4043220C3A4986
+           Valid    : 2025-05-07 00:00:00 UTC → 2038-01-14 23:59:59 UTC
+      [2] Subject  : DigiCert Trusted Root G4
+           Issuer   : CN=DigiCert Assured ID Root CA, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0E9B188EF9D02DE7EFDB50E20840185A
+           Valid    : 2022-08-01 00:00:00 UTC → 2031-11-09 23:59:59 UTC
 
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/53_pades_blta_tsa_visible.pdf  (85830 bytes)
+   ✅  Output: signed_outputs/53_pades_blta_tsa_visible.pdf  (162252 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [54_pades_blta_tsa_full_metadata]
@@ -3280,7 +3364,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 85329 bytes
+  ✅ Signed PDF: 161751 bytes
   Output   : "signed_outputs/54_pades_blta_tsa_full_metadata.pdf"
 
   Verifying …
@@ -3290,14 +3374,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : PAdES B-LTA + TSA full metadata CRL+OCSP
     Contact        : dave.lta@example.com
-    Signing time   : D:20260403035051+00'00'
+    Signing time   : D:20260403044848+00'00'
     ByteRange      : [0, 19306, 84844, 485]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -3312,11 +3396,39 @@
            Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
            Serial   : 01
            Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+  Signature [2] ✅: field='DocTimestamp1641829971'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.RFC3161
+    Reason         : -
+    Contact        : -
+    Signing time   : -
+    ByteRange      : [0, 95713, 161251, 500]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : true
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : DigiCert SHA256 RSA4096 Timestamp Responder 2025 1
+           Issuer   : CN=DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1, O=DigiCert, Inc., C=US
+           Serial   : 0A80EF184B8DF10582D1C476A7957468
+           Valid    : 2025-06-04 00:00:00 UTC → 2036-09-03 23:59:59 UTC
+      [1] Subject  : DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1
+           Issuer   : CN=DigiCert Trusted Root G4, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0DC7AC5705FF21992E4043220C3A4986
+           Valid    : 2025-05-07 00:00:00 UTC → 2038-01-14 23:59:59 UTC
+      [2] Subject  : DigiCert Trusted Root G4
+           Issuer   : CN=DigiCert Assured ID Root CA, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0E9B188EF9D02DE7EFDB50E20840185A
+           Valid    : 2022-08-01 00:00:00 UTC → 2031-11-09 23:59:59 UTC
 
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/54_pades_blta_tsa_full_metadata.pdf  (85329 bytes)
+   ✅  Output: signed_outputs/54_pades_blta_tsa_full_metadata.pdf  (161751 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [55_visible_text_only_pkcs7]
@@ -3353,7 +3465,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : Text-only visible PKCS7
     Contact        : alice@example.com
-    Signing time   : D:20260403035052+00'00'
+    Signing time   : D:20260403044852+00'00'
     ByteRange      : [0, 19278, 84816, 1011]
     Covers file    : true
     Digest valid   : true
@@ -3416,7 +3528,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : Text-only visible PAdES B-B
     Contact        : signer@example.com
-    Signing time   : D:20260403035052+00'00'
+    Signing time   : D:20260403044853+00'00'
     ByteRange      : [0, 19283, 84821, 1014]
     Covers file    : true
     Digest valid   : true
@@ -3479,7 +3591,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : Text-only visible PAdES B-T
     Contact        : signer@example.com
-    Signing time   : D:20260403035052+00'00'
+    Signing time   : D:20260403044853+00'00'
     ByteRange      : [0, 19283, 84821, 1014]
     Covers file    : true
     Digest valid   : true
@@ -3542,7 +3654,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : Image visible PKCS7
     Contact        : alice@example.com
-    Signing time   : D:20260403035053+00'00'
+    Signing time   : D:20260403044854+00'00'
     ByteRange      : [0, 19274, 84812, 451018]
     Covers file    : true
     Digest valid   : true
@@ -3604,7 +3716,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : Image visible PKCS7+TSA
     Contact        : alice@example.com
-    Signing time   : D:20260403035053+00'00'
+    Signing time   : D:20260403044855+00'00'
     ByteRange      : [0, 19270, 84808, 451018]
     Covers file    : true
     Digest valid   : true
@@ -3666,7 +3778,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : Image visible PAdES B-B
     Contact        : signer@example.com
-    Signing time   : D:20260403035053+00'00'
+    Signing time   : D:20260403044857+00'00'
     ByteRange      : [0, 19271, 84809, 451018]
     Covers file    : true
     Digest valid   : true
@@ -3728,7 +3840,7 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : Image visible PAdES B-T
     Contact        : signer@example.com
-    Signing time   : D:20260403035054+00'00'
+    Signing time   : D:20260403044857+00'00'
     ByteRange      : [0, 19277, 84815, 451018]
     Covers file    : true
     Digest valid   : true
@@ -3780,7 +3892,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 535834 bytes
+  ✅ Signed PDF: 545875 bytes
   Output   : "signed_outputs/62_visible_image_pades_blt.pdf"
 
   Verifying …
@@ -3790,14 +3902,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : Image visible PAdES B-LT
     Contact        : signer@example.com
-    Signing time   : D:20260403035054+00'00'
+    Signing time   : D:20260403044857+00'00'
     ByteRange      : [0, 19278, 84816, 451018]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -3816,7 +3928,7 @@
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/62_visible_image_pades_blt.pdf  (535834 bytes)
+   ✅  Output: signed_outputs/62_visible_image_pades_blt.pdf  (545875 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [63_visible_image_pades_blta]
@@ -3842,7 +3954,7 @@
   Reserved : 32768 bytes
 
   Signing …
-  ✅ Signed PDF: 535835 bytes
+  ✅ Signed PDF: 612259 bytes
   Output   : "signed_outputs/63_visible_image_pades_blta.pdf"
 
   Verifying …
@@ -3852,14 +3964,14 @@
     SubFilter      : ETSI.CAdES.detached
     Reason         : Image visible PAdES B-LTA
     Contact        : signer@example.com
-    Signing time   : D:20260403035055+00'00'
+    Signing time   : D:20260403044901+00'00'
     ByteRange      : [0, 19279, 84817, 451018]
-    Covers file    : true
+    Covers file    : false
     Digest valid   : true
     CMS sig valid  : true
     Chain valid    : true
     Has timestamp  : true
-    Has DSS        : false
+    Has DSS        : true
     LTV enabled    : true
     Certificates   : 3
       [0] Subject  : good-ca
@@ -3874,11 +3986,39 @@
            Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
            Serial   : 01
            Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+  Signature [2] ✅: field='DocTimestamp968560111'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.RFC3161
+    Reason         : -
+    Contact        : -
+    Signing time   : -
+    ByteRange      : [0, 546221, 611759, 500]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : true
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : DigiCert SHA256 RSA4096 Timestamp Responder 2025 1
+           Issuer   : CN=DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1, O=DigiCert, Inc., C=US
+           Serial   : 0A80EF184B8DF10582D1C476A7957468
+           Valid    : 2025-06-04 00:00:00 UTC → 2036-09-03 23:59:59 UTC
+      [1] Subject  : DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1
+           Issuer   : CN=DigiCert Trusted Root G4, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0DC7AC5705FF21992E4043220C3A4986
+           Valid    : 2025-05-07 00:00:00 UTC → 2038-01-14 23:59:59 UTC
+      [2] Subject  : DigiCert Trusted Root G4
+           Issuer   : CN=DigiCert Assured ID Root CA, OU=www.digicert.com, O=DigiCert Inc, C=US
+           Serial   : 0E9B188EF9D02DE7EFDB50E20840185A
+           Valid    : 2022-08-01 00:00:00 UTC → 2031-11-09 23:59:59 UTC
 
   ✅ All signatures cryptographically verified.
 ══════════════════════════════════════════════════════
 
-   ✅  Output: signed_outputs/63_visible_image_pades_blta.pdf  (535835 bytes)
+   ✅  Output: signed_outputs/63_visible_image_pades_blta.pdf  (612259 bytes)
 
 ════════════════════════════════════════════════════════
 ▶  [64_visible_image_large_rect]
@@ -3914,7 +4054,7 @@
     SubFilter      : adbe.pkcs7.detached
     Reason         : Large rectangle image appearance
     Contact        : signer@example.com
-    Signing time   : D:20260403035055+00'00'
+    Signing time   : D:20260403044905+00'00'
     ByteRange      : [0, 19293, 84831, 451019]
     Covers file    : true
     Digest valid   : true
@@ -3956,9 +4096,9 @@
     83K         signed_outputs/04_pkcs7_crl.pdf
     83K         signed_outputs/05_pkcs7_ocsp.pdf
     83K         signed_outputs/06_pkcs7_crl_ocsp.pdf
-    83K         signed_outputs/07_pkcs7_dss.pdf
-    83K         signed_outputs/08_pkcs7_crl_dss.pdf
-    83K         signed_outputs/09_pkcs7_crl_ocsp_dss.pdf
+    93K         signed_outputs/07_pkcs7_dss.pdf
+    93K         signed_outputs/08_pkcs7_crl_dss.pdf
+    93K         signed_outputs/09_pkcs7_crl_ocsp_dss.pdf
     83K         signed_outputs/10_pkcs7_custom_field.pdf
     83K         signed_outputs/11_pkcs7_full_metadata.pdf
     84K         signed_outputs/12_pkcs7_visible_page1_metadata.pdf
@@ -3974,18 +4114,18 @@
     115K        signed_outputs/22_pades_bb_reserved_48k.pdf
     83K         signed_outputs/23_pades_bt_invisible.pdf
     84K         signed_outputs/24_pades_bt_visible.pdf
-    83K         signed_outputs/25_pades_blt_invisible.pdf
-    84K         signed_outputs/26_pades_blt_visible.pdf
-    83K         signed_outputs/27_pades_blta_invisible.pdf
+    93K         signed_outputs/25_pades_blt_invisible.pdf
+    94K         signed_outputs/26_pades_blt_visible.pdf
+    158K        signed_outputs/27_pades_blta_invisible.pdf
     83K         signed_outputs/28_pkcs7_tsa_invisible.pdf
     84K         signed_outputs/29_pkcs7_tsa_visible_rect.pdf
     83K         signed_outputs/30_pkcs7_tsa_no_crl.pdf
     83K         signed_outputs/31_pkcs7_tsa_crl.pdf
     83K         signed_outputs/32_pkcs7_tsa_ocsp.pdf
     83K         signed_outputs/33_pkcs7_tsa_crl_ocsp.pdf
-    83K         signed_outputs/34_pkcs7_tsa_dss.pdf
-    83K         signed_outputs/35_pkcs7_tsa_crl_dss.pdf
-    83K         signed_outputs/36_pkcs7_tsa_crl_ocsp_dss.pdf
+    93K         signed_outputs/34_pkcs7_tsa_dss.pdf
+    93K         signed_outputs/35_pkcs7_tsa_crl_dss.pdf
+    93K         signed_outputs/36_pkcs7_tsa_crl_ocsp_dss.pdf
     83K         signed_outputs/37_pkcs7_tsa_custom_field.pdf
     83K         signed_outputs/38_pkcs7_tsa_full_metadata.pdf
     84K         signed_outputs/39_pkcs7_tsa_visible_full_metadata.pdf
@@ -3996,14 +4136,14 @@
     83K         signed_outputs/44_pades_bt_tsa_crl.pdf
     83K         signed_outputs/45_pades_bt_tsa_ocsp.pdf
     83K         signed_outputs/46_pades_bt_tsa_full_metadata.pdf
-    83K         signed_outputs/47_pades_blt_tsa_invisible.pdf
-    84K         signed_outputs/48_pades_blt_tsa_visible.pdf
-    83K         signed_outputs/49_pades_blt_tsa_crl.pdf
-    83K         signed_outputs/50_pades_blt_tsa_crl_ocsp.pdf
-    83K         signed_outputs/51_pades_blt_tsa_full_metadata.pdf
-    83K         signed_outputs/52_pades_blta_tsa_invisible.pdf
-    84K         signed_outputs/53_pades_blta_tsa_visible.pdf
-    83K         signed_outputs/54_pades_blta_tsa_full_metadata.pdf
+    93K         signed_outputs/47_pades_blt_tsa_invisible.pdf
+    94K         signed_outputs/48_pades_blt_tsa_visible.pdf
+    93K         signed_outputs/49_pades_blt_tsa_crl.pdf
+    93K         signed_outputs/50_pades_blt_tsa_crl_ocsp.pdf
+    93K         signed_outputs/51_pades_blt_tsa_full_metadata.pdf
+    158K        signed_outputs/52_pades_blta_tsa_invisible.pdf
+    158K        signed_outputs/53_pades_blta_tsa_visible.pdf
+    158K        signed_outputs/54_pades_blta_tsa_full_metadata.pdf
     84K         signed_outputs/55_visible_text_only_pkcs7.pdf
     84K         signed_outputs/56_visible_text_only_pades_bb.pdf
     84K         signed_outputs/57_visible_text_only_pades_bt.pdf
@@ -4011,8 +4151,8 @@
     523K        signed_outputs/59_visible_image_pkcs7_tsa.pdf
     523K        signed_outputs/60_visible_image_pades_bb.pdf
     523K        signed_outputs/61_visible_image_pades_bt.pdf
-    523K        signed_outputs/62_visible_image_pades_blt.pdf
-    523K        signed_outputs/63_visible_image_pades_blta.pdf
+    533K        signed_outputs/62_visible_image_pades_blt.pdf
+    598K        signed_outputs/63_visible_image_pades_blta.pdf
     523K        signed_outputs/64_visible_image_large_rect.pdf
     83K         signed_outputs/fixed_invisible.pdf
     83K         signed_outputs/fixed_test.pdf

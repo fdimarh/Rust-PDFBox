@@ -52,6 +52,7 @@ pub mod acroform;
 pub mod appearance;
 pub mod asn1;
 pub mod cms;
+pub mod ltv;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -586,9 +587,31 @@ fn sign_pdf_with_changes(
         SignatureFormat::Pkcs7 => "adbe.pkcs7.detached",
     };
 
+    // Decide whether to embed revocation data in the CMS signed attributes.
+    // Mirrors rust_pdf_signing `digitally_sign_document` logic:
+    //  - PKCS7: include_cms_revocation = user's include_crl || include_ocsp flags
+    //  - PAdES B-B: no revocation, no timestamp
+    //  - PAdES B-T: optional (user flags)
+    //  - PAdES B-LT/LTA: always include both CRL + OCSP
+    let is_pades = opts.format == SignatureFormat::PAdES;
+    let (include_cms_crl, include_cms_ocsp, include_dss) = if is_pades {
+        match opts.pades_level {
+            PadesLevel::B_B  => (false, false, false),
+            PadesLevel::B_T  => (opts.include_crl, opts.include_ocsp, false),
+            PadesLevel::B_LT => (true, true, true),
+            PadesLevel::B_LTA => (true, true, true),
+        }
+    } else {
+        // PKCS7: use user flags; DSS is opt-in
+        (opts.include_crl, opts.include_ocsp, opts.include_dss)
+    };
+
     let cms_opts = cms::CmsOptions {
         sub_filter: sub_filter_str,
-        timestamp_url: tsa_url,
+        timestamp_url: tsa_url.clone(),
+        include_crl: include_cms_crl,
+        include_ocsp: include_cms_ocsp,
+        cert_chain_pem: cert_chain_pem.to_string(),
     };
 
     let cms_der = cms::build_cms_signed_data_with_opts(
@@ -609,8 +632,137 @@ fn sign_pdf_with_changes(
     // ── Step 10: inject /Contents ─────────────────────────────────────────
     let mut signed = first_pass;
     inject_contents(&mut signed, contents_offset, contents_hex_len, &cms_der)?;
-    let _ = date_str; // consumed by caller for sig dict — kept for signature
+    let _ = date_str;
+
+    // ── Step 11: DSS dictionary (incremental append) ──────────────────────
+    if include_dss {
+        let certs_for_dss = x509_certificate::CapturedX509Certificate::from_pem_multiple(cert_chain_pem)
+            .unwrap_or_default();
+        signed = ltv::append_dss_dictionary(signed, &certs_for_dss)?;
+    }
+
+    // ── Step 12: PAdES B-LTA — document-level timestamp ───────────────────
+    if is_pades && opts.pades_level == PadesLevel::B_LTA {
+        if let Some(tsa_url_str) = &tsa_url {
+            signed = append_document_timestamp(signed, tsa_url_str, opts.reserved_size)?;
+        }
+    }
+
     Ok(signed)
+}
+
+// ---------------------------------------------------------------------------
+// PAdES B-LTA: append a document-level RFC 3161 timestamp as a new sig field
+// ---------------------------------------------------------------------------
+
+/// Append a `/Type /DocTimeStamp` signature field to `pdf_bytes` as an
+/// incremental update. Mirrors `rust_pdf_signing::append_document_timestamp`.
+fn append_document_timestamp(
+    pdf_bytes:     Vec<u8>,
+    tsa_url:       &str,
+    reserved_size: usize,
+) -> Result<Vec<u8>, PdfError> {
+    use crate::cos::{CosName, CosObject, CosDictionary, ObjectId};
+    use crate::writer::IncrementalWriter;
+    use sha2::{Digest, Sha256};
+
+    let doc = Document::load_from_bytes(&pdf_bytes)?;
+    let mut obj_counter = doc.objects.max_object_number() + 1;
+    let mut alloc = || { let id = ObjectId::new(obj_counter, 0); obj_counter += 1; id };
+    let mut changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
+
+    // V (signature value) dictionary
+    let v_id = alloc();
+    {
+        let mut v = CosDictionary::new();
+        v.set(CosName::type_name(), CosObject::Name(CosName::new(b"Sig")));
+        v.set(CosName::new(b"Filter"),    CosObject::Name(CosName::new(b"Adobe.PPKLite")));
+        v.set(CosName::new(b"SubFilter"), CosObject::Name(CosName::new(b"ETSI.RFC3161")));
+        const PAD: i64 = 1_000_000_000;
+        v.set(CosName::new(b"ByteRange"), CosObject::Array(vec![
+            CosObject::Integer(PAD), CosObject::Integer(PAD),
+            CosObject::Integer(PAD), CosObject::Integer(PAD),
+        ]));
+        v.set(CosName::new(b"Contents"), CosObject::HexString(vec![0u8; reserved_size]));
+        changed.insert(v_id, CosObject::Dictionary(v));
+    }
+
+    // Merged field + widget annotation
+    let field_id  = alloc();
+    let page_ref  = page_object_id(&doc, 1).unwrap_or(ObjectId::new(1, 0));
+    {
+        let ts_name = format!("DocTimestamp{}", rand::random::<u32>());
+        let mut fw = CosDictionary::new();
+        fw.set(CosName::new(b"FT"),      CosObject::Name(CosName::new(b"Sig")));
+        fw.set(CosName::new(b"T"),       CosObject::String(ts_name.into_bytes()));
+        fw.set(CosName::new(b"V"),       CosObject::Reference(v_id));
+        fw.set(CosName::type_name(),     CosObject::Name(CosName::new(b"Annot")));
+        fw.set(CosName::new(b"Subtype"), CosObject::Name(CosName::new(b"Widget")));
+        fw.set(CosName::new(b"Rect"), CosObject::Array(vec![
+            CosObject::Integer(0), CosObject::Integer(0),
+            CosObject::Integer(0), CosObject::Integer(0),
+        ]));
+        fw.set(CosName::new(b"P"), CosObject::Reference(page_ref));
+        fw.set(CosName::new(b"F"), CosObject::Integer(6));
+        changed.insert(field_id, CosObject::Dictionary(fw));
+    }
+
+    // Add field to page /Annots
+    {
+        let page_dict = doc.objects.get(&page_ref)
+            .and_then(|o| o.as_dictionary()).cloned()
+            .unwrap_or_else(CosDictionary::new);
+        let mut new_page = page_dict;
+        let mut annots = new_page.get_array(&CosName::new(b"Annots"))
+            .map(|a| a.to_vec()).unwrap_or_default();
+        annots.push(CosObject::Reference(field_id));
+        new_page.set(CosName::new(b"Annots"), CosObject::Array(annots));
+        changed.insert(page_ref, CosObject::Dictionary(new_page));
+    }
+
+    // Update AcroForm
+    let acroform_id = alloc();
+    let acroform_obj = acroform::build_acroform(&doc, field_id, acroform_id, &mut changed);
+    changed.insert(acroform_id, acroform_obj);
+    let catalog_id = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
+    let mut cat = doc.objects.get(&catalog_id)
+        .and_then(|o| o.as_dictionary()).cloned()
+        .unwrap_or_else(CosDictionary::new);
+    cat.set(CosName::new(b"AcroForm"), CosObject::Reference(acroform_id));
+    changed.insert(catalog_id, CosObject::Dictionary(cat));
+
+    // First pass: write placeholder
+    let mut first_pass: Vec<u8> = Vec::with_capacity(pdf_bytes.len() + 8192);
+    IncrementalWriter::write_update(&pdf_bytes, &doc, &changed, &mut first_pass)
+        .map_err(|e| PdfError::Parse { offset: None, context: format!("DTS write: {e}") })?;
+
+    // Patch ByteRange — use LAST occurrence (DocTimestamp is at end; existing sigs are earlier)
+    let (br_off, ct_off, ct_len) = find_last_sig_placeholders(&first_pass)?;
+    let r0e: i64 = ct_off as i64;
+    let r1s: i64 = (ct_off + ct_len) as i64;
+    let r1e: i64 = first_pass.len() as i64 - r1s;
+    patch_byte_range(&mut first_pass, br_off, 0, r0e, r1s, r1e)?;
+
+    // Hash the signed ranges
+    let mut hasher = Sha256::new();
+    hasher.update(&first_pass[..r0e as usize]);
+    hasher.update(&first_pass[r1s as usize..(r1s + r1e) as usize]);
+    let file_hash = hasher.finalize().to_vec();
+
+    // Fetch timestamp token
+    let ts_token = ltv::fetch_timestamp_token(tsa_url, &file_hash)?;
+    if ts_token.len() > reserved_size {
+        return Err(PdfError::Parse {
+            offset: None,
+            context: format!(
+                "DocTimestamp token ({} bytes) > reserved_size ({}).",
+                ts_token.len(), reserved_size
+            ),
+        });
+    }
+
+    inject_contents(&mut first_pass, ct_off, ct_len, &ts_token)?;
+    Ok(first_pass)
 }
 
 /// Verifies all digital signatures found in a PDF.
@@ -706,7 +858,15 @@ pub fn verify_pdf(pdf_bytes: &[u8]) -> Result<Vec<VerifyResult>, PdfError> {
         };
 
         // Full CMS verification
-        let cv = cms::verify_cms(&cms_bytes, &signed_content);
+        // For ETSI.RFC3161 (DocTimestamp), the standard CMS messageDigest check
+        // does NOT apply to the PDF byte ranges — instead, verify the SHA-256
+        // of the signed ranges matches the TSTInfo.messageImprint in the token.
+        let is_rfc3161 = sub_filter.as_deref() == Some("ETSI.RFC3161");
+        let cv = if is_rfc3161 {
+            verify_rfc3161_timestamp(&cms_bytes, &signed_content)
+        } else {
+            cms::verify_cms(&cms_bytes, &signed_content)
+        };
 
         let certificates: Vec<CertInfo> = cv.certificates.iter().map(|c| CertInfo {
             subject:       c.subject.clone(),
@@ -758,6 +918,55 @@ pub fn verify_pdf(pdf_bytes: &[u8]) -> Result<Vec<VerifyResult>, PdfError> {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/// Verify an ETSI.RFC3161 DocTimestamp token against the signed PDF byte ranges.
+///
+/// For RFC3161 tokens, the CMS `SignedData` wraps a `TSTInfo` structure.
+/// The `messageImprint.hashedMessage` in `TSTInfo` must equal SHA-256 of the
+/// signed byte ranges. The CMS signature itself is verified normally.
+fn verify_rfc3161_timestamp(cms_der: &[u8], signed_content: &[u8]) -> cms::CmsVerifyResult {
+    use sha2::{Digest, Sha256};
+
+    // Compute SHA-256 of the signed content
+    let expected_hash = Sha256::digest(signed_content).to_vec();
+
+    // Walk the DER to find the messageImprint.hashedMessage in TSTInfo.
+    // TSTInfo is the content of the inner EncapsulatedContentInfo in the SignedData.
+    // Structure:
+    //   ContentInfo { SignedData { encapContentInfo { TSTInfo { ... messageImprint { ... hashedMessage } } } } }
+    //
+    // Shortcut: SHA-256 hashes are 32 bytes. Find the expected_hash in the DER.
+    // If present AND the CMS signature is valid, the digest is valid.
+    let hash_in_token = find_hash_in_der(cms_der, 32);
+
+    let digest_valid = match &hash_in_token {
+        Some(h) => *h == expected_hash,
+        None => false,
+    };
+
+    // Verify the CMS signature using the standard path (ignore digest check result)
+    let mut base = cms::verify_cms(cms_der, signed_content);
+    // Override digest_valid with our RFC3161-specific check
+    base.digest_valid = digest_valid;
+    base
+}
+
+/// Search `der` for a 32-byte OCTET STRING that matches a likely SHA-256 hash.
+/// Used to locate TSTInfo.messageImprint.hashedMessage without full ASN.1 parsing.
+fn find_hash_in_der(der: &[u8], hash_len: usize) -> Option<Vec<u8>> {
+    // Search for OCTET STRING tag (0x04) followed by length == hash_len
+    let needle_tag = 0x04u8;
+    for i in 0..der.len().saturating_sub(hash_len + 2) {
+        if der[i] == needle_tag && der[i + 1] == hash_len as u8 {
+            let candidate = der[i + 2..i + 2 + hash_len].to_vec();
+            // Plausible SHA-256 hash: not all zeros, not all 0xFF
+            if candidate.iter().any(|&b| b != 0) && candidate.iter().any(|&b| b != 0xFF) {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
 
 fn next_free_object_id(doc: &Document) -> u32 {
     doc.objects.max_object_number() + 1
@@ -837,6 +1046,7 @@ fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: Obje
 fn find_sig_placeholders(buf: &[u8], _field_name: &str)
     -> Result<(usize, usize, usize), PdfError>
 {
+    // ...existing code...
     // Locate /ByteRange [1000000000 — the sentinel padded placeholder
     let br_needle = b"/ByteRange [1000000000";
     let br_off = buf.windows(br_needle.len())
@@ -855,11 +1065,7 @@ fn find_sig_placeholders(buf: &[u8], _field_name: &str)
             context: "could not find /Contents placeholder in serialised PDF".into(),
         })?;
 
-    // The hex field starts at ct_off + len("/Contents ") = ct_off + 10
-    // i.e. the '<' character
     let hex_start = ct_off + b"/Contents ".len();
-
-    // Find the closing '>' to measure the reserved length
     let closing = buf[hex_start..]
         .iter()
         .position(|&b| b == b'>')
@@ -867,11 +1073,47 @@ fn find_sig_placeholders(buf: &[u8], _field_name: &str)
             offset: None,
             context: "could not find closing '>' for /Contents placeholder".into(),
         })?;
-
-    // hex_start points at '<', closing is offset of '>' relative to hex_start.
-    // The total field length including both angle brackets = closing + 1.
     let hex_field_len = closing + 1;
     Ok((br_off, hex_start, hex_field_len))
+}
+
+/// Like `find_sig_placeholders` but returns the **last** occurrence of each
+/// placeholder.  Used by `append_document_timestamp` so it patches the new
+/// DocTimestamp field rather than any earlier sig-dict ByteRange.
+fn find_last_sig_placeholders(buf: &[u8]) -> Result<(usize, usize, usize), PdfError> {
+    // Last /ByteRange [1000000000 placeholder
+    let br_needle = b"/ByteRange [1000000000";
+    let br_off = buf.windows(br_needle.len())
+        .enumerate()
+        .filter(|(_, w)| *w == br_needle)
+        .map(|(i, _)| i)
+        .last()
+        .ok_or_else(|| PdfError::Parse {
+            offset: None,
+            context: "could not find /ByteRange placeholder for DocTimestamp".into(),
+        })?;
+
+    // Last /Contents < placeholder (must come after br_off)
+    let ct_needle = b"/Contents <";
+    let ct_off = buf.windows(ct_needle.len())
+        .enumerate()
+        .filter(|(i, w)| *i > br_off && *w == ct_needle)
+        .map(|(i, _)| i)
+        .last()
+        .ok_or_else(|| PdfError::Parse {
+            offset: None,
+            context: "could not find /Contents placeholder for DocTimestamp".into(),
+        })?;
+
+    let hex_start = ct_off + b"/Contents ".len();
+    let closing = buf[hex_start..]
+        .iter()
+        .position(|&b| b == b'>')
+        .ok_or_else(|| PdfError::Parse {
+            offset: None,
+            context: "could not find closing '>' for DocTimestamp /Contents".into(),
+        })?;
+    Ok((br_off, hex_start, closing + 1))
 }
 
 /// Overwrite the `/ByteRange [1000000000 ...]` placeholder with real values.
