@@ -1,39 +1,41 @@
 //! Example: PDF Digital Signature using rust-pdfbox
 //!
-//! Demonstrates how to sign and verify a PDF document using the
-//! `rust_pdfbox::signing` module — no external PDF library dependency.
+//! Full feature parity with `rust_pdf_signing`'s `sign_doc` example.
 //!
-//! # Required assets (from tests/signing_assets/)
+//! # Required assets (tests/signing_assets/)
 //!
-//! | File                        | Purpose                              |
-//! |-----------------------------|--------------------------------------|
-//! | `sample.pdf`                | Input PDF to sign                    |
-//! | `keystore-local-chain.pem`  | Certificate chain (signer cert first)|
-//! | `keystore-local-key.pem`    | PKCS#8 PEM private key               |
-//! | `sig1.png`                  | (optional) Visible signature image   |
+//! | File                   | Purpose                               |
+//! |------------------------|---------------------------------------|
+//! | `sample.pdf`           | Default input PDF                     |
+//! | `ca-chain.pem`         | Certificate chain (signer cert first) |
+//! | `user-key.pem`         | PKCS#8 PEM private key                |
+//! | `sig1.png`             | (optional) Visible signature image    |
 //!
 //! # Usage
 //!
 //! ```sh
-//! # Invisible signature (default)
 //! cargo run --example digital_sign
 //!
-//! # Visible signature with custom rectangle
+//! # PAdES B-T (signature timestamp)
+//! cargo run --example digital_sign -- -f pades -l b-t
+//!
+//! # PAdES B-LT (timestamp + DSS)
+//! cargo run --example digital_sign -- -f pades -l b-lt
+//!
+//! # Visible signature with rectangle
 //! cargo run --example digital_sign -- --rect 50,700,250,750 --reason "I approve"
 //!
-//! # Custom key / cert paths
-//! cargo run --example digital_sign -- \
-//!     --input  path/to/input.pdf \
-//!     --cert   path/to/chain.pem \
-//!     --key    path/to/key.pem   \
-//!     --output signed.pdf
+//! # Invisible PKCS7 with custom cert/key
+//! cargo run --example digital_sign -- -f pkcs7 --invisible -c chain.pem -k key.pem
 //! ```
 
-use rust_pdfbox::signing::{sign_pdf, verify_pdf, SignOptions};
+use rust_pdfbox::signing::{
+    sign_pdf, verify_pdf, PadesLevel, SignatureAnchorMode, SignatureFormat, SignOptions,
+};
 use std::{env, fs, path::PathBuf, process};
 
 // ---------------------------------------------------------------------------
-// Helper: resolve an asset path relative to the project root
+// Asset helper
 // ---------------------------------------------------------------------------
 
 fn asset(name: &str) -> PathBuf {
@@ -44,33 +46,114 @@ fn asset(name: &str) -> PathBuf {
     p
 }
 
+// ---------------------------------------------------------------------------
+// CLI usage
+// ---------------------------------------------------------------------------
+
+fn usage() {
+    eprintln!(
+        "Usage: digital_sign [input.pdf] [options]
+
+Options:
+  -o, --output <path>           Output file path           (default: signed_output.pdf)
+  -c, --cert <path>             Certificate chain PEM      (default: tests/signing_assets/ca-chain.pem)
+  -k, --key <path>              Private key PEM            (default: tests/signing_assets/user-key.pem)
+  -f, --format <pkcs7|pades>    Signature format           (default: pkcs7)
+  -l, --level <b-b|b-t|b-lt|b-lta>
+                                PAdES conformance level    (default: b-b, only for pades)
+  -p, --page <num>              Page number (1-based)      (default: 1)
+  -r, --rect <x1,y1,x2,y2>     Signature rectangle        (default: invisible)
+      --invisible               Force invisible signature
+      --tag <text>              Anchor signature to text tag on page
+      --width <num>             Signature width  (required with --tag)
+      --height <num>            Signature height (required with --tag)
+      --tag-mode <front|overlay> Tag placement mode        (default: front)
+      --name <name>             Signer display name
+      --contact <email>         Signer contact / email
+      --reason <text>           Signing reason             (default: Digital Signature)
+      --location <text>         Signing location
+      --tsa <url>               RFC 3161 TSA URL           (default: http://timestamp.digicert.com)
+      --no-tsa                  Disable timestamp (for B-B or offline signing)
+      --dss                     Append DSS dictionary (CRL/OCSP/Certs)
+      --crl                     Include CRL in CMS signed attributes
+      --no-crl                  Exclude CRL from CMS signed attributes
+      --ocsp                    Include OCSP in CMS signed attributes
+      --reserved <bytes>        Reserve N bytes for CMS blob  (default: 32768)
+      --field <name>            AcroForm field name        (default: Signature1)
+  -h, --help                    Show this help
+
+PAdES Levels:
+  b-b    Basic — ESS-signingCertV2 only, no timestamp
+  b-t    Timestamp — adds RFC 3161 signature timestamp (TSA required)
+  b-lt   Long-Term — timestamp + DSS dictionary with CRL/OCSP/Certs
+  b-lta  Archival — B-LT + document-level timestamp
+
+Examples:
+  digital_sign
+  digital_sign input.pdf -f pades -l b-lt
+  digital_sign input.pdf --rect 50,700,250,750 --reason \"Approved\"
+  digital_sign input.pdf --tag \"#SIGN\" --width 180 --height 64 --tag-mode front
+  digital_sign input.pdf -f pades -l b-lta --invisible
+  digital_sign input.pdf -f pkcs7 --dss --crl --ocsp"
+    );
+}
 
 // ---------------------------------------------------------------------------
-// CLI argument parsing
+// CLI args
 // ---------------------------------------------------------------------------
 
 struct Args {
-    input:   PathBuf,
-    output:  PathBuf,
-    cert:    PathBuf,
-    key:     PathBuf,
-    rect:    Option<[f64; 4]>,
-    reason:  String,
-    contact: String,
-    page:    u32,
+    input:         PathBuf,
+    output:        PathBuf,
+    cert:          PathBuf,
+    key:           PathBuf,
+    format:        SignatureFormat,
+    pades_level:   PadesLevel,
+    page:          u32,
+    rect:          Option<[f64; 4]>,
+    visible:       bool,
+    anchor_tag:    Option<String>,
+    anchor_width:  Option<f64>,
+    anchor_height: Option<f64>,
+    anchor_mode:   SignatureAnchorMode,
+    signer_name:   String,
+    contact:       String,
+    reason:        String,
+    location:      String,
+    tsa_url:       Option<String>,
+    include_dss:   bool,
+    include_crl:   Option<bool>,  // None = use default per format
+    include_ocsp:  bool,
+    reserved_size: usize,
+    field_name:    String,
 }
 
 impl Default for Args {
     fn default() -> Self {
         Self {
-            input:   asset("sample.pdf"),
-            output:  PathBuf::from("signed_output.pdf"),
-            cert:    asset("ca-chain.pem"),
-            key:     asset("user-key.pem"),
-            rect:    None, // invisible by default
-            reason:  "Approved via rust-pdfbox digital signature".into(),
-            contact: "signer@example.com".into(),
-            page:    1,
+            input:         asset("sample.pdf"),
+            output:        PathBuf::from("signed_output.pdf"),
+            cert:          asset("ca-chain.pem"),
+            key:           asset("user-key.pem"),
+            format:        SignatureFormat::Pkcs7,
+            pades_level:   PadesLevel::B_B,
+            page:          1,
+            rect:          None,
+            visible:       false,  // invisible by default (no rect)
+            anchor_tag:    None,
+            anchor_width:  None,
+            anchor_height: None,
+            anchor_mode:   SignatureAnchorMode::InFront,
+            signer_name:   String::new(),
+            contact:       "signer@example.com".into(),
+            reason:        "Approved via rust-pdfbox digital signature".into(),
+            location:      String::new(),
+            tsa_url:       Some("http://timestamp.digicert.com".into()),
+            include_dss:   false,
+            include_crl:   None,
+            include_ocsp:  false,
+            reserved_size: 32_768,
+            field_name:    "Signature1".into(),
         }
     }
 }
@@ -78,33 +161,90 @@ impl Default for Args {
 fn parse_args() -> Args {
     let mut a = Args::default();
     let cli: Vec<String> = env::args().skip(1).collect();
+
+    if cli.iter().any(|s| s == "-h" || s == "--help") {
+        usage();
+        process::exit(0);
+    }
+
     let mut i = 0;
+    // First positional arg = input PDF (not starting with -)
+    if !cli.is_empty() && !cli[0].starts_with('-') {
+        a.input = PathBuf::from(&cli[0]);
+        i = 1;
+    }
+
     while i < cli.len() {
         match cli[i].as_str() {
-            "--input"   | "-i" => { i += 1; a.input  = PathBuf::from(&cli[i]); }
-            "--output"  | "-o" => { i += 1; a.output = PathBuf::from(&cli[i]); }
-            "--cert"    | "-c" => { i += 1; a.cert   = PathBuf::from(&cli[i]); }
-            "--key"     | "-k" => { i += 1; a.key    = PathBuf::from(&cli[i]); }
-            "--reason"  | "-r" => { i += 1; a.reason  = cli[i].clone(); }
+            "-o" | "--output"  => { i += 1; a.output = PathBuf::from(&cli[i]); }
+            "-c" | "--cert"    => { i += 1; a.cert   = PathBuf::from(&cli[i]); }
+            "-k" | "--key"     => { i += 1; a.key    = PathBuf::from(&cli[i]); }
+            "-p" | "--page"    => { i += 1; a.page   = cli[i].parse().unwrap_or(1); }
+            "--name"           => { i += 1; a.signer_name = cli[i].clone(); }
             "--contact"        => { i += 1; a.contact = cli[i].clone(); }
-            "--page"    | "-p" => { i += 1; a.page = cli[i].parse().unwrap_or(1); }
+            "--reason" | "-r"  => { i += 1; a.reason  = cli[i].clone(); }
+            "--location"       => { i += 1; a.location = cli[i].clone(); }
+            "--tsa"            => { i += 1; a.tsa_url = Some(cli[i].clone()); }
+            "--no-tsa"         => { a.tsa_url = None; }
+            "--dss"            => { a.include_dss  = true; }
+            "--crl"            => { a.include_crl  = Some(true); }
+            "--no-crl"         => { a.include_crl  = Some(false); }
+            "--ocsp"           => { a.include_ocsp = true; }
+            "--invisible"      => { a.visible = false; }
+            "--field"          => { i += 1; a.field_name = cli[i].clone(); }
+            "--reserved"       => { i += 1; a.reserved_size = cli[i].parse().unwrap_or(32_768); }
+            "--tag"            => { i += 1; a.anchor_tag    = Some(cli[i].clone()); a.visible = true; }
+            "--width"          => { i += 1; a.anchor_width  = cli[i].parse().ok(); }
+            "--height"         => { i += 1; a.anchor_height = cli[i].parse().ok(); }
+            "--tag-mode" => {
+                i += 1;
+                a.anchor_mode = match cli[i].to_lowercase().as_str() {
+                    "front" | "in-front" | "in_front" => SignatureAnchorMode::InFront,
+                    "overlay" | "over"                => SignatureAnchorMode::Overlay,
+                    other => { eprintln!("Unknown --tag-mode: {other}"); process::exit(1); }
+                };
+            }
+            "-f" | "--format" => {
+                i += 1;
+                a.format = match cli[i].to_lowercase().as_str() {
+                    "pkcs7" | "p7"        => SignatureFormat::Pkcs7,
+                    "pades" | "cades"     => SignatureFormat::PAdES,
+                    other => { eprintln!("Unknown --format: {other}"); process::exit(1); }
+                };
+            }
+            "-l" | "--level" => {
+                i += 1;
+                a.pades_level = match cli[i].to_lowercase().as_str() {
+                    "b-b" | "bb"   => PadesLevel::B_B,
+                    "b-t" | "bt"   => PadesLevel::B_T,
+                    "b-lt" | "blt" => PadesLevel::B_LT,
+                    "b-lta"|"blta" => PadesLevel::B_LTA,
+                    other => { eprintln!("Unknown --level: {other}"); process::exit(1); }
+                };
+            }
             "--rect" => {
                 i += 1;
                 let parts: Vec<f64> = cli[i].split(',')
                     .map(|s| s.trim().parse().unwrap_or(0.0)).collect();
                 if parts.len() == 4 {
-                    a.rect = Some([parts[0], parts[1], parts[2], parts[3]]);
+                    a.rect    = Some([parts[0], parts[1], parts[2], parts[3]]);
+                    a.visible = true;
+                } else {
+                    eprintln!("--rect requires 4 comma-separated values: x1,y1,x2,y2");
+                    process::exit(1);
                 }
             }
-            "--help" | "-h" => {
-                println!("Usage: digital_sign [--input PDF] [--output PDF] [--cert PEM] [--key PEM]");
-                println!("                    [--rect x1,y1,x2,y2] [--reason TEXT] [--page N]");
-                process::exit(0);
-            }
-            other => { eprintln!("Unknown argument: {other}"); process::exit(1); }
+            other => { eprintln!("Unknown option: {other}"); usage(); process::exit(1); }
         }
         i += 1;
     }
+
+    // Validate anchor-tag constraints
+    if a.anchor_tag.is_some() && (a.anchor_width.is_none() || a.anchor_height.is_none()) {
+        eprintln!("Error: --tag requires both --width and --height");
+        process::exit(1);
+    }
+
     a
 }
 
@@ -115,83 +255,120 @@ fn parse_args() -> Args {
 fn main() {
     let args = parse_args();
 
+    let format_label = match args.format {
+        SignatureFormat::Pkcs7 => "PKCS7".to_string(),
+        SignatureFormat::PAdES => format!("PAdES {}", match args.pades_level {
+            PadesLevel::B_B  => "B-B",
+            PadesLevel::B_T  => "B-T",
+            PadesLevel::B_LT => "B-LT",
+            PadesLevel::B_LTA=> "B-LTA",
+        }),
+    };
+
     println!("══════════════════════════════════════════════════════");
     println!("  rust-pdfbox  ·  Digital Signature Example");
     println!("══════════════════════════════════════════════════════");
 
-    // ── 1. Load input PDF ─────────────────────────────────────────────────
+    // ── 1. Load input PDF ──
     let pdf_bytes = fs::read(&args.input).unwrap_or_else(|e| {
-        eprintln!("Cannot read input PDF {:?}: {e}", args.input);
-        process::exit(1);
+        eprintln!("Cannot read input PDF {:?}: {e}", args.input); process::exit(1);
     });
-    println!("  Input  : {:?}  ({} bytes)", args.input, pdf_bytes.len());
+    println!("  Input    : {:?}  ({} bytes)", args.input, pdf_bytes.len());
 
-    // ── 2. Parse the document info ────────────────────────────────────────
     let doc = rust_pdfbox::Document::load_from_bytes(&pdf_bytes).unwrap_or_else(|e| {
-        eprintln!("Failed to parse PDF: {e}");
-        process::exit(1);
+        eprintln!("Failed to parse PDF: {e}"); process::exit(1);
     });
-    println!("  Pages  : {}", doc.page_count());
-    println!("  Version: {} bytes source", doc.source_len());
+    println!("  Pages    : {}", doc.page_count());
 
-    // ── 3. Load certificate chain ─────────────────────────────────────────
-    let cert_chain_pem = fs::read_to_string(&args.cert).unwrap_or_else(|e| {
-        eprintln!("Cannot read cert {:?}: {e}", args.cert);
-        process::exit(1);
+    // ── 2. Load cert chain ──
+    let cert_pem = fs::read_to_string(&args.cert).unwrap_or_else(|e| {
+        eprintln!("Cannot read cert {:?}: {e}", args.cert); process::exit(1);
     });
-    // Quick count of certs for display
-    let cert_count = cert_chain_pem.matches("-----BEGIN CERTIFICATE-----").count();
+    let cert_count = cert_pem.matches("-----BEGIN CERTIFICATE-----").count();
     if cert_count == 0 {
-        eprintln!("No certificates found in {:?}", args.cert);
-        process::exit(1);
+        eprintln!("No certificates found in {:?}", args.cert); process::exit(1);
     }
-    println!("  Certs  : {} certificate(s) loaded", cert_count);
+    println!("  Certs    : {cert_count} certificate(s)");
 
-    // ── 4. Load private key ───────────────────────────────────────────────
+    // ── 3. Load private key ──
     let key_pem = fs::read_to_string(&args.key).unwrap_or_else(|e| {
-        eprintln!("Cannot read key {:?}: {e}", args.key);
-        process::exit(1);
+        eprintln!("Cannot read key {:?}: {e}", args.key); process::exit(1);
     });
-    println!("  Key    : {:?}", args.key);
+    println!("  Key      : {:?}", args.key);
 
-    // ── 5. Build signature options ────────────────────────────────────────
+    // ── 4. Build SignOptions ──
+    // Resolve CRL / OCSP defaults per format (mirrors rust_pdf_signing defaults)
+    let include_crl = args.include_crl.unwrap_or(matches!(args.format, SignatureFormat::Pkcs7));
+    let include_dss = args.include_dss
+        || matches!(args.pades_level, PadesLevel::B_LT | PadesLevel::B_LTA);
+
     let opts = SignOptions {
-        page:         args.page,
-        rect:         args.rect,
-        reason:       args.reason.clone(),
-        contact_info: args.contact.clone(),
-        location:     "rust-pdfbox".into(),
-        reserved_size: 16_384,
-        field_name:   "Signature1".into(),
-        ..Default::default()
+        format:        args.format.clone(),
+        pades_level:   args.pades_level.clone(),
+        timestamp_url: args.tsa_url.clone(),
+        include_crl,
+        include_ocsp:  args.include_ocsp,
+        include_dss,
+        page:          args.page,
+        rect:          args.rect,
+        visible_signature: args.visible,
+        anchor_tag:    args.anchor_tag.clone(),
+        anchor_width:  args.anchor_width,
+        anchor_height: args.anchor_height,
+        anchor_mode:   args.anchor_mode.clone(),
+        signer_name:   args.signer_name.clone(),
+        contact_info:  args.contact.clone(),
+        reason:        args.reason.clone(),
+        location:      args.location.clone(),
+        reserved_size: args.reserved_size,
+        field_name:    args.field_name.clone(),
     };
 
-    println!("  Reason : {}", opts.reason);
-    println!("  Page   : {}", opts.page);
-    match opts.rect {
-        Some(r) => println!("  Rect   : [{} {} {} {}] (visible)", r[0], r[1], r[2], r[3]),
-        None    => println!("  Rect   : invisible (no annotation)"),
+    // ── 5. Print summary ──
+    println!("  Format   : {format_label}");
+    println!("  Page     : {}", opts.page);
+    if opts.visible_signature {
+        match opts.rect {
+            Some(r) => println!("  Rect     : [{} {} {} {}]", r[0], r[1], r[2], r[3]),
+            None    => println!("  Rect     : default"),
+        }
+        if let Some(ref tag) = opts.anchor_tag {
+            println!("  Anchor   : tag={tag:?} w={:?} h={:?} mode={:?}",
+                opts.anchor_width, opts.anchor_height, opts.anchor_mode);
+        }
+    } else {
+        println!("  Visible  : false (invisible signature)");
     }
+    if !opts.reason.is_empty()       { println!("  Reason   : {}", opts.reason); }
+    if !opts.signer_name.is_empty()  { println!("  Name     : {}", opts.signer_name); }
+    if !opts.contact_info.is_empty() { println!("  Contact  : {}", opts.contact_info); }
+    if !opts.location.is_empty()     { println!("  Location : {}", opts.location); }
+    match &opts.timestamp_url {
+        Some(u) => println!("  TSA      : {u}"),
+        None    => println!("  TSA      : disabled"),
+    }
+    println!("  CRL      : {}", opts.include_crl);
+    println!("  OCSP     : {}", opts.include_ocsp);
+    println!("  DSS      : {}", opts.include_dss);
+    println!("  Reserved : {} bytes", opts.reserved_size);
     println!();
 
-    // ── 6. Sign ───────────────────────────────────────────────────────────
+    // ── 6. Sign ──
     println!("  Signing …");
-    let signed = sign_pdf(&pdf_bytes, &cert_chain_pem, &key_pem, &opts)
+    let signed = sign_pdf(&pdf_bytes, &cert_pem, &key_pem, &opts)
         .unwrap_or_else(|e| {
-            eprintln!("Signing failed: {e}");
-            process::exit(1);
+            eprintln!("Signing failed: {e}"); process::exit(1);
         });
     println!("  ✅ Signed PDF: {} bytes", signed.len());
 
-    // ── 7. Write output ───────────────────────────────────────────────────
+    // ── 7. Write output ──
     fs::write(&args.output, &signed).unwrap_or_else(|e| {
-        eprintln!("Cannot write {:?}: {e}", args.output);
-        process::exit(1);
+        eprintln!("Cannot write {:?}: {e}", args.output); process::exit(1);
     });
-    println!("  Output : {:?}", args.output);
+    println!("  Output   : {:?}", args.output);
     println!();
 
-    // ── 8. Verify the freshly-signed PDF ─────────────────────────────────
+    // ── 8. Verify ──
     println!("  Verifying …");
     match verify_pdf(&signed) {
         Ok(results) if results.is_empty() => {
@@ -199,8 +376,8 @@ fn main() {
         }
         Ok(results) => {
             for (i, r) in results.iter().enumerate() {
-                let valid_icon = if r.is_valid() { "✅" } else { "❌" };
-                println!("  Signature [{}] {}: field='{}'", i + 1, valid_icon, r.field_name);
+                let icon = if r.is_valid() { "✅" } else { "❌" };
+                println!("  Signature [{}] {}: field='{}'", i + 1, icon, r.field_name);
                 println!("    Status         : {}", r.status);
                 println!("    Filter         : {}", r.filter.as_deref().unwrap_or("-"));
                 println!("    SubFilter      : {}", r.sub_filter.as_deref().unwrap_or("-"));
@@ -215,19 +392,19 @@ fn main() {
                 println!("    Has timestamp  : {}", r.has_timestamp);
                 println!("    Has DSS        : {}", r.has_dss);
                 println!("    LTV enabled    : {}", r.is_ltv_enabled);
-                for warn in &r.chain_warnings {
-                    println!("    ⚠  Chain warn  : {warn}");
+                for w in &r.chain_warnings {
+                    println!("    ⚠  Chain       : {w}");
                 }
                 println!("    Certificates   : {}", r.certificates.len());
                 for (ci, cert) in r.certificates.iter().enumerate() {
-                    println!("      [{}] Subject  : {}", ci, cert.subject);
-                    println!("          Issuer   : {}", cert.issuer);
-                    println!("          Serial   : {}", cert.serial);
-                    println!("          Valid    : {} → {}",
+                    println!("      [{ci}] Subject  : {}", cert.subject);
+                    println!("           Issuer   : {}", cert.issuer);
+                    println!("           Serial   : {}", cert.serial);
+                    println!("           Valid    : {} → {}",
                         cert.not_before.as_deref().unwrap_or("?"),
                         cert.not_after.as_deref().unwrap_or("?"));
-                    if cert.is_self_signed { println!("          ⚠  Self-signed"); }
-                    if cert.is_expired     { println!("          ❌ Expired"); }
+                    if cert.is_self_signed { println!("           ⚠  Self-signed"); }
+                    if cert.is_expired     { println!("           ❌ Expired"); }
                 }
                 for err in &r.errors {
                     println!("    ❌ Error       : {err}");
@@ -242,10 +419,7 @@ fn main() {
                 process::exit(2);
             }
         }
-        Err(e) => {
-            eprintln!("  Verification error: {e}");
-            process::exit(2);
-        }
+        Err(e) => { eprintln!("  Verification error: {e}"); process::exit(2); }
     }
     println!("══════════════════════════════════════════════════════");
 }

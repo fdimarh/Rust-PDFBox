@@ -84,64 +84,131 @@ pub enum PadesLevel {
     B_LTA,
 }
 
+/// Placement mode for anchor-tag-based visible signature positioning.
+/// Mirrors `SignatureAnchorMode` in rust_pdf_signing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SignatureAnchorMode {
+    /// Place the visible signature directly on top of the matched tag text.
+    Overlay,
+    /// Place the visible signature to the right / in front of the matched tag text.
+    InFront,
+}
+
+impl Default for SignatureAnchorMode {
+    fn default() -> Self { Self::InFront }
+}
+
 /// Controls how and where the signature is placed.
 ///
 /// Mirrors `SignatureOptions` in rust_pdf_signing / Java PDFBox `SignatureOptions`.
 #[derive(Debug, Clone)]
 pub struct SignOptions {
+    // ── Cryptographic format ──────────────────────────────────────────────
     /// Signature format: PKCS7 (Adobe legacy) or PAdES (ETSI).
     /// Default: `Pkcs7`.
     pub format: SignatureFormat,
+
     /// PAdES conformance level. Only used when `format == PAdES`.
-    /// Default: `B_B`.
+    ///
+    /// | Level | Description                                     |
+    /// |-------|-------------------------------------------------|
+    /// | `B_B` | Basic: ESS-signingCertV2 only, no timestamp     |
+    /// | `B_T` | Timestamp: B-B + RFC 3161 TSA token             |
+    /// | `B_LT`| Long-Term: B-T + DSS dict (CRL/OCSP/Certs)     |
+    /// | `B_LTA`| Archival: B-LT + document-level timestamp      |
     pub pades_level: PadesLevel,
-    /// RFC 3161 timestamp authority URL (e.g. `http://timestamp.digicert.com`).
-    /// Required for PAdES B-T/B-LT/B-LTA. Optional for PKCS7 LTV.
+
+    /// RFC 3161 timestamp authority URL.
+    /// Required for PAdES B-T / B-LT / B-LTA.
+    /// Optional for PKCS7 LTV (`http://timestamp.digicert.com` by default for PKCS7).
     pub timestamp_url: Option<String>,
-    /// Include CRL data in the CMS signed attributes
-    /// (`adbe-revocationInfoArchival`). Used for PKCS7 LTV and PAdES B-LT.
+
+    /// Include CRL data in CMS signed attributes (`adbe-revocationInfoArchival`).
+    /// Default: `true` for PKCS7 (matches Adobe LTV expectation), `false` for PAdES B-B/B-T.
     pub include_crl: bool,
-    /// Include OCSP data in the CMS signed attributes. Used for PKCS7 LTV
-    /// and PAdES B-LT.
+
+    /// Include OCSP response in CMS signed attributes.
+    /// Default: `false`.
     pub include_ocsp: bool,
+
     /// Append a DSS (Document Security Store) dictionary after signing.
     /// Automatically `true` for PAdES B-LT / B-LTA.
     pub include_dss: bool,
-    /// 1-based page number where the signature widget lives (default: 1).
+
+    // ── Placement ─────────────────────────────────────────────────────────
+    /// 1-based page number where the signature widget lives.  Default: `1`.
     pub page: u32,
-    /// Visible signature rectangle `[x1 y1 x2 y2]` in page user-space units.
+
+    /// Visible signature rectangle `[x1 y1 x2 y2]` in page user-space points.
     /// `None` → invisible signature (no appearance stream).
     pub rect: Option<[f64; 4]>,
-    /// Signing reason (e.g. "I approve this document").
-    pub reason: String,
-    /// Signer contact information (e.g. email address).
+
+    /// When `false`, an invisible (cryptography-only) signature is created
+    /// even if `rect` is set. Default: `true` (visible when `rect` is set).
+    pub visible_signature: bool,
+
+    // ── Anchor-tag placement ──────────────────────────────────────────────
+    /// Optional text marker on the page to which the visible signature is anchored.
+    /// When set, the engine searches for this text and derives a placement rectangle
+    /// from `anchor_width` / `anchor_height`.  Returns an error if not found.
+    pub anchor_tag: Option<String>,
+
+    /// Width of the signature rectangle when `anchor_tag` is used.
+    pub anchor_width: Option<f64>,
+
+    /// Height of the signature rectangle when `anchor_tag` is used.
+    pub anchor_height: Option<f64>,
+
+    /// Whether the visible signature is placed on top of (`Overlay`) or to the
+    /// right of (`InFront`) the anchor tag text. Default: `InFront`.
+    pub anchor_mode: SignatureAnchorMode,
+
+    // ── Signer metadata ───────────────────────────────────────────────────
+    /// Signer display name (written to `/Name` in the sig dictionary).
+    pub signer_name: String,
+
+    /// Signer e-mail address (written to `/ContactInfo`).
     pub contact_info: String,
-    /// Signer location string.
+
+    /// Signing reason (written to `/Reason`).
+    pub reason: String,
+
+    /// Signing location (written to `/Location`).
     pub location: String,
-    /// Number of bytes to reserve for the `/Contents` CMS blob.
-    /// Must be large enough for the DER-encoded CMS + hex overhead.
-    /// Default: 16 384 bytes (enough for a 2-cert RSA-2048 chain).
+
+    // ── Technical ─────────────────────────────────────────────────────────
+    /// Number of bytes to reserve for the `/Contents` CMS blob (hex-encoded).
+    /// Increase if signing fails with "CMS blob exceeds reserved_size".
+    /// Default: 32 768 (comfortable for 3-cert RSA-2048 chain + timestamp).
     pub reserved_size: usize,
-    /// Signature field name.
+
+    /// `/AcroForm` field name for the signature widget. Default: `"Signature1"`.
     pub field_name: String,
 }
 
 impl Default for SignOptions {
     fn default() -> Self {
         Self {
-            format: SignatureFormat::Pkcs7,
-            pades_level: PadesLevel::B_B,
-            timestamp_url: None,
-            include_crl: false,
-            include_ocsp: false,
-            include_dss: false,
-            page: 1,
-            rect: None,
-            reason: "Digital Signature".into(),
-            contact_info: String::new(),
-            location: String::new(),
-            reserved_size: 16_384,
-            field_name: "Signature1".into(),
+            format:        SignatureFormat::Pkcs7,
+            pades_level:   PadesLevel::B_B,
+            // DigiCert free TSA — used for PKCS7 LTV and PAdES B-T+
+            timestamp_url: Some("http://timestamp.digicert.com".into()),
+            include_crl:   true,   // Adobe LTV default for PKCS7
+            include_ocsp:  false,
+            include_dss:   false,
+            page:          1,
+            rect:          None,
+            visible_signature: true,
+            anchor_tag:    None,
+            anchor_width:  None,
+            anchor_height: None,
+            anchor_mode:   SignatureAnchorMode::InFront,
+            signer_name:   String::new(),
+            contact_info:  String::new(),
+            reason:        "Digital Signature".into(),
+            location:      String::new(),
+            reserved_size: 32_768,
+            field_name:    "Signature1".into(),
         }
     }
 }
@@ -286,9 +353,14 @@ pub fn sign_pdf(
     sig_dict.set(CosName::new(b"Filter"),         CosObject::Name(CosName::new(b"Adobe.PPKLite")));
     sig_dict.set(CosName::new(b"SubFilter"),      CosObject::Name(CosName::new(sub_filter_bytes)));
     sig_dict.set(CosName::new(b"Reason"),         CosObject::String(opts.reason.as_bytes().to_vec()));
-    sig_dict.set(CosName::new(b"ContactInfo"),    CosObject::String(opts.contact_info.as_bytes().to_vec()));
     sig_dict.set(CosName::new(b"Location"),       CosObject::String(opts.location.as_bytes().to_vec()));
     sig_dict.set(CosName::new(b"M"),              CosObject::String(date_str.into_bytes()));
+    if !opts.contact_info.is_empty() {
+        sig_dict.set(CosName::new(b"ContactInfo"), CosObject::String(opts.contact_info.as_bytes().to_vec()));
+    }
+    if !opts.signer_name.is_empty() {
+        sig_dict.set(CosName::new(b"Name"), CosObject::String(opts.signer_name.as_bytes().to_vec()));
+    }
     // ByteRange placeholder — use a large literal placeholder string embedded
     // as a HexString so the serializer writes it as-is with exact width.
     // We write a special marker that the search can find and patch in-place.
@@ -332,7 +404,9 @@ pub fn sign_pdf(
     widget_dict.set(CosName::new(b"T"),             CosObject::String(opts.field_name.as_bytes().to_vec()));
     widget_dict.set(CosName::new(b"V"),             CosObject::Reference(sig_id));
     widget_dict.set(CosName::new(b"F"),             CosObject::Integer(4)); // Print flag
-    let rect_arr = match opts.rect {
+    // Use [0 0 0 0] when invisible_signature is false or no rect given
+    let effective_rect = if opts.visible_signature { opts.rect } else { None };
+    let rect_arr = match effective_rect {
         Some([x1, y1, x2, y2]) => vec![
             CosObject::Real(x1), CosObject::Real(y1),
             CosObject::Real(x2), CosObject::Real(y2),
