@@ -126,6 +126,7 @@ struct Args {
     include_ocsp:  bool,
     reserved_size: usize,
     field_name:    String,
+    image_path:    Option<PathBuf>,
 }
 
 impl Default for Args {
@@ -154,6 +155,7 @@ impl Default for Args {
             include_ocsp:  false,
             reserved_size: 32_768,
             field_name:    "Signature1".into(),
+            image_path:    None,
         }
     }
 }
@@ -193,6 +195,7 @@ fn parse_args() -> Args {
             "--invisible"      => { a.visible = false; }
             "--field"          => { i += 1; a.field_name = cli[i].clone(); }
             "--reserved"       => { i += 1; a.reserved_size = cli[i].parse().unwrap_or(32_768); }
+            "--image"          => { i += 1; a.image_path = Some(PathBuf::from(&cli[i])); }
             "--tag"            => { i += 1; a.anchor_tag    = Some(cli[i].clone()); a.visible = true; }
             "--width"          => { i += 1; a.anchor_width  = cli[i].parse().ok(); }
             "--height"         => { i += 1; a.anchor_height = cli[i].parse().ok(); }
@@ -322,6 +325,7 @@ fn main() {
         location:      args.location.clone(),
         reserved_size: args.reserved_size,
         field_name:    args.field_name.clone(),
+        image_path:    args.image_path.clone(),
     };
 
     // ── 5. Print summary ──

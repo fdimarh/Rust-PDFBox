@@ -40,6 +40,8 @@ cryptographic-message-syntax = "0.28.0"
 x509-certificate = "0.25.0"
 bcder = "0.7.6"
 
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
 [[example]]
 name = "read_info"
 path = "examples/read_info.rs"

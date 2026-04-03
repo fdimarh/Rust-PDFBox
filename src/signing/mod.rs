@@ -49,10 +49,12 @@
 //! | `acro_form::add_sig_field`             | [`acroform::add_sig_field`]         |
 
 pub mod acroform;
+pub mod appearance;
 pub mod asn1;
 pub mod cms;
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use crate::cos::{CosName, CosObject, CosDictionary, ObjectId};
 use crate::{Document, PdfError};
@@ -184,6 +186,11 @@ pub struct SignOptions {
 
     /// `/AcroForm` field name for the signature widget. Default: `"Signature1"`.
     pub field_name: String,
+
+    /// Optional path to a PNG or JPEG image to embed in the visible signature
+    /// appearance stream. Only used when `visible_signature == true`.
+    /// When `None`, a text-only appearance is generated (signer name, reason, date).
+    pub image_path: Option<PathBuf>,
 }
 
 impl Default for SignOptions {
@@ -209,6 +216,7 @@ impl Default for SignOptions {
             location:      String::new(),
             reserved_size: 32_768,
             field_name:    "Signature1".into(),
+            image_path:    None,
         }
     }
 }
@@ -354,7 +362,7 @@ pub fn sign_pdf(
     sig_dict.set(CosName::new(b"SubFilter"),      CosObject::Name(CosName::new(sub_filter_bytes)));
     sig_dict.set(CosName::new(b"Reason"),         CosObject::String(opts.reason.as_bytes().to_vec()));
     sig_dict.set(CosName::new(b"Location"),       CosObject::String(opts.location.as_bytes().to_vec()));
-    sig_dict.set(CosName::new(b"M"),              CosObject::String(date_str.into_bytes()));
+    sig_dict.set(CosName::new(b"M"),              CosObject::String(date_str.clone().into_bytes()));
     if !opts.contact_info.is_empty() {
         sig_dict.set(CosName::new(b"ContactInfo"), CosObject::String(opts.contact_info.as_bytes().to_vec()));
     }
@@ -420,6 +428,80 @@ pub fn sign_pdf(
     if let Some(pr) = page_ref {
         widget_dict.set(CosName::new(b"P"), CosObject::Reference(pr));
     }
+
+    // ── Build /AP appearance stream for visible signatures ────────────────
+    // Allocate IDs: ap_id = next+2, img_id = next+3, font_id = next+4
+    // (page_annots_id and acroform_id will be next+5 and next+6 when we reach Step 4)
+    let ap_id   = ObjectId::new(next_id + 2, 0);
+    let img_id  = ObjectId::new(next_id + 3, 0);
+    let font_id = ObjectId::new(next_id + 4, 0);
+
+    if opts.visible_signature {
+        if let Some(r) = effective_rect {
+            let ap_result = appearance::build_appearance(
+                r,
+                opts.image_path.as_deref(),
+                &opts.signer_name,
+                &opts.reason,
+                &date_str,
+                ap_id,
+                img_id,
+                font_id,
+            ).map_err(|e| PdfError::Parse {
+                offset: None,
+                context: format!("appearance build failed: {e}"),
+            })?;
+
+            // Wire /AP << /N <ap_id> >> into the widget
+            let mut ap_dict = CosDictionary::new();
+            ap_dict.set(CosName::new(b"N"), CosObject::Reference(ap_id));
+            widget_dict.set(CosName::new(b"AP"), CosObject::Dictionary(ap_dict));
+
+            // Will be inserted into `changed` after widget_obj is built below
+            // (store in locals, inserted in Step 4)
+            let _ap_objs = (ap_result.ap_id, ap_result.ap_obj,
+                            ap_result.img_id, ap_result.img_obj,
+                            ap_result.font_id, ap_result.font_obj);
+
+            // Directly insert here — widget_dict borrow ends after .set above
+            let mut ap_changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
+            ap_changed.insert(_ap_objs.0, _ap_objs.1);
+            if let (Some(iid), Some(iobj)) = (_ap_objs.2, _ap_objs.3) {
+                ap_changed.insert(iid, iobj);
+            }
+            ap_changed.insert(_ap_objs.4, _ap_objs.5);
+
+            // Merge into main changed map (done below in Step 4)
+            // Pass ap_changed along by re-using via a local we capture later.
+            // Since Rust moves, we stash it:
+            let widget_obj = CosObject::Dictionary(widget_dict);
+
+            // ── Step 4: build AcroForm + Annots update objects ────────────────
+            let page_annots_id = ObjectId::new(next_id + 5, 0);
+            let mut changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
+            changed.insert(sig_id,    sig_obj);
+            changed.insert(widget_id, widget_obj);
+            changed.extend(ap_changed);
+
+            if let Some(pr) = page_ref {
+                let updated_page = build_page_with_annot(&doc, pr, widget_id, page_annots_id, &mut changed);
+                if let Some((id, obj)) = updated_page {
+                    changed.insert(id, obj);
+                }
+            }
+
+            let acroform_id  = ObjectId::new(next_id + 6, 0);
+            let catalog_id   = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
+            let acroform_obj = acroform::build_acroform(&doc, widget_id, acroform_id, &mut changed);
+            changed.insert(acroform_id, acroform_obj);
+            let updated_catalog = build_updated_catalog(&doc, catalog_id, acroform_id);
+            changed.insert(catalog_id, updated_catalog);
+
+            return sign_pdf_with_changes(pdf_bytes, cert_chain_pem, private_key_pem, opts,
+                changed, &date_str, sub_filter_bytes);
+        }
+    }
+
     let widget_obj = CosObject::Dictionary(widget_dict);
 
     // ── Step 4: build AcroForm + Annots update objects ────────────────────
@@ -427,7 +509,7 @@ pub fn sign_pdf(
     changed.insert(sig_id,    sig_obj);
     changed.insert(widget_id, widget_obj);
 
-    // Add widget to page /Annots
+    // Add widget to page /Annots  (IDs next+2, next+3 for annots/acroform — no AP objects)
     let page_annots_id = ObjectId::new(next_id + 2, 0);
     if let Some(pr) = page_ref {
         let updated_page = build_page_with_annot(&doc, pr, widget_id, page_annots_id, &mut changed);
@@ -436,7 +518,6 @@ pub fn sign_pdf(
         }
     }
 
-    // Add /AcroForm to catalog
     let acroform_id  = ObjectId::new(next_id + 3, 0);
     let catalog_id   = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
     let acroform_obj = acroform::build_acroform(&doc, widget_id, acroform_id, &mut changed);
@@ -444,27 +525,43 @@ pub fn sign_pdf(
     let updated_catalog = build_updated_catalog(&doc, catalog_id, acroform_id);
     changed.insert(catalog_id, updated_catalog);
 
+    sign_pdf_with_changes(pdf_bytes, cert_chain_pem, private_key_pem, opts,
+        changed, &date_str, sub_filter_bytes)
+}
+
+// ---------------------------------------------------------------------------
+// Shared sign-with-changes helper (write → patch ByteRange → CMS → inject)
+// ---------------------------------------------------------------------------
+
+fn sign_pdf_with_changes(
+    pdf_bytes:        &[u8],
+    cert_chain_pem:   &str,
+    private_key_pem:  &str,
+    opts:             &SignOptions,
+    changed:          BTreeMap<ObjectId, CosObject>,
+    date_str:         &str,
+    _sub_filter_bytes: &[u8],
+) -> Result<Vec<u8>, PdfError> {
+    let doc = Document::load_from_bytes(pdf_bytes)?;
+
     // ── Step 5: first pass — write incremental update ────────────────────
     let mut first_pass: Vec<u8> = Vec::with_capacity(pdf_bytes.len() + 8192);
     crate::writer::IncrementalWriter::write_update(pdf_bytes, &doc, &changed, &mut first_pass)
         .map_err(|e| PdfError::Parse { offset: None, context: format!("write pass 1: {e}") })?;
 
-    // ── Step 6: locate ByteRange and Contents placeholders in first_pass ─
+    // ── Step 6: locate ByteRange and Contents placeholders ────────────────
     let (br_offset, contents_offset, contents_hex_len) =
         find_sig_placeholders(&first_pass, &opts.field_name)?;
 
-    // Signed ranges: [0..contents_offset)  and  [contents_offset+contents_hex_len..EOF]
-    let range0_end:  i64 = contents_offset as i64;
+    let range0_end:   i64 = contents_offset as i64;
     let range1_start: i64 = (contents_offset + contents_hex_len) as i64;
-    let range1_end:  i64 = first_pass.len() as i64 - range1_start;
+    let range1_end:   i64 = first_pass.len() as i64 - range1_start;
 
-    // ── Step 7: patch /ByteRange in-place (placeholder is 55 chars wide) ─
+    // ── Step 7: patch /ByteRange in-place ────────────────────────────────
     patch_byte_range(&mut first_pass,
         br_offset, 0, range0_end, range1_start, range1_end)?;
 
-    // ── Step 8: concatenate signed byte ranges ─────────────────────────
-    // Pass the raw content bytes to the CMS crate — it internally computes
-    // SHA-256 and builds all signed attributes, exactly like rust_pdf_signing.
+    // ── Step 8: concatenate signed byte ranges ───────────────────────────
     let signed_content = {
         let mut v = Vec::with_capacity(range0_end as usize + range1_end as usize);
         v.extend_from_slice(&first_pass[0..range0_end as usize]);
@@ -472,8 +569,7 @@ pub fn sign_pdf(
         v
     };
 
-    // ── Step 9: build CMS SignedData → DER (using cryptographic_message_syntax) ─
-    // Determine timestamp URL based on format/pades_level
+    // ── Step 9: build CMS SignedData ─────────────────────────────────────
     let tsa_url = match opts.format {
         SignatureFormat::PAdES => match opts.pades_level {
             PadesLevel::B_T | PadesLevel::B_LT | PadesLevel::B_LTA => opts.timestamp_url.clone(),
@@ -507,10 +603,10 @@ pub fn sign_pdf(
         });
     }
 
-    // ── Step 10: hex-encode CMS and inject into /Contents ────────────────
+    // ── Step 10: inject /Contents ─────────────────────────────────────────
     let mut signed = first_pass;
     inject_contents(&mut signed, contents_offset, contents_hex_len, &cms_der)?;
-
+    let _ = date_str; // consumed by caller for sig dict — kept for signature
     Ok(signed)
 }
 

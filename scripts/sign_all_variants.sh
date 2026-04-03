@@ -332,6 +332,96 @@ run "54_pades_blta_tsa_full_metadata" \
   --crl --ocsp \
   --reason "PAdES B-LTA + TSA full metadata CRL+OCSP"
 
+# ════════════════════════════════════════════════════════
+# VISIBLE SIGNATURE WITH IMAGE — tests/signing_assets/sig1.png
+# All appearance variants: text-only + image
+# ════════════════════════════════════════════════════════
+IMG="tests/signing_assets/sig1.png"
+
+# ── Text-only visible ─────────────────────────────────────────────────────
+
+run "55_visible_text_only_pkcs7" \
+  -f pkcs7 --no-tsa \
+  --rect "30,680,280,740" \
+  --name "Alice Dupont" \
+  --reason "Text-only visible PKCS7" \
+  --contact "alice@example.com" \
+  --location "Paris"
+
+run "56_visible_text_only_pades_bb" \
+  -f pades -l b-b --no-tsa \
+  --rect "30,680,280,740" \
+  --name "Bob Mueller" \
+  --reason "Text-only visible PAdES B-B" \
+  --location "Berlin"
+
+run "57_visible_text_only_pades_bt" \
+  -f pades -l b-t \
+  --tsa "$TSA" \
+  --rect "30,680,280,740" \
+  --name "Carol Smith" \
+  --reason "Text-only visible PAdES B-T" \
+  --location "London"
+
+# ── Image + text visible ──────────────────────────────────────────────────
+
+run "58_visible_image_pkcs7" \
+  -f pkcs7 --no-tsa \
+  --rect "30,680,280,740" \
+  --name "Alice Dupont" \
+  --reason "Image visible PKCS7" \
+  --contact "alice@example.com" \
+  --location "Paris" \
+  --image "$IMG"
+
+run "59_visible_image_pkcs7_tsa" \
+  -f pkcs7 --tsa "$TSA" \
+  --rect "30,680,280,740" \
+  --name "Alice TSA" \
+  --reason "Image visible PKCS7+TSA" \
+  --contact "alice@example.com" \
+  --image "$IMG"
+
+run "60_visible_image_pades_bb" \
+  -f pades -l b-b --no-tsa \
+  --rect "30,680,280,740" \
+  --name "Bob PAdES" \
+  --reason "Image visible PAdES B-B" \
+  --image "$IMG"
+
+run "61_visible_image_pades_bt" \
+  -f pades -l b-t \
+  --tsa "$TSA" \
+  --rect "30,680,280,740" \
+  --name "Carol PAdES B-T" \
+  --reason "Image visible PAdES B-T" \
+  --image "$IMG"
+
+run "62_visible_image_pades_blt" \
+  -f pades -l b-lt \
+  --tsa "$TSA" \
+  --rect "30,680,280,740" \
+  --name "Dave PAdES B-LT" \
+  --reason "Image visible PAdES B-LT" \
+  --crl --dss \
+  --image "$IMG"
+
+run "63_visible_image_pades_blta" \
+  -f pades -l b-lta \
+  --tsa "$TSA" \
+  --rect "30,680,280,740" \
+  --name "Eve PAdES B-LTA" \
+  --reason "Image visible PAdES B-LTA" \
+  --crl --ocsp \
+  --image "$IMG"
+
+run "64_visible_image_large_rect" \
+  -f pkcs7 --no-tsa \
+  --rect "20,600,300,760" \
+  --name "Full-height Image Test" \
+  --reason "Large rectangle image appearance" \
+  --image "$IMG"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 printf '\n\n════════════════════════════════════════════════════════\n'
 printf '  SUMMARY\n'
