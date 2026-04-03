@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 OUT="signed_outputs"
-BIN="./target/debug/examples/digital_sign"
+BIN="./target/release/examples/digital_sign"
 IN="tests/signing_assets/sample.pdf"
 CERT="tests/signing_assets/ca-chain.pem"
 KEY="tests/signing_assets/user-key.pem"

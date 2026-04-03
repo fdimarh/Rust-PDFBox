@@ -131,12 +131,15 @@ pub fn build_cms_signed_data_with_opts(
         42, 134, 72, 134, 247, 13, 1, 9, 16, 2, 47,
     ]));
     let cert_hash = {
-        // Use encode_ber() — certs loaded from PEM are captured in BER mode;
-        // encode_der() on a BER-captured cert panics in bcder 0.7.x.
-        let cert_der = signer_cert.encode_ber()
+        // Use encode_der() to match rust_pdf_signing reference behaviour.
+        // The signingCertificateV2 hash MUST be over the canonical DER form
+        // of the certificate (same bytes that appear in the CMS certificates field).
+        // Fall back to encode_ber() only for certs that cannot be re-encoded as DER.
+        let cert_der = signer_cert.encode_der()
+            .or_else(|_| signer_cert.encode_ber())
             .map_err(|e| PdfError::Parse {
                 offset: None,
-                context: format!("signer cert BER encode error: {e}"),
+                context: format!("signer cert encode error: {e}"),
             })?;
         Sha256::digest(&cert_der).to_vec()
     };

@@ -347,7 +347,10 @@ pub fn sign_pdf(
     let widget_id   = ObjectId::new(next_id + 1, 0);
 
     // ── Step 2: build /Sig dictionary ────────────────────────────────────
-    let now = chrono::Local::now();
+    // Use UTC so that the /M date string agrees with the signingTime attribute
+    // inside the CMS blob (which is also UTC). Using Local time with +00'00'
+    // would produce a mismatch that Adobe flags as "signed in future".
+    let now = chrono::Utc::now();
     let date_str = now.format("D:%Y%m%d%H%M%S+00'00'").to_string();
 
     // Determine SubFilter based on format

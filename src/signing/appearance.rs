@@ -6,14 +6,22 @@
 //! ## Layout (mirrors Java PDFBox `PDVisibleSignDesigner`)
 //!
 //! ```text
+//! Image mode (image_path is Some):
 //! ┌───────────────────────────────────────┐
-//! │  [PNG/JPEG image — if supplied]       │
+//! │  PNG/JPEG image — fills entire bbox   │
+//! └───────────────────────────────────────┘
+//!
+//! Text-only mode (image_path is None):
+//! ┌───────────────────────────────────────┐
 //! │  Signer: <name>                       │
 //! │  Date:   <M value>                    │
 //! │  Reason: <reason>                     │
 //! └───────────────────────────────────────┘
 //! ```
 //!
+//! When an image is provided the text layer is suppressed entirely so that
+//! viewers show only the image (matching the behaviour of Adobe Acrobat and
+//! Java PDFBox when a custom appearance image is supplied).
 //! When no image is provided the full rectangle is filled with the text
 //! block only (matching what most PDF viewers display for a text-only
 //! signature appearance).
@@ -116,71 +124,65 @@ pub fn build_appearance(
         None => None,
     };
 
-    // Helper — escape parentheses in PDF literal strings
-    let esc = |s: &str| s.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
-
-    // ── Text lines to render ───────────────────────────────────────────
-    let mut lines: Vec<String> = Vec::new();
-    if !signer_name.is_empty() {
-        lines.push(format!("Signer: {}", signer_name));
-    }
-    if !reason.is_empty() {
-        lines.push(format!("Reason: {}", esc(reason)));
-    }
-    if !date_str.is_empty() {
-        let readable = if date_str.starts_with("D:") && date_str.len() >= 16 {
-            format!("Date: {}-{}-{} {}:{}:{}",
-                &date_str[2..6], &date_str[6..8], &date_str[8..10],
-                &date_str[10..12], &date_str[12..14], &date_str[14..16])
-        } else {
-            date_str.to_string()
-        };
-        lines.push(format!("Date: {}", readable));
-    }
-    lines.push("Digitally Signed".into());
-
-    // ── Sizing ────────────────────────────────────────────────────────
-    // When image present: top 55% = image, bottom 45% = text.
-    // When text only: full height.
-    let text_area_h = if image_result.is_some() { h * 0.45 } else { h };
-    let font_size   = (text_area_h / (lines.len() as f64 + 1.0) * 0.85)
-        .max(5.0).min(12.0);
-    let line_gap    = font_size * 1.35;
-
     // ── Build content stream ──────────────────────────────────────────
     let mut content = String::new();
 
-    // Paint image (if any)
     if let Some((_, iw, ih)) = &image_result {
-        let img_area_h = h * 0.55;
-        let aspect     = *iw as f64 / *ih as f64;
-        let (fw, fh)   = if w / aspect <= img_area_h {
+        // IMAGE MODE — fill the entire bbox with the image; no text overlay.
+        // Preserve aspect ratio, centre horizontally and pin to bottom.
+        let aspect = *iw as f64 / *ih as f64;
+        let (fw, fh) = if w / aspect <= h {
             (w, w / aspect)
         } else {
-            (img_area_h * aspect, img_area_h)
+            (h * aspect, h)
         };
-        let iy = h - fh; // image placed at top
+        let ix = (w - fw) / 2.0; // centre horizontally
+        let iy = 0.0;             // pin to bottom of bbox
         content.push_str(&format!(
-            "q {fw:.4} 0 0 {fh:.4} 0.0000 {iy:.4} cm /Img Do Q\n"
+            "q {fw:.4} 0 0 {fh:.4} {ix:.4} {iy:.4} cm /Img Do Q\n"
         ));
-    }
+    } else {
+        // TEXT-ONLY MODE — render signer name / reason / date.
+        // Helper — escape parentheses in PDF literal strings
+        let esc = |s: &str| s.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
 
-    // Paint text lines
-    // First line: absolute Td from origin
-    let text_top_y = text_area_h - font_size * 0.8;
-    content.push_str("BT\n");
-    content.push_str(&format!("/F1 {font_size:.4} Tf\n"));
-    content.push_str("0.1 0.1 0.1 rg\n");
-
-    for (i, line) in lines.iter().enumerate() {
-        if i == 0 {
-            content.push_str(&format!("2.0 {text_top_y:.4} Td ({line}) Tj\n"));
-        } else {
-            content.push_str(&format!("0 {neg_gap:.4} Td ({line}) Tj\n",
-                neg_gap = -line_gap));
+        let mut lines: Vec<String> = Vec::new();
+        if !signer_name.is_empty() {
+            lines.push(format!("Signer: {}", signer_name));
         }
+        if !reason.is_empty() {
+            lines.push(format!("Reason: {}", esc(reason)));
+        }
+        if !date_str.is_empty() {
+            let readable = if date_str.starts_with("D:") && date_str.len() >= 16 {
+                format!("Date: {}-{}-{} {}:{}:{}",
+                    &date_str[2..6], &date_str[6..8], &date_str[8..10],
+                    &date_str[10..12], &date_str[12..14], &date_str[14..16])
+            } else {
+                date_str.to_string()
+            };
+            lines.push(format!("Date: {}", readable));
+        }
+        lines.push("Digitally Signed".into());
+
+        let font_size = (h / (lines.len() as f64 + 1.0) * 0.85)
+            .max(5.0).min(12.0);
+        let line_gap  = font_size * 1.35;
+        let text_top_y = h - font_size * 0.8;
+
+        content.push_str("BT\n");
+        content.push_str(&format!("/F1 {font_size:.4} Tf\n"));
+        content.push_str("0.1 0.1 0.1 rg\n");
+        for (i, line) in lines.iter().enumerate() {
+            if i == 0 {
+                content.push_str(&format!("2.0 {text_top_y:.4} Td ({line}) Tj\n"));
+            } else {
+                content.push_str(&format!("0 {neg_gap:.4} Td ({line}) Tj\n",
+                    neg_gap = -line_gap));
+            }
+        }
+        content.push_str("ET\n");
     }
-    content.push_str("ET\n");
 
     let content_bytes = content.into_bytes();
     let content_len   = content_bytes.len();
@@ -195,24 +197,25 @@ pub fn build_appearance(
     ]));
     ap_dict.set(CosName::new(b"Length"),  CosObject::Integer(content_len as i64));
 
-    // /Resources << /Font << /F1 R >> [/XObject << /Img R >>] >>
-    let mut font_res = CosDictionary::new();
-    font_res.set(CosName::new(b"F1"), CosObject::Reference(font_id));
-
+    // /Resources — include Font only in text-only mode; /XObject only when image present.
     let mut res_dict = CosDictionary::new();
-    res_dict.set(CosName::new(b"Font"), CosObject::Dictionary(font_res));
 
     if image_result.is_some() {
         let mut xobj_res = CosDictionary::new();
         xobj_res.set(CosName::new(b"Img"), CosObject::Reference(img_id));
         res_dict.set(CosName::new(b"XObject"), CosObject::Dictionary(xobj_res));
+    } else {
+        let mut font_res = CosDictionary::new();
+        font_res.set(CosName::new(b"F1"), CosObject::Reference(font_id));
+        res_dict.set(CosName::new(b"Font"), CosObject::Dictionary(font_res));
     }
+
     ap_dict.set(CosName::new(b"Resources"), CosObject::Dictionary(res_dict));
 
     let ap_stream = CosStream::new(ap_dict, content_bytes);
     let ap_obj    = CosObject::Stream(ap_stream);
 
-    // ── Helvetica font resource ────────────────────────────────────────
+    // ── Helvetica font resource (used only in text-only mode) ──────────
     let mut font_dict = CosDictionary::new();
     font_dict.set(CosName::type_name(),      CosObject::Name(CosName::new(b"Font")));
     font_dict.set(CosName::new(b"Subtype"),  CosObject::Name(CosName::new(b"Type1")));

@@ -1,0 +1,4019 @@
+
+════════════════════════════════════════════════════════
+▶  [01_pkcs7_invisible]
+   Args: -f pkcs7 --invisible --no-tsa --reason PKCS7 invisible (no timestamp)
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 invisible (no timestamp)
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85285 bytes
+  Output   : "signed_outputs/01_pkcs7_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 invisible (no timestamp)
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19262, 84800, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/01_pkcs7_invisible.pdf  (85285 bytes)
+
+════════════════════════════════════════════════════════
+▶  [02_pkcs7_visible_rect]
+   Args: -f pkcs7 --no-tsa --rect 50,700,250,750 --reason PKCS7 visible rect --name Alice Signer --contact alice@example.com
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PKCS7 visible rect
+  Name     : Alice Signer
+  Contact  : alice@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85811 bytes
+  Output   : "signed_outputs/02_pkcs7_visible_rect.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 visible rect
+    Contact        : alice@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19268, 84806, 1005]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/02_pkcs7_visible_rect.pdf  (85811 bytes)
+
+════════════════════════════════════════════════════════
+▶  [03_pkcs7_no_crl]
+   Args: -f pkcs7 --invisible --no-tsa --no-crl --reason PKCS7 no CRL
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 no CRL
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85265 bytes
+  Output   : "signed_outputs/03_pkcs7_no_crl.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 no CRL
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19242, 84780, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/03_pkcs7_no_crl.pdf  (85265 bytes)
+
+════════════════════════════════════════════════════════
+▶  [04_pkcs7_crl]
+   Args: -f pkcs7 --invisible --no-tsa --crl --reason PKCS7 explicit CRL
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 explicit CRL
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85271 bytes
+  Output   : "signed_outputs/04_pkcs7_crl.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 explicit CRL
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19248, 84786, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/04_pkcs7_crl.pdf  (85271 bytes)
+
+════════════════════════════════════════════════════════
+▶  [05_pkcs7_ocsp]
+   Args: -f pkcs7 --invisible --no-tsa --ocsp --no-crl --reason PKCS7 OCSP only
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 OCSP only
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : true
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85268 bytes
+  Output   : "signed_outputs/05_pkcs7_ocsp.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 OCSP only
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19245, 84783, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/05_pkcs7_ocsp.pdf  (85268 bytes)
+
+════════════════════════════════════════════════════════
+▶  [06_pkcs7_crl_ocsp]
+   Args: -f pkcs7 --invisible --no-tsa --crl --ocsp --reason PKCS7 CRL+OCSP
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 CRL+OCSP
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : true
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85267 bytes
+  Output   : "signed_outputs/06_pkcs7_crl_ocsp.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 CRL+OCSP
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19244, 84782, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/06_pkcs7_crl_ocsp.pdf  (85267 bytes)
+
+════════════════════════════════════════════════════════
+▶  [07_pkcs7_dss]
+   Args: -f pkcs7 --invisible --no-tsa --dss --reason PKCS7 with DSS
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 with DSS
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85267 bytes
+  Output   : "signed_outputs/07_pkcs7_dss.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 with DSS
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19244, 84782, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/07_pkcs7_dss.pdf  (85267 bytes)
+
+════════════════════════════════════════════════════════
+▶  [08_pkcs7_crl_dss]
+   Args: -f pkcs7 --invisible --no-tsa --crl --dss --reason PKCS7 CRL+DSS
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 CRL+DSS
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85266 bytes
+  Output   : "signed_outputs/08_pkcs7_crl_dss.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 CRL+DSS
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19243, 84781, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/08_pkcs7_crl_dss.pdf  (85266 bytes)
+
+════════════════════════════════════════════════════════
+▶  [09_pkcs7_crl_ocsp_dss]
+   Args: -f pkcs7 --invisible --no-tsa --crl --ocsp --dss --reason PKCS7 CRL+OCSP+DSS
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 CRL+OCSP+DSS
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : true
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85271 bytes
+  Output   : "signed_outputs/09_pkcs7_crl_ocsp_dss.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 CRL+OCSP+DSS
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19248, 84786, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/09_pkcs7_crl_ocsp_dss.pdf  (85271 bytes)
+
+════════════════════════════════════════════════════════
+▶  [10_pkcs7_custom_field]
+   Args: -f pkcs7 --invisible --no-tsa --field MyCustomSig --reason PKCS7 custom field name
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 custom field name
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85277 bytes
+  Output   : "signed_outputs/10_pkcs7_custom_field.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='MyCustomSig'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 custom field name
+    Contact        : signer@example.com
+    Signing time   : D:20260403035030+00'00'
+    ByteRange      : [0, 19253, 84791, 486]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/10_pkcs7_custom_field.pdf  (85277 bytes)
+
+════════════════════════════════════════════════════════
+▶  [11_pkcs7_full_metadata]
+   Args: -f pkcs7 --invisible --no-tsa --name Alice Dupont --contact alice@corp.example --location Paris, France --reason PKCS7 full metadata
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 full metadata
+  Name     : Alice Dupont
+  Contact  : alice@corp.example
+  Location : Paris, France
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85306 bytes
+  Output   : "signed_outputs/11_pkcs7_full_metadata.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 full metadata
+    Contact        : alice@corp.example
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19283, 84821, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/11_pkcs7_full_metadata.pdf  (85306 bytes)
+
+════════════════════════════════════════════════════════
+▶  [12_pkcs7_visible_page1_metadata]
+   Args: -f pkcs7 --no-tsa -p 1 --rect 30,680,280,740 --name Charlie Signer --contact charlie@example.com --location Tokyo --reason PKCS7 visible page-1 all metadata
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : PKCS7 visible page-1 all metadata
+  Name     : Charlie Signer
+  Contact  : charlie@example.com
+  Location : Tokyo
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85853 bytes
+  Output   : "signed_outputs/12_pkcs7_visible_page1_metadata.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 visible page-1 all metadata
+    Contact        : charlie@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19292, 84830, 1023]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/12_pkcs7_visible_page1_metadata.pdf  (85853 bytes)
+
+════════════════════════════════════════════════════════
+▶  [13_pkcs7_reserved_16k]
+   Args: -f pkcs7 --invisible --no-tsa --reserved 16384 --reason PKCS7 reserved 16k
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 reserved 16k
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 16384 bytes
+
+  Signing …
+  ✅ Signed PDF: 52503 bytes
+  Output   : "signed_outputs/13_pkcs7_reserved_16k.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 reserved 16k
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19248, 52018, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/13_pkcs7_reserved_16k.pdf  (52503 bytes)
+
+════════════════════════════════════════════════════════
+▶  [14_pkcs7_reserved_64k]
+   Args: -f pkcs7 --invisible --no-tsa --reserved 65536 --reason PKCS7 reserved 64k
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 reserved 64k
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 65536 bytes
+
+  Signing …
+  ✅ Signed PDF: 150808 bytes
+  Output   : "signed_outputs/14_pkcs7_reserved_64k.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 reserved 64k
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19248, 150322, 486]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/14_pkcs7_reserved_64k.pdf  (150808 bytes)
+
+════════════════════════════════════════════════════════
+▶  [15_pades_bb_invisible]
+   Args: -f pades -l b-b --invisible --no-tsa --reason PAdES B-B invisible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-B invisible
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85272 bytes
+  Output   : "signed_outputs/15_pades_bb_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B invisible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19249, 84787, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/15_pades_bb_invisible.pdf  (85272 bytes)
+
+════════════════════════════════════════════════════════
+▶  [16_pades_bb_visible_rect]
+   Args: -f pades -l b-b --no-tsa --rect 50,700,250,750 --reason PAdES B-B visible rect --name Bob PAdES
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PAdES B-B visible rect
+  Name     : Bob PAdES
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85814 bytes
+  Output   : "signed_outputs/16_pades_bb_visible_rect.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B visible rect
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19270, 84808, 1006]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/16_pades_bb_visible_rect.pdf  (85814 bytes)
+
+════════════════════════════════════════════════════════
+▶  [17_pades_bb_no_crl]
+   Args: -f pades -l b-b --invisible --no-tsa --no-crl --reason PAdES B-B no CRL
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-B no CRL
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85269 bytes
+  Output   : "signed_outputs/17_pades_bb_no_crl.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B no CRL
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19246, 84784, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/17_pades_bb_no_crl.pdf  (85269 bytes)
+
+════════════════════════════════════════════════════════
+▶  [18_pades_bb_crl]
+   Args: -f pades -l b-b --invisible --no-tsa --crl --reason PAdES B-B with CRL
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-B with CRL
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85271 bytes
+  Output   : "signed_outputs/18_pades_bb_crl.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B with CRL
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19248, 84786, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/18_pades_bb_crl.pdf  (85271 bytes)
+
+════════════════════════════════════════════════════════
+▶  [19_pades_bb_dss]
+   Args: -f pades -l b-b --invisible --no-tsa --dss --reason PAdES B-B with DSS
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-B with DSS
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85271 bytes
+  Output   : "signed_outputs/19_pades_bb_dss.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B with DSS
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19248, 84786, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/19_pades_bb_dss.pdf  (85271 bytes)
+
+════════════════════════════════════════════════════════
+▶  [20_pades_bb_custom_field]
+   Args: -f pades -l b-b --invisible --no-tsa --field PAdESSig --reason PAdES B-B custom field
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-B custom field
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85273 bytes
+  Output   : "signed_outputs/20_pades_bb_custom_field.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='PAdESSig'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B custom field
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19252, 84790, 483]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/20_pades_bb_custom_field.pdf  (85273 bytes)
+
+════════════════════════════════════════════════════════
+▶  [21_pades_bb_full_metadata]
+   Args: -f pades -l b-b --invisible --no-tsa --name Bob Mueller --contact bob@example.de --location Berlin, Germany --reason PAdES B-B full metadata
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-B full metadata
+  Name     : Bob Mueller
+  Contact  : bob@example.de
+  Location : Berlin, Germany
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85307 bytes
+  Output   : "signed_outputs/21_pades_bb_full_metadata.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B full metadata
+    Contact        : bob@example.de
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19284, 84822, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/21_pades_bb_full_metadata.pdf  (85307 bytes)
+
+════════════════════════════════════════════════════════
+▶  [22_pades_bb_reserved_48k]
+   Args: -f pades -l b-b --invisible --no-tsa --reserved 49152 --reason PAdES B-B reserved 48k
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-B reserved 48k
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 49152 bytes
+
+  Signing …
+  ✅ Signed PDF: 118044 bytes
+  Output   : "signed_outputs/22_pades_bb_reserved_48k.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B reserved 48k
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19252, 117558, 486]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/22_pades_bb_reserved_48k.pdf  (118044 bytes)
+
+════════════════════════════════════════════════════════
+▶  [23_pades_bt_invisible]
+   Args: -f pades -l b-t --invisible --tsa http://timestamp.digicert.com --reason PAdES B-T invisible (DigiCert TSA)
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-T invisible (DigiCert TSA)
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85289 bytes
+  Output   : "signed_outputs/23_pades_bt_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-T invisible (DigiCert TSA)
+    Contact        : signer@example.com
+    Signing time   : D:20260403035031+00'00'
+    ByteRange      : [0, 19266, 84804, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/23_pades_bt_invisible.pdf  (85289 bytes)
+
+════════════════════════════════════════════════════════
+▶  [24_pades_bt_visible]
+   Args: -f pades -l b-t --tsa http://timestamp.digicert.com --rect 50,700,250,750 --reason PAdES B-T visible --name TSA Signer
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PAdES B-T visible
+  Name     : TSA Signer
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85806 bytes
+  Output   : "signed_outputs/24_pades_bt_visible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-T visible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035033+00'00'
+    ByteRange      : [0, 19266, 84804, 1002]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/24_pades_bt_visible.pdf  (85806 bytes)
+
+════════════════════════════════════════════════════════
+▶  [25_pades_blt_invisible]
+   Args: -f pades -l b-lt --invisible --tsa http://timestamp.digicert.com --reason PAdES B-LT invisible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LT
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-LT invisible
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85273 bytes
+  Output   : "signed_outputs/25_pades_blt_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LT invisible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035034+00'00'
+    ByteRange      : [0, 19250, 84788, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/25_pades_blt_invisible.pdf  (85273 bytes)
+
+════════════════════════════════════════════════════════
+▶  [26_pades_blt_visible]
+   Args: -f pades -l b-lt --tsa http://timestamp.digicert.com --rect 50,700,250,750 --reason PAdES B-LT visible --name LT Signer
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LT
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PAdES B-LT visible
+  Name     : LT Signer
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85806 bytes
+  Output   : "signed_outputs/26_pades_blt_visible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LT visible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035034+00'00'
+    ByteRange      : [0, 19266, 84804, 1002]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/26_pades_blt_visible.pdf  (85806 bytes)
+
+════════════════════════════════════════════════════════
+▶  [27_pades_blta_invisible]
+   Args: -f pades -l b-lta --invisible --tsa http://timestamp.digicert.com --reason PAdES B-LTA invisible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LTA
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-LTA invisible
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85274 bytes
+  Output   : "signed_outputs/27_pades_blta_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LTA invisible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035035+00'00'
+    ByteRange      : [0, 19251, 84789, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/27_pades_blta_invisible.pdf  (85274 bytes)
+
+════════════════════════════════════════════════════════
+▶  [28_pkcs7_tsa_invisible]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --reason PKCS7 + TSA invisible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA invisible
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85274 bytes
+  Output   : "signed_outputs/28_pkcs7_tsa_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA invisible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035036+00'00'
+    ByteRange      : [0, 19251, 84789, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/28_pkcs7_tsa_invisible.pdf  (85274 bytes)
+
+════════════════════════════════════════════════════════
+▶  [29_pkcs7_tsa_visible_rect]
+   Args: -f pkcs7 --tsa http://timestamp.digicert.com --rect 50,700,250,750 --name Alice TSA --contact alice@example.com --reason PKCS7 + TSA visible rect
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PKCS7 + TSA visible rect
+  Name     : Alice TSA
+  Contact  : alice@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85817 bytes
+  Output   : "signed_outputs/29_pkcs7_tsa_visible_rect.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA visible rect
+    Contact        : alice@example.com
+    Signing time   : D:20260403035036+00'00'
+    ByteRange      : [0, 19271, 84809, 1008]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/29_pkcs7_tsa_visible_rect.pdf  (85817 bytes)
+
+════════════════════════════════════════════════════════
+▶  [30_pkcs7_tsa_no_crl]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --no-crl --reason PKCS7 + TSA no CRL
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA no CRL
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85271 bytes
+  Output   : "signed_outputs/30_pkcs7_tsa_no_crl.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA no CRL
+    Contact        : signer@example.com
+    Signing time   : D:20260403035037+00'00'
+    ByteRange      : [0, 19248, 84786, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/30_pkcs7_tsa_no_crl.pdf  (85271 bytes)
+
+════════════════════════════════════════════════════════
+▶  [31_pkcs7_tsa_crl]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --crl --reason PKCS7 + TSA explicit CRL
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA explicit CRL
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85277 bytes
+  Output   : "signed_outputs/31_pkcs7_tsa_crl.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA explicit CRL
+    Contact        : signer@example.com
+    Signing time   : D:20260403035038+00'00'
+    ByteRange      : [0, 19254, 84792, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/31_pkcs7_tsa_crl.pdf  (85277 bytes)
+
+════════════════════════════════════════════════════════
+▶  [32_pkcs7_tsa_ocsp]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --ocsp --no-crl --reason PKCS7 + TSA OCSP only
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA OCSP only
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : true
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85274 bytes
+  Output   : "signed_outputs/32_pkcs7_tsa_ocsp.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA OCSP only
+    Contact        : signer@example.com
+    Signing time   : D:20260403035038+00'00'
+    ByteRange      : [0, 19251, 84789, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/32_pkcs7_tsa_ocsp.pdf  (85274 bytes)
+
+════════════════════════════════════════════════════════
+▶  [33_pkcs7_tsa_crl_ocsp]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --crl --ocsp --reason PKCS7 + TSA CRL+OCSP
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA CRL+OCSP
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : true
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85273 bytes
+  Output   : "signed_outputs/33_pkcs7_tsa_crl_ocsp.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA CRL+OCSP
+    Contact        : signer@example.com
+    Signing time   : D:20260403035039+00'00'
+    ByteRange      : [0, 19250, 84788, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/33_pkcs7_tsa_crl_ocsp.pdf  (85273 bytes)
+
+════════════════════════════════════════════════════════
+▶  [34_pkcs7_tsa_dss]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --dss --reason PKCS7 + TSA with DSS
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA with DSS
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85273 bytes
+  Output   : "signed_outputs/34_pkcs7_tsa_dss.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA with DSS
+    Contact        : signer@example.com
+    Signing time   : D:20260403035039+00'00'
+    ByteRange      : [0, 19250, 84788, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/34_pkcs7_tsa_dss.pdf  (85273 bytes)
+
+════════════════════════════════════════════════════════
+▶  [35_pkcs7_tsa_crl_dss]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --crl --dss --reason PKCS7 + TSA CRL+DSS
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA CRL+DSS
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85272 bytes
+  Output   : "signed_outputs/35_pkcs7_tsa_crl_dss.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA CRL+DSS
+    Contact        : signer@example.com
+    Signing time   : D:20260403035040+00'00'
+    ByteRange      : [0, 19249, 84787, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/35_pkcs7_tsa_crl_dss.pdf  (85272 bytes)
+
+════════════════════════════════════════════════════════
+▶  [36_pkcs7_tsa_crl_ocsp_dss]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --crl --ocsp --dss --reason PKCS7 + TSA CRL+OCSP+DSS
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA CRL+OCSP+DSS
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : true
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85277 bytes
+  Output   : "signed_outputs/36_pkcs7_tsa_crl_ocsp_dss.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA CRL+OCSP+DSS
+    Contact        : signer@example.com
+    Signing time   : D:20260403035041+00'00'
+    ByteRange      : [0, 19254, 84792, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/36_pkcs7_tsa_crl_ocsp_dss.pdf  (85277 bytes)
+
+════════════════════════════════════════════════════════
+▶  [37_pkcs7_tsa_custom_field]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --field TSASig --reason PKCS7 + TSA custom field
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA custom field
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85273 bytes
+  Output   : "signed_outputs/37_pkcs7_tsa_custom_field.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='TSASig'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA custom field
+    Contact        : signer@example.com
+    Signing time   : D:20260403035042+00'00'
+    ByteRange      : [0, 19254, 84792, 481]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/37_pkcs7_tsa_custom_field.pdf  (85273 bytes)
+
+════════════════════════════════════════════════════════
+▶  [38_pkcs7_tsa_full_metadata]
+   Args: -f pkcs7 --invisible --tsa http://timestamp.digicert.com --name Alice TSA Dupont --contact alice.tsa@corp.example --location Paris, France --reason PKCS7 + TSA full metadata
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PKCS7 + TSA full metadata
+  Name     : Alice TSA Dupont
+  Contact  : alice.tsa@corp.example
+  Location : Paris, France
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85320 bytes
+  Output   : "signed_outputs/38_pkcs7_tsa_full_metadata.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA full metadata
+    Contact        : alice.tsa@corp.example
+    Signing time   : D:20260403035043+00'00'
+    ByteRange      : [0, 19297, 84835, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/38_pkcs7_tsa_full_metadata.pdf  (85320 bytes)
+
+════════════════════════════════════════════════════════
+▶  [39_pkcs7_tsa_visible_full_metadata]
+   Args: -f pkcs7 --tsa http://timestamp.digicert.com -p 1 --rect 30,680,280,740 --name Charlie TSA --contact charlie.tsa@example.com --location Tokyo --reason PKCS7 + TSA visible all metadata
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : PKCS7 + TSA visible all metadata
+  Name     : Charlie TSA
+  Contact  : charlie.tsa@example.com
+  Location : Tokyo
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85849 bytes
+  Output   : "signed_outputs/39_pkcs7_tsa_visible_full_metadata.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : PKCS7 + TSA visible all metadata
+    Contact        : charlie.tsa@example.com
+    Signing time   : D:20260403035043+00'00'
+    ByteRange      : [0, 19292, 84830, 1019]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/39_pkcs7_tsa_visible_full_metadata.pdf  (85849 bytes)
+
+════════════════════════════════════════════════════════
+▶  [40_pades_bb_tsa_invisible]
+   Args: -f pades -l b-b --invisible --tsa http://timestamp.digicert.com --reason PAdES B-B + TSA invisible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-B + TSA invisible
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85278 bytes
+  Output   : "signed_outputs/40_pades_bb_tsa_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B + TSA invisible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035044+00'00'
+    ByteRange      : [0, 19255, 84793, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/40_pades_bb_tsa_invisible.pdf  (85278 bytes)
+
+════════════════════════════════════════════════════════
+▶  [41_pades_bb_tsa_visible]
+   Args: -f pades -l b-b --tsa http://timestamp.digicert.com --rect 50,700,250,750 --name Bob B-B TSA --reason PAdES B-B + TSA visible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PAdES B-B + TSA visible
+  Name     : Bob B-B TSA
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85820 bytes
+  Output   : "signed_outputs/41_pades_bb_tsa_visible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-B + TSA visible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035044+00'00'
+    ByteRange      : [0, 19273, 84811, 1009]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/41_pades_bb_tsa_visible.pdf  (85820 bytes)
+
+════════════════════════════════════════════════════════
+▶  [42_pades_bt_tsa_invisible]
+   Args: -f pades -l b-t --invisible --tsa http://timestamp.digicert.com --reason PAdES B-T + TSA invisible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-T + TSA invisible
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85278 bytes
+  Output   : "signed_outputs/42_pades_bt_tsa_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-T + TSA invisible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035044+00'00'
+    ByteRange      : [0, 19255, 84793, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/42_pades_bt_tsa_invisible.pdf  (85278 bytes)
+
+════════════════════════════════════════════════════════
+▶  [43_pades_bt_tsa_visible]
+   Args: -f pades -l b-t --tsa http://timestamp.digicert.com --rect 50,700,250,750 --name TSA B-T Signer --reason PAdES B-T + TSA visible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PAdES B-T + TSA visible
+  Name     : TSA B-T Signer
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85826 bytes
+  Output   : "signed_outputs/43_pades_bt_tsa_visible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-T + TSA visible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035045+00'00'
+    ByteRange      : [0, 19276, 84814, 1012]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/43_pades_bt_tsa_visible.pdf  (85826 bytes)
+
+════════════════════════════════════════════════════════
+▶  [44_pades_bt_tsa_crl]
+   Args: -f pades -l b-t --invisible --tsa http://timestamp.digicert.com --crl --reason PAdES B-T + TSA + CRL
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-T + TSA + CRL
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85274 bytes
+  Output   : "signed_outputs/44_pades_bt_tsa_crl.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-T + TSA + CRL
+    Contact        : signer@example.com
+    Signing time   : D:20260403035045+00'00'
+    ByteRange      : [0, 19251, 84789, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/44_pades_bt_tsa_crl.pdf  (85274 bytes)
+
+════════════════════════════════════════════════════════
+▶  [45_pades_bt_tsa_ocsp]
+   Args: -f pades -l b-t --invisible --tsa http://timestamp.digicert.com --ocsp --reason PAdES B-T + TSA + OCSP
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-T + TSA + OCSP
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : true
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85275 bytes
+  Output   : "signed_outputs/45_pades_bt_tsa_ocsp.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-T + TSA + OCSP
+    Contact        : signer@example.com
+    Signing time   : D:20260403035046+00'00'
+    ByteRange      : [0, 19252, 84790, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/45_pades_bt_tsa_ocsp.pdf  (85275 bytes)
+
+════════════════════════════════════════════════════════
+▶  [46_pades_bt_tsa_full_metadata]
+   Args: -f pades -l b-t --invisible --tsa http://timestamp.digicert.com --name Bob B-T TSA --contact bob.bt@example.de --location Berlin, Germany --reason PAdES B-T + TSA full metadata
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-T + TSA full metadata
+  Name     : Bob B-T TSA
+  Contact  : bob.bt@example.de
+  Location : Berlin, Germany
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85316 bytes
+  Output   : "signed_outputs/46_pades_bt_tsa_full_metadata.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-T + TSA full metadata
+    Contact        : bob.bt@example.de
+    Signing time   : D:20260403035047+00'00'
+    ByteRange      : [0, 19293, 84831, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/46_pades_bt_tsa_full_metadata.pdf  (85316 bytes)
+
+════════════════════════════════════════════════════════
+▶  [47_pades_blt_tsa_invisible]
+   Args: -f pades -l b-lt --invisible --tsa http://timestamp.digicert.com --reason PAdES B-LT + TSA invisible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LT
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-LT + TSA invisible
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85279 bytes
+  Output   : "signed_outputs/47_pades_blt_tsa_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LT + TSA invisible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035047+00'00'
+    ByteRange      : [0, 19256, 84794, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/47_pades_blt_tsa_invisible.pdf  (85279 bytes)
+
+════════════════════════════════════════════════════════
+▶  [48_pades_blt_tsa_visible]
+   Args: -f pades -l b-lt --tsa http://timestamp.digicert.com --rect 50,700,250,750 --name LT TSA Signer --reason PAdES B-LT + TSA visible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LT
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PAdES B-LT + TSA visible
+  Name     : LT TSA Signer
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85826 bytes
+  Output   : "signed_outputs/48_pades_blt_tsa_visible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LT + TSA visible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035048+00'00'
+    ByteRange      : [0, 19276, 84814, 1012]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/48_pades_blt_tsa_visible.pdf  (85826 bytes)
+
+════════════════════════════════════════════════════════
+▶  [49_pades_blt_tsa_crl]
+   Args: -f pades -l b-lt --invisible --tsa http://timestamp.digicert.com --crl --reason PAdES B-LT + TSA + CRL
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LT
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-LT + TSA + CRL
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85275 bytes
+  Output   : "signed_outputs/49_pades_blt_tsa_crl.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LT + TSA + CRL
+    Contact        : signer@example.com
+    Signing time   : D:20260403035049+00'00'
+    ByteRange      : [0, 19252, 84790, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/49_pades_blt_tsa_crl.pdf  (85275 bytes)
+
+════════════════════════════════════════════════════════
+▶  [50_pades_blt_tsa_crl_ocsp]
+   Args: -f pades -l b-lt --invisible --tsa http://timestamp.digicert.com --crl --ocsp --reason PAdES B-LT + TSA + CRL+OCSP
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LT
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-LT + TSA + CRL+OCSP
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : true
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85280 bytes
+  Output   : "signed_outputs/50_pades_blt_tsa_crl_ocsp.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LT + TSA + CRL+OCSP
+    Contact        : signer@example.com
+    Signing time   : D:20260403035049+00'00'
+    ByteRange      : [0, 19257, 84795, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/50_pades_blt_tsa_crl_ocsp.pdf  (85280 bytes)
+
+════════════════════════════════════════════════════════
+▶  [51_pades_blt_tsa_full_metadata]
+   Args: -f pades -l b-lt --invisible --tsa http://timestamp.digicert.com --name Carol LT TSA --contact carol.lt@example.com --location London, UK --reason PAdES B-LT + TSA full metadata
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LT
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-LT + TSA full metadata
+  Name     : Carol LT TSA
+  Contact  : carol.lt@example.com
+  Location : London, UK
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85316 bytes
+  Output   : "signed_outputs/51_pades_blt_tsa_full_metadata.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LT + TSA full metadata
+    Contact        : carol.lt@example.com
+    Signing time   : D:20260403035050+00'00'
+    ByteRange      : [0, 19293, 84831, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/51_pades_blt_tsa_full_metadata.pdf  (85316 bytes)
+
+════════════════════════════════════════════════════════
+▶  [52_pades_blta_tsa_invisible]
+   Args: -f pades -l b-lta --invisible --tsa http://timestamp.digicert.com --reason PAdES B-LTA + TSA invisible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LTA
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-LTA + TSA invisible
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85280 bytes
+  Output   : "signed_outputs/52_pades_blta_tsa_invisible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LTA + TSA invisible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035050+00'00'
+    ByteRange      : [0, 19257, 84795, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/52_pades_blta_tsa_invisible.pdf  (85280 bytes)
+
+════════════════════════════════════════════════════════
+▶  [53_pades_blta_tsa_visible]
+   Args: -f pades -l b-lta --tsa http://timestamp.digicert.com --rect 50,700,250,750 --name LTA TSA Signer --reason PAdES B-LTA + TSA visible
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LTA
+  Page     : 1
+  Rect     : [50 700 250 750]
+  Reason   : PAdES B-LTA + TSA visible
+  Name     : LTA TSA Signer
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85830 bytes
+  Output   : "signed_outputs/53_pades_blta_tsa_visible.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LTA + TSA visible
+    Contact        : signer@example.com
+    Signing time   : D:20260403035051+00'00'
+    ByteRange      : [0, 19278, 84816, 1014]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/53_pades_blta_tsa_visible.pdf  (85830 bytes)
+
+════════════════════════════════════════════════════════
+▶  [54_pades_blta_tsa_full_metadata]
+   Args: -f pades -l b-lta --invisible --tsa http://timestamp.digicert.com --name Dave LTA TSA --contact dave.lta@example.com --location New York, USA --crl --ocsp --reason PAdES B-LTA + TSA full metadata CRL+OCSP
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LTA
+  Page     : 1
+  Visible  : false (invisible signature)
+  Reason   : PAdES B-LTA + TSA full metadata CRL+OCSP
+  Name     : Dave LTA TSA
+  Contact  : dave.lta@example.com
+  Location : New York, USA
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : true
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85329 bytes
+  Output   : "signed_outputs/54_pades_blta_tsa_full_metadata.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : PAdES B-LTA + TSA full metadata CRL+OCSP
+    Contact        : dave.lta@example.com
+    Signing time   : D:20260403035051+00'00'
+    ByteRange      : [0, 19306, 84844, 485]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/54_pades_blta_tsa_full_metadata.pdf  (85329 bytes)
+
+════════════════════════════════════════════════════════
+▶  [55_visible_text_only_pkcs7]
+   Args: -f pkcs7 --no-tsa --rect 30,680,280,740 --name Alice Dupont --reason Text-only visible PKCS7 --contact alice@example.com --location Paris
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Text-only visible PKCS7
+  Name     : Alice Dupont
+  Contact  : alice@example.com
+  Location : Paris
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85827 bytes
+  Output   : "signed_outputs/55_visible_text_only_pkcs7.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : Text-only visible PKCS7
+    Contact        : alice@example.com
+    Signing time   : D:20260403035052+00'00'
+    ByteRange      : [0, 19278, 84816, 1011]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/55_visible_text_only_pkcs7.pdf  (85827 bytes)
+
+════════════════════════════════════════════════════════
+▶  [56_visible_text_only_pades_bb]
+   Args: -f pades -l b-b --no-tsa --rect 30,680,280,740 --name Bob Mueller --reason Text-only visible PAdES B-B --location Berlin
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Text-only visible PAdES B-B
+  Name     : Bob Mueller
+  Contact  : signer@example.com
+  Location : Berlin
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85835 bytes
+  Output   : "signed_outputs/56_visible_text_only_pades_bb.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : Text-only visible PAdES B-B
+    Contact        : signer@example.com
+    Signing time   : D:20260403035052+00'00'
+    ByteRange      : [0, 19283, 84821, 1014]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/56_visible_text_only_pades_bb.pdf  (85835 bytes)
+
+════════════════════════════════════════════════════════
+▶  [57_visible_text_only_pades_bt]
+   Args: -f pades -l b-t --tsa http://timestamp.digicert.com --rect 30,680,280,740 --name Carol Smith --reason Text-only visible PAdES B-T --location London
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Text-only visible PAdES B-T
+  Name     : Carol Smith
+  Contact  : signer@example.com
+  Location : London
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 85835 bytes
+  Output   : "signed_outputs/57_visible_text_only_pades_bt.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : Text-only visible PAdES B-T
+    Contact        : signer@example.com
+    Signing time   : D:20260403035052+00'00'
+    ByteRange      : [0, 19283, 84821, 1014]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/57_visible_text_only_pades_bt.pdf  (85835 bytes)
+
+════════════════════════════════════════════════════════
+▶  [58_visible_image_pkcs7]
+   Args: -f pkcs7 --no-tsa --rect 30,680,280,740 --name Alice Dupont --reason Image visible PKCS7 --contact alice@example.com --location Paris --image tests/signing_assets/sig1.png
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Image visible PKCS7
+  Name     : Alice Dupont
+  Contact  : alice@example.com
+  Location : Paris
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 535830 bytes
+  Output   : "signed_outputs/58_visible_image_pkcs7.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : Image visible PKCS7
+    Contact        : alice@example.com
+    Signing time   : D:20260403035053+00'00'
+    ByteRange      : [0, 19274, 84812, 451018]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/58_visible_image_pkcs7.pdf  (535830 bytes)
+
+════════════════════════════════════════════════════════
+▶  [59_visible_image_pkcs7_tsa]
+   Args: -f pkcs7 --tsa http://timestamp.digicert.com --rect 30,680,280,740 --name Alice TSA --reason Image visible PKCS7+TSA --contact alice@example.com --image tests/signing_assets/sig1.png
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Image visible PKCS7+TSA
+  Name     : Alice TSA
+  Contact  : alice@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 535826 bytes
+  Output   : "signed_outputs/59_visible_image_pkcs7_tsa.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : Image visible PKCS7+TSA
+    Contact        : alice@example.com
+    Signing time   : D:20260403035053+00'00'
+    ByteRange      : [0, 19270, 84808, 451018]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/59_visible_image_pkcs7_tsa.pdf  (535826 bytes)
+
+════════════════════════════════════════════════════════
+▶  [60_visible_image_pades_bb]
+   Args: -f pades -l b-b --no-tsa --rect 30,680,280,740 --name Bob PAdES --reason Image visible PAdES B-B --image tests/signing_assets/sig1.png
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-B
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Image visible PAdES B-B
+  Name     : Bob PAdES
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 535827 bytes
+  Output   : "signed_outputs/60_visible_image_pades_bb.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : Image visible PAdES B-B
+    Contact        : signer@example.com
+    Signing time   : D:20260403035053+00'00'
+    ByteRange      : [0, 19271, 84809, 451018]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/60_visible_image_pades_bb.pdf  (535827 bytes)
+
+════════════════════════════════════════════════════════
+▶  [61_visible_image_pades_bt]
+   Args: -f pades -l b-t --tsa http://timestamp.digicert.com --rect 30,680,280,740 --name Carol PAdES B-T --reason Image visible PAdES B-T --image tests/signing_assets/sig1.png
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-T
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Image visible PAdES B-T
+  Name     : Carol PAdES B-T
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : false
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 535833 bytes
+  Output   : "signed_outputs/61_visible_image_pades_bt.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : Image visible PAdES B-T
+    Contact        : signer@example.com
+    Signing time   : D:20260403035054+00'00'
+    ByteRange      : [0, 19277, 84815, 451018]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/61_visible_image_pades_bt.pdf  (535833 bytes)
+
+════════════════════════════════════════════════════════
+▶  [62_visible_image_pades_blt]
+   Args: -f pades -l b-lt --tsa http://timestamp.digicert.com --rect 30,680,280,740 --name Dave PAdES B-LT --reason Image visible PAdES B-LT --crl --dss --image tests/signing_assets/sig1.png
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LT
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Image visible PAdES B-LT
+  Name     : Dave PAdES B-LT
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : false
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 535834 bytes
+  Output   : "signed_outputs/62_visible_image_pades_blt.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : Image visible PAdES B-LT
+    Contact        : signer@example.com
+    Signing time   : D:20260403035054+00'00'
+    ByteRange      : [0, 19278, 84816, 451018]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/62_visible_image_pades_blt.pdf  (535834 bytes)
+
+════════════════════════════════════════════════════════
+▶  [63_visible_image_pades_blta]
+   Args: -f pades -l b-lta --tsa http://timestamp.digicert.com --rect 30,680,280,740 --name Eve PAdES B-LTA --reason Image visible PAdES B-LTA --crl --ocsp --image tests/signing_assets/sig1.png
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PAdES B-LTA
+  Page     : 1
+  Rect     : [30 680 280 740]
+  Reason   : Image visible PAdES B-LTA
+  Name     : Eve PAdES B-LTA
+  Contact  : signer@example.com
+  TSA      : http://timestamp.digicert.com
+  CRL      : true
+  OCSP     : true
+  DSS      : true
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 535835 bytes
+  Output   : "signed_outputs/63_visible_image_pades_blta.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : ETSI.CAdES.detached
+    Reason         : Image visible PAdES B-LTA
+    Contact        : signer@example.com
+    Signing time   : D:20260403035055+00'00'
+    ByteRange      : [0, 19279, 84817, 451018]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : true
+    Has DSS        : false
+    LTV enabled    : true
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/63_visible_image_pades_blta.pdf  (535835 bytes)
+
+════════════════════════════════════════════════════════
+▶  [64_visible_image_large_rect]
+   Args: -f pkcs7 --no-tsa --rect 20,600,300,760 --name Full-height Image Test --reason Large rectangle image appearance --image tests/signing_assets/sig1.png
+
+══════════════════════════════════════════════════════
+  rust-pdfbox  ·  Digital Signature Example
+══════════════════════════════════════════════════════
+  Input    : "tests/signing_assets/sample.pdf"  (18810 bytes)
+  Pages    : 1
+  Certs    : 3 certificate(s)
+  Key      : "tests/signing_assets/user-key.pem"
+  Format   : PKCS7
+  Page     : 1
+  Rect     : [20 600 300 760]
+  Reason   : Large rectangle image appearance
+  Name     : Full-height Image Test
+  Contact  : signer@example.com
+  TSA      : disabled
+  CRL      : true
+  OCSP     : false
+  DSS      : false
+  Reserved : 32768 bytes
+
+  Signing …
+  ✅ Signed PDF: 535850 bytes
+  Output   : "signed_outputs/64_visible_image_large_rect.pdf"
+
+  Verifying …
+  Signature [1] ✅: field='Signature1'
+    Status         : VALID: digest and signature verified
+    Filter         : Adobe.PPKLite
+    SubFilter      : adbe.pkcs7.detached
+    Reason         : Large rectangle image appearance
+    Contact        : signer@example.com
+    Signing time   : D:20260403035055+00'00'
+    ByteRange      : [0, 19293, 84831, 451019]
+    Covers file    : true
+    Digest valid   : true
+    CMS sig valid  : true
+    Chain valid    : true
+    Has timestamp  : false
+    Has DSS        : false
+    LTV enabled    : false
+    Certificates   : 3
+      [0] Subject  : good-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 04
+           Valid    : 2025-04-03 09:14:17 UTC → 2027-02-03 09:14:17 UTC
+      [1] Subject  : good-user-crl-ocsp
+           Issuer   : CN=good-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 17
+           Valid    : 2025-04-03 09:14:18 UTC → 2027-02-03 09:14:18 UTC
+      [2] Subject  : root-ca
+           Issuer   : CN=root-ca, OU=PKI-TEST, O=Nowina Solutions, C=LU
+           Serial   : 01
+           Valid    : 2025-03-03 09:14:17 UTC → 2027-03-03 09:14:17 UTC
+
+  ✅ All signatures cryptographically verified.
+══════════════════════════════════════════════════════
+
+   ✅  Output: signed_outputs/64_visible_image_large_rect.pdf  (535850 bytes)
+
+
+════════════════════════════════════════════════════════
+  SUMMARY
+════════════════════════════════════════════════════════
+  ✅ Passed : 64
+  ❌ Failed : 0
+
+  Output files:
+    83K         signed_outputs/01_pkcs7_invisible.pdf
+    84K         signed_outputs/02_pkcs7_visible_rect.pdf
+    83K         signed_outputs/03_pkcs7_no_crl.pdf
+    83K         signed_outputs/04_pkcs7_crl.pdf
+    83K         signed_outputs/05_pkcs7_ocsp.pdf
+    83K         signed_outputs/06_pkcs7_crl_ocsp.pdf
+    83K         signed_outputs/07_pkcs7_dss.pdf
+    83K         signed_outputs/08_pkcs7_crl_dss.pdf
+    83K         signed_outputs/09_pkcs7_crl_ocsp_dss.pdf
+    83K         signed_outputs/10_pkcs7_custom_field.pdf
+    83K         signed_outputs/11_pkcs7_full_metadata.pdf
+    84K         signed_outputs/12_pkcs7_visible_page1_metadata.pdf
+    51K         signed_outputs/13_pkcs7_reserved_16k.pdf
+    147K        signed_outputs/14_pkcs7_reserved_64k.pdf
+    83K         signed_outputs/15_pades_bb_invisible.pdf
+    84K         signed_outputs/16_pades_bb_visible_rect.pdf
+    83K         signed_outputs/17_pades_bb_no_crl.pdf
+    83K         signed_outputs/18_pades_bb_crl.pdf
+    83K         signed_outputs/19_pades_bb_dss.pdf
+    83K         signed_outputs/20_pades_bb_custom_field.pdf
+    83K         signed_outputs/21_pades_bb_full_metadata.pdf
+    115K        signed_outputs/22_pades_bb_reserved_48k.pdf
+    83K         signed_outputs/23_pades_bt_invisible.pdf
+    84K         signed_outputs/24_pades_bt_visible.pdf
+    83K         signed_outputs/25_pades_blt_invisible.pdf
+    84K         signed_outputs/26_pades_blt_visible.pdf
+    83K         signed_outputs/27_pades_blta_invisible.pdf
+    83K         signed_outputs/28_pkcs7_tsa_invisible.pdf
+    84K         signed_outputs/29_pkcs7_tsa_visible_rect.pdf
+    83K         signed_outputs/30_pkcs7_tsa_no_crl.pdf
+    83K         signed_outputs/31_pkcs7_tsa_crl.pdf
+    83K         signed_outputs/32_pkcs7_tsa_ocsp.pdf
+    83K         signed_outputs/33_pkcs7_tsa_crl_ocsp.pdf
+    83K         signed_outputs/34_pkcs7_tsa_dss.pdf
+    83K         signed_outputs/35_pkcs7_tsa_crl_dss.pdf
+    83K         signed_outputs/36_pkcs7_tsa_crl_ocsp_dss.pdf
+    83K         signed_outputs/37_pkcs7_tsa_custom_field.pdf
+    83K         signed_outputs/38_pkcs7_tsa_full_metadata.pdf
+    84K         signed_outputs/39_pkcs7_tsa_visible_full_metadata.pdf
+    83K         signed_outputs/40_pades_bb_tsa_invisible.pdf
+    84K         signed_outputs/41_pades_bb_tsa_visible.pdf
+    83K         signed_outputs/42_pades_bt_tsa_invisible.pdf
+    84K         signed_outputs/43_pades_bt_tsa_visible.pdf
+    83K         signed_outputs/44_pades_bt_tsa_crl.pdf
+    83K         signed_outputs/45_pades_bt_tsa_ocsp.pdf
+    83K         signed_outputs/46_pades_bt_tsa_full_metadata.pdf
+    83K         signed_outputs/47_pades_blt_tsa_invisible.pdf
+    84K         signed_outputs/48_pades_blt_tsa_visible.pdf
+    83K         signed_outputs/49_pades_blt_tsa_crl.pdf
+    83K         signed_outputs/50_pades_blt_tsa_crl_ocsp.pdf
+    83K         signed_outputs/51_pades_blt_tsa_full_metadata.pdf
+    83K         signed_outputs/52_pades_blta_tsa_invisible.pdf
+    84K         signed_outputs/53_pades_blta_tsa_visible.pdf
+    83K         signed_outputs/54_pades_blta_tsa_full_metadata.pdf
+    84K         signed_outputs/55_visible_text_only_pkcs7.pdf
+    84K         signed_outputs/56_visible_text_only_pades_bb.pdf
+    84K         signed_outputs/57_visible_text_only_pades_bt.pdf
+    523K        signed_outputs/58_visible_image_pkcs7.pdf
+    523K        signed_outputs/59_visible_image_pkcs7_tsa.pdf
+    523K        signed_outputs/60_visible_image_pades_bb.pdf
+    523K        signed_outputs/61_visible_image_pades_bt.pdf
+    523K        signed_outputs/62_visible_image_pades_blt.pdf
+    523K        signed_outputs/63_visible_image_pades_blta.pdf
+    523K        signed_outputs/64_visible_image_large_rect.pdf
+    83K         signed_outputs/fixed_invisible.pdf
+    83K         signed_outputs/fixed_test.pdf
+════════════════════════════════════════════════════════
