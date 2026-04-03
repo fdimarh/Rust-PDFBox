@@ -11,8 +11,20 @@ text = []
 crypto = ["dep:aes", "dep:cbc", "dep:md-5", "dep:cipher", "dep:digest", "dep:block-padding"]
 ## Advanced layout analysis (column detection, reading order)
 layout = []
+## Core compression: stream recompression (flate2) + object deduplication (rustc-hash) + cleanup + version + linearize
+compress = ["dep:flate2", "dep:rustc-hash"]
+## Image resampling: pure-Rust JPEG encode/decode + lossless PNG optimizer
+compress-images = ["compress", "dep:jpeg-encoder", "dep:zune-jpeg", "dep:oxipng"]
+## Best-quality JPEG via libjpeg-turbo bindings (same codec as ilovepdf; requires C toolchain)
+compress-mozjpeg = ["compress-images", "dep:mozjpeg"]
+## CMYK/ICC color conversion: lcms2 ICC engine + palette pure-Rust fallback
+compress-color = ["compress", "dep:lcms2", "dep:palette"]
+## Font subsetting: TrueType + CFF glyph subsetting via subsetter + ttf-parser
+compress-fonts = ["compress", "dep:subsetter", "dep:ttf-parser", "dep:owned_ttf_parser"]
+## Full ilovepdf-grade: all passes (requires C toolchain for mozjpeg + lcms2)
+compress-full = ["compress-mozjpeg", "compress-color", "compress-fonts"]
 ## All features enabled
-full = ["text", "crypto", "layout"]
+full = ["text", "crypto", "layout", "compress", "compress-images", "compress-color", "compress-fonts"]
 
 [dependencies]
 # RustCrypto ecosystem for cryptographic operations
@@ -43,6 +55,28 @@ bcder = "0.7.6"
 
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
+# ── Compression (Bonus 11) ──────────────────────────────────────────────────
+# Core: stream re-compression + object deduplication
+flate2           = { version = "1",    optional = true }   # FlateDecode level-9 re-compression
+rustc-hash       = { version = "2",    optional = true }   # FxHasher64 for fast object dedup
+
+# Image encoding/decoding (compress-images feature)
+jpeg-encoder     = { version = "0.6",  optional = true }   # pure-Rust JPEG encoder
+zune-jpeg        = { version = "0.4",  optional = true }   # fast pure-Rust JPEG decoder
+oxipng           = { version = "9",    optional = true }   # lossless PNG optimizer
+
+# Best-quality JPEG via libjpeg-turbo (compress-mozjpeg; requires C toolchain)
+mozjpeg          = { version = "0.10", optional = true }   # libjpeg-turbo bindings (same as ilovepdf)
+
+# CMYK/ICC color management (compress-color feature)
+lcms2            = { version = "6",    optional = true }   # ICC color engine (CMYK → sRGB)
+palette          = { version = "0.7",  optional = true }   # pure-Rust color math fallback
+
+# Font subsetting (compress-fonts feature)
+subsetter        = { version = "0.2",  optional = true }   # TrueType + CFF font subsetter
+ttf-parser       = { version = "0.25", optional = true }   # TrueType/OTF glyph table reader
+owned_ttf_parser = { version = "0.25", optional = true }   # owned wrapper (no lifetime coupling)
+
 # LTV / revocation / DSS support (mirrors rust_pdf_signing)
 reqwest    = { version = "0.12", features = ["blocking"] }
 x509-parser = "0.18"
@@ -62,8 +96,12 @@ path = "examples/extract_text.rs"
 name = "digital_sign"
 path = "examples/digital_sign.rs"
 
+[[example]]
+name = "compress_pdf"
+path = "examples/compress_pdf.rs"
+required-features = ["compress"]
+
 [dev-dependencies]
-flate2 = "1"
 
 [[bench]]
 name = "bench_core"
