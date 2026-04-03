@@ -30,7 +30,7 @@
 //! ```
 
 use rust_pdfbox::signing::{
-    sign_pdf, verify_pdf, PadesLevel, SignatureAnchorMode, SignatureFormat, SignOptions,
+    sign_pdf, validate_pdf_full, PadesLevel, SignatureAnchorMode, SignatureFormat, SignOptions,
 };
 use std::{env, fs, path::PathBuf, process};
 
@@ -374,15 +374,17 @@ fn main() {
 
     // ── 8. Verify ──
     println!("  Verifying …");
-    match verify_pdf(&signed) {
+    match validate_pdf_full(&signed) {
         Ok(results) if results.is_empty() => {
             println!("  ⚠  No signature fields found in output PDF.");
         }
         Ok(results) => {
             for (i, r) in results.iter().enumerate() {
                 let icon = if r.is_valid() { "✅" } else { "❌" };
-                println!("  Signature [{}] {}: field='{}'", i + 1, icon, r.field_name);
-                println!("    Status         : {}", r.status);
+                let ts_label = if r.is_document_timestamp { " [DocTimestamp]" } else { "" };
+                println!("  Signature [{}] {}{}: field='{}'",
+                    i + 1, icon, ts_label,
+                    r.field_name.as_deref().unwrap_or("unnamed"));
                 println!("    Filter         : {}", r.filter.as_deref().unwrap_or("-"));
                 println!("    SubFilter      : {}", r.sub_filter.as_deref().unwrap_or("-"));
                 println!("    Reason         : {}", r.reason.as_deref().unwrap_or("-"));
@@ -390,23 +392,53 @@ fn main() {
                 println!("    Signing time   : {}", r.signing_time.as_deref().unwrap_or("-"));
                 println!("    ByteRange      : {:?}", r.byte_range);
                 println!("    Covers file    : {}", r.byte_range_covers_whole_file);
-                println!("    Digest valid   : {}", r.digest_valid);
+                // ── cryptographic ──
+                println!("    Digest match   : {}", r.digest_match);
                 println!("    CMS sig valid  : {}", r.cms_signature_valid);
+                // ── chain ──
                 println!("    Chain valid    : {}", r.certificate_chain_valid);
-                println!("    Has timestamp  : {}", r.has_timestamp);
-                println!("    Has DSS        : {}", r.has_dss);
-                println!("    LTV enabled    : {}", r.is_ltv_enabled);
+                println!("    Chain trusted  : {}", r.certificate_chain_trusted);
                 for w in &r.chain_warnings {
                     println!("    ⚠  Chain       : {w}");
                 }
+                // ── LTV ──
+                println!("    Has timestamp  : {}", r.has_timestamp);
+                println!("    Has DSS        : {}", r.has_dss);
+                if r.has_dss {
+                    println!("      DSS CRLs     : {}", r.dss_crl_count);
+                    println!("      DSS OCSPs    : {}", r.dss_ocsp_count);
+                    println!("      DSS Certs    : {}", r.dss_cert_count);
+                    println!("      Has VRI      : {}", r.has_vri);
+                }
+                println!("    CMS revoc data : {}", r.has_cms_revocation_data);
+                println!("    LTV enabled    : {}", r.is_ltv_enabled);
+                // ── modification detection ──
+                println!("    No unauth mods : {}", r.no_unauthorized_modifications);
+                if !r.modification_notes.is_empty() {
+                    println!("    Modification notes:");
+                    for note in &r.modification_notes {
+                        println!("      - {note}");
+                    }
+                }
+                // ── security attack defences ──
+                println!("    ByteRange valid: {}", r.byte_range_valid);
+                println!("    Not wrapped    : {}", r.signature_not_wrapped);
+                if let Some(level) = r.certification_level {
+                    println!("    Cert level     : {level}");
+                    println!("    Cert perm ok   : {}", r.certification_permission_ok);
+                }
+                for sw in &r.security_warnings {
+                    println!("    🔒 Security    : {sw}");
+                }
+                // ── certificates ──
                 println!("    Certificates   : {}", r.certificates.len());
                 for (ci, cert) in r.certificates.iter().enumerate() {
                     println!("      [{ci}] Subject  : {}", cert.subject);
                     println!("           Issuer   : {}", cert.issuer);
-                    println!("           Serial   : {}", cert.serial);
-                    println!("           Valid    : {} → {}",
-                        cert.not_before.as_deref().unwrap_or("?"),
-                        cert.not_after.as_deref().unwrap_or("?"));
+                    println!("           Serial   : {}", cert.serial_number);
+                    let nb = cert.not_before.map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string()).unwrap_or_else(|| "?".into());
+                    let na = cert.not_after.map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string()).unwrap_or_else(|| "?".into());
+                    println!("           Valid    : {nb} → {na}");
                     if cert.is_self_signed { println!("           ⚠  Self-signed"); }
                     if cert.is_expired     { println!("           ❌ Expired"); }
                 }
@@ -414,7 +446,7 @@ fn main() {
                     println!("    ❌ Error       : {err}");
                 }
             }
-            let all_ok = results.iter().all(|r| r.digest_valid && r.cms_signature_valid);
+            let all_ok = results.iter().all(|r| r.digest_match && r.cms_signature_valid);
             println!();
             if all_ok {
                 println!("  ✅ All signatures cryptographically verified.");

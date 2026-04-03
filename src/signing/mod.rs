@@ -53,6 +53,7 @@ pub mod appearance;
 pub mod asn1;
 pub mod cms;
 pub mod ltv;
+pub mod validator;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -409,6 +410,28 @@ pub fn sign_pdf(
 
     // ── Step 3: build /Widget annotation dictionary ──────────────────────
     let page_ref = page_object_id(&doc, opts.page);
+
+    // Resolve anchor-tag → compute placement rect if requested.
+    // anchor_tag overrides opts.rect; if anchor is not found, return Err.
+    let resolved_rect: Option<[f64; 4]> = if opts.visible_signature {
+        if let (Some(tag), Some(w), Some(h)) = (
+            opts.anchor_tag.as_deref(),
+            opts.anchor_width,
+            opts.anchor_height,
+        ) {
+            let pid = page_ref.ok_or_else(|| PdfError::Parse {
+                offset: None,
+                context: format!("page {} not found in document", opts.page),
+            })?;
+            let rect = resolve_anchor_rect(&doc, pid, tag, w, h, &opts.anchor_mode)?;
+            Some(rect)
+        } else {
+            opts.rect
+        }
+    } else {
+        None
+    };
+
     let mut widget_dict = CosDictionary::new();
     widget_dict.set(CosName::type_name(),          CosObject::Name(CosName::new(b"Annot")));
     widget_dict.set(CosName::new(b"Subtype"),       CosObject::Name(CosName::new(b"Widget")));
@@ -416,8 +439,8 @@ pub fn sign_pdf(
     widget_dict.set(CosName::new(b"T"),             CosObject::String(opts.field_name.as_bytes().to_vec()));
     widget_dict.set(CosName::new(b"V"),             CosObject::Reference(sig_id));
     widget_dict.set(CosName::new(b"F"),             CosObject::Integer(4)); // Print flag
-    // Use [0 0 0 0] when invisible_signature is false or no rect given
-    let effective_rect = if opts.visible_signature { opts.rect } else { None };
+    // effective_rect: anchor-resolved rect OR opts.rect (when visible), else None
+    let effective_rect = resolved_rect;
     let rect_arr = match effective_rect {
         Some([x1, y1, x2, y2]) => vec![
             CosObject::Real(x1), CosObject::Real(y1),
@@ -434,11 +457,18 @@ pub fn sign_pdf(
     }
 
     // ── Build /AP appearance stream for visible signatures ────────────────
-    // Allocate IDs: ap_id = next+2, img_id = next+3, font_id = next+4
-    // (page_annots_id and acroform_id will be next+5 and next+6 when we reach Step 4)
+    // Two-layer n0/n2 structure — allocate 5 IDs:
+    //   ap_id   = next+2  (outer AP/N Form)
+    //   n0_id   = next+3  (/n0 empty background sub-Form)
+    //   n2_id   = next+4  (/n2 foreground sub-Form)
+    //   img_id  = next+5  (Image XObject, image mode only)
+    //   font_id = next+6  (Helvetica font, text-only mode only)
+    // page_annots_id = next+7,  acroform_id = next+8
     let ap_id   = ObjectId::new(next_id + 2, 0);
-    let img_id  = ObjectId::new(next_id + 3, 0);
-    let font_id = ObjectId::new(next_id + 4, 0);
+    let n0_id   = ObjectId::new(next_id + 3, 0);
+    let n2_id   = ObjectId::new(next_id + 4, 0);
+    let img_id  = ObjectId::new(next_id + 5, 0);
+    let font_id = ObjectId::new(next_id + 6, 0);
 
     if opts.visible_signature {
         if let Some(r) = effective_rect {
@@ -449,6 +479,8 @@ pub fn sign_pdf(
                 &opts.reason,
                 &date_str,
                 ap_id,
+                n0_id,
+                n2_id,
                 img_id,
                 font_id,
             ).map_err(|e| PdfError::Parse {
@@ -461,27 +493,21 @@ pub fn sign_pdf(
             ap_dict.set(CosName::new(b"N"), CosObject::Reference(ap_id));
             widget_dict.set(CosName::new(b"AP"), CosObject::Dictionary(ap_dict));
 
-            // Will be inserted into `changed` after widget_obj is built below
-            // (store in locals, inserted in Step 4)
-            let _ap_objs = (ap_result.ap_id, ap_result.ap_obj,
-                            ap_result.img_id, ap_result.img_obj,
-                            ap_result.font_id, ap_result.font_obj);
-
-            // Directly insert here — widget_dict borrow ends after .set above
+            // Insert all five appearance objects into the changed map
             let mut ap_changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
-            ap_changed.insert(_ap_objs.0, _ap_objs.1);
-            if let (Some(iid), Some(iobj)) = (_ap_objs.2, _ap_objs.3) {
-                ap_changed.insert(iid, iobj);
+            ap_changed.insert(ap_result.ap_id,  ap_result.ap_obj);   // outer AP/N
+            ap_changed.insert(ap_result.n0_id,  ap_result.n0_obj);   // /n0 background
+            ap_changed.insert(ap_result.n2_id,  ap_result.n2_obj);   // /n2 foreground
+            if let (Some(iid), Some(iobj)) = (ap_result.img_id, ap_result.img_obj) {
+                ap_changed.insert(iid, iobj);                          // Image XObject
             }
-            ap_changed.insert(_ap_objs.4, _ap_objs.5);
+            ap_changed.insert(ap_result.font_id, ap_result.font_obj); // Helvetica font
 
-            // Merge into main changed map (done below in Step 4)
-            // Pass ap_changed along by re-using via a local we capture later.
-            // Since Rust moves, we stash it:
             let widget_obj = CosObject::Dictionary(widget_dict);
 
             // ── Step 4: build AcroForm + Annots update objects ────────────────
-            let page_annots_id = ObjectId::new(next_id + 5, 0);
+            // ap=+2, n0=+3, n2=+4, img=+5, font=+6  →  annots=+7, acroform=+8
+            let page_annots_id = ObjectId::new(next_id + 7, 0);
             let mut changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
             changed.insert(sig_id,    sig_obj);
             changed.insert(widget_id, widget_obj);
@@ -494,7 +520,7 @@ pub fn sign_pdf(
                 }
             }
 
-            let acroform_id  = ObjectId::new(next_id + 6, 0);
+            let acroform_id  = ObjectId::new(next_id + 8, 0);
             let catalog_id   = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
             let acroform_obj = acroform::build_acroform(&doc, widget_id, acroform_id, &mut changed);
             changed.insert(acroform_id, acroform_obj);
@@ -771,202 +797,88 @@ fn append_document_timestamp(
 /// Uses `cryptographic_message_syntax` for full CMS verification — same as
 /// `rust_pdf_signing` `SignatureValidator::validate`.
 pub fn verify_pdf(pdf_bytes: &[u8]) -> Result<Vec<VerifyResult>, PdfError> {
-    let doc = Document::load_from_bytes(pdf_bytes)?;
-    let mut results = Vec::new();
+    use validator::SignatureValidator;
 
-    let sig_fields = find_sig_fields(&doc);
+    let val_results = match SignatureValidator::validate(pdf_bytes) {
+        Ok(v) => v,
+        // If no signatures found, return empty vec (backward-compatible behaviour)
+        Err(PdfError::Parse { ref context, .. }) if context.contains("No digital signature") => {
+            return Ok(vec![]);
+        }
+        Err(e) => return Err(e),
+    };
+    let mut results = Vec::with_capacity(val_results.len());
 
-    // Check DSS presence once
-    let has_dss = doc.catalog()
-        .and_then(|cat| cat.get(&CosName::new(b"DSS")))
-        .is_some();
-
-    for (field_name, sig_ref) in sig_fields {
-        let sig_dict = match doc.objects.get(&sig_ref).and_then(|o| o.as_dictionary()) {
-            Some(d) => d.clone(),
-            None => continue,
-        };
-
-        let filter = sig_dict.get(&CosName::new(b"Filter"))
-            .and_then(|v| v.as_name())
-            .map(|n| String::from_utf8_lossy(n.as_bytes()).into_owned());
-        let sub_filter = sig_dict.get(&CosName::new(b"SubFilter"))
-            .and_then(|v| v.as_name())
-            .map(|n| String::from_utf8_lossy(n.as_bytes()).into_owned());
-        let reason = sig_dict.get(&CosName::new(b"Reason"))
-            .and_then(|v| v.as_string())
-            .map(|b| String::from_utf8_lossy(b).into_owned());
-        let contact_info = sig_dict.get(&CosName::new(b"ContactInfo"))
-            .and_then(|v| v.as_string())
-            .map(|b| String::from_utf8_lossy(b).into_owned());
-        let signing_time = sig_dict.get(&CosName::new(b"M"))
-            .and_then(|v| v.as_string())
-            .map(|b| String::from_utf8_lossy(b).into_owned());
-
-        // /Contents — raw CMS DER bytes
-        let cms_bytes: Vec<u8> = match sig_dict
-            .get(&CosName::new(b"Contents"))
-            .and_then(|v| v.as_string())
-        {
-            Some(b) => b.to_vec(),
-            None => {
-                results.push(VerifyResult {
-                    field_name, filter, sub_filter, reason, contact_info, signing_time,
-                    cms_bytes: vec![], byte_range: [0; 4],
-                    byte_range_covers_whole_file: false,
-                    digest_valid: false, cms_signature_valid: false, cms_parseable: false,
-                    certificates: vec![], certificate_chain_valid: false,
-                    chain_warnings: vec![], has_timestamp: false,
-                    has_dss, is_ltv_enabled: false,
-                    status: "ERROR: missing /Contents".into(),
-                    errors: vec!["Missing /Contents".into()],
-                });
-                continue;
-            }
-        };
-
-        // /ByteRange [r0_start r0_len r1_start r1_len]
-        let br = match sig_dict
-            .get(&CosName::new(b"ByteRange"))
-            .and_then(|v| v.as_array())
-        {
-            Some(arr) if arr.len() == 4 => {
-                let v: Vec<i64> = arr.iter().filter_map(|x| x.as_integer()).collect();
-                if v.len() == 4 { [v[0], v[1], v[2], v[3]] } else { [0i64; 4] }
-            }
-            _ => [0i64; 4],
-        };
-
-        // ByteRange covers whole file check
-        let file_len = pdf_bytes.len() as i64;
-        let byte_range_covers = br[0] == 0
-            && br[2] == br[0] + br[1] + cms_bytes.len() as i64 * 2 + 2
-            && br[2] + br[3] == file_len;
-
-        // Extract signed content for CMS verification
-        let r0s = br[0] as usize;
-        let r0e = (br[0] + br[1]) as usize;
-        let r1s = br[2] as usize;
-        let r1e = (br[2] + br[3]) as usize;
-        let signed_content = if r0e <= pdf_bytes.len() && r1e <= pdf_bytes.len() {
-            let mut v = Vec::with_capacity(r0e - r0s + r1e - r1s);
-            v.extend_from_slice(&pdf_bytes[r0s..r0e]);
-            v.extend_from_slice(&pdf_bytes[r1s..r1e]);
-            v
+    for v in val_results {
+        let br = if v.byte_range.len() == 4 {
+            [v.byte_range[0], v.byte_range[1], v.byte_range[2], v.byte_range[3]]
         } else {
-            vec![]
+            [0i64; 4]
         };
 
-        // Full CMS verification
-        // For ETSI.RFC3161 (DocTimestamp), the standard CMS messageDigest check
-        // does NOT apply to the PDF byte ranges — instead, verify the SHA-256
-        // of the signed ranges matches the TSTInfo.messageImprint in the token.
-        let is_rfc3161 = sub_filter.as_deref() == Some("ETSI.RFC3161");
-        let cv = if is_rfc3161 {
-            verify_rfc3161_timestamp(&cms_bytes, &signed_content)
-        } else {
-            cms::verify_cms(&cms_bytes, &signed_content)
-        };
-
-        let certificates: Vec<CertInfo> = cv.certificates.iter().map(|c| CertInfo {
+        // Convert validator::CertInfo → signing::CertInfo
+        let certificates: Vec<CertInfo> = v.certificates.iter().map(|c| CertInfo {
             subject:       c.subject.clone(),
             issuer:        c.issuer.clone(),
-            serial:        c.serial.clone(),
-            not_before:    c.not_before.clone(),
-            not_after:     c.not_after.clone(),
+            serial:        c.serial_number.clone(),
+            not_before:    c.not_before.map(|t| t.to_rfc3339()),
+            not_after:     c.not_after.map(|t| t.to_rfc3339()),
             is_expired:    c.is_expired,
             is_self_signed: c.is_self_signed,
         }).collect();
 
-        let is_ltv_enabled = (cv.has_timestamp && has_dss)
-            || (cv.has_timestamp && !cv.certificates.is_empty());
-
-        let mut errors = Vec::new();
-        if !cv.digest_valid   { errors.push("Digest mismatch".into()); }
-        if !cv.signature_valid { errors.push("Signature verification failed".into()); }
-
-        let status = if cv.digest_valid && cv.signature_valid {
+        // Build status string
+        let all_ok = v.digest_match && v.cms_signature_valid;
+        let status = if all_ok {
             "VALID: digest and signature verified".into()
-        } else if cv.digest_valid {
-            "VALID: digest matches".into()
+        } else if v.digest_match {
+            "PARTIAL: digest matches but signature failed".into()
+        } else if v.cms_signature_valid {
+            "PARTIAL: signature valid but digest mismatch".into()
         } else {
-            "INVALID: digest mismatch".into()
+            format!("INVALID: {}", v.errors.join("; "))
         };
 
         results.push(VerifyResult {
-            field_name, filter, sub_filter, reason, contact_info, signing_time,
-            cms_bytes,
-            byte_range: br,
-            byte_range_covers_whole_file: byte_range_covers,
-            digest_valid: cv.digest_valid,
-            cms_signature_valid: cv.signature_valid,
-            cms_parseable: true,
+            field_name:                v.field_name.unwrap_or_else(|| "unnamed".into()),
+            filter:                    v.filter,
+            sub_filter:                v.sub_filter,
+            reason:                    v.reason,
+            contact_info:              v.contact_info,
+            signing_time:              v.signing_time,
+            cms_bytes:                 vec![],    // not needed in VerifyResult
+            byte_range:                br,
+            byte_range_covers_whole_file: v.byte_range_covers_whole_file,
+            digest_valid:              v.digest_match,
+            cms_signature_valid:       v.cms_signature_valid,
+            cms_parseable:             true,
             certificates,
-            certificate_chain_valid: cv.chain_valid,
-            chain_warnings: cv.chain_warnings,
-            has_timestamp: cv.has_timestamp,
-            has_dss,
-            is_ltv_enabled,
+            certificate_chain_valid:   v.certificate_chain_valid,
+            chain_warnings:            v.chain_warnings,
+            has_timestamp:             v.has_timestamp,
+            has_dss:                   v.has_dss,
+            is_ltv_enabled:            v.is_ltv_enabled,
             status,
-            errors,
+            errors:                    v.errors,
         });
     }
 
     Ok(results)
 }
 
+/// Full-featured validation using `SignatureValidator`.
+/// Returns the complete `ValidationResult` with modification detection,
+/// attack defences, LTV details, and certificate trust info.
+pub fn validate_pdf_full(pdf_bytes: &[u8])
+    -> Result<Vec<validator::ValidationResult>, PdfError>
+{
+    validator::SignatureValidator::validate(pdf_bytes)
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/// Verify an ETSI.RFC3161 DocTimestamp token against the signed PDF byte ranges.
-///
-/// For RFC3161 tokens, the CMS `SignedData` wraps a `TSTInfo` structure.
-/// The `messageImprint.hashedMessage` in `TSTInfo` must equal SHA-256 of the
-/// signed byte ranges. The CMS signature itself is verified normally.
-fn verify_rfc3161_timestamp(cms_der: &[u8], signed_content: &[u8]) -> cms::CmsVerifyResult {
-    use sha2::{Digest, Sha256};
-
-    // Compute SHA-256 of the signed content
-    let expected_hash = Sha256::digest(signed_content).to_vec();
-
-    // Walk the DER to find the messageImprint.hashedMessage in TSTInfo.
-    // TSTInfo is the content of the inner EncapsulatedContentInfo in the SignedData.
-    // Structure:
-    //   ContentInfo { SignedData { encapContentInfo { TSTInfo { ... messageImprint { ... hashedMessage } } } } }
-    //
-    // Shortcut: SHA-256 hashes are 32 bytes. Find the expected_hash in the DER.
-    // If present AND the CMS signature is valid, the digest is valid.
-    let hash_in_token = find_hash_in_der(cms_der, 32);
-
-    let digest_valid = match &hash_in_token {
-        Some(h) => *h == expected_hash,
-        None => false,
-    };
-
-    // Verify the CMS signature using the standard path (ignore digest check result)
-    let mut base = cms::verify_cms(cms_der, signed_content);
-    // Override digest_valid with our RFC3161-specific check
-    base.digest_valid = digest_valid;
-    base
-}
-
-/// Search `der` for a 32-byte OCTET STRING that matches a likely SHA-256 hash.
-/// Used to locate TSTInfo.messageImprint.hashedMessage without full ASN.1 parsing.
-fn find_hash_in_der(der: &[u8], hash_len: usize) -> Option<Vec<u8>> {
-    // Search for OCTET STRING tag (0x04) followed by length == hash_len
-    let needle_tag = 0x04u8;
-    for i in 0..der.len().saturating_sub(hash_len + 2) {
-        if der[i] == needle_tag && der[i + 1] == hash_len as u8 {
-            let candidate = der[i + 2..i + 2 + hash_len].to_vec();
-            // Plausible SHA-256 hash: not all zeros, not all 0xFF
-            if candidate.iter().any(|&b| b != 0) && candidate.iter().any(|&b| b != 0xFF) {
-                return Some(candidate);
-            }
-        }
-    }
-    None
-}
 
 fn next_free_object_id(doc: &Document) -> u32 {
     doc.objects.max_object_number() + 1
@@ -1046,7 +958,6 @@ fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: Obje
 fn find_sig_placeholders(buf: &[u8], _field_name: &str)
     -> Result<(usize, usize, usize), PdfError>
 {
-    // ...existing code...
     // Locate /ByteRange [1000000000 — the sentinel padded placeholder
     let br_needle = b"/ByteRange [1000000000";
     let br_off = buf.windows(br_needle.len())
@@ -1188,6 +1099,7 @@ fn inject_contents(buf: &mut Vec<u8>, hex_start: usize, hex_field_len: usize, cm
 
 /// Walk /AcroForm /Fields and collect all (field_name, sig_value_ref) pairs
 /// where /FT = /Sig.
+#[allow(dead_code)]
 fn find_sig_fields(doc: &Document) -> Vec<(String, ObjectId)> {
     let mut out = Vec::new();
     let catalog = match doc.catalog() {
@@ -1211,6 +1123,7 @@ fn find_sig_fields(doc: &Document) -> Vec<(String, ObjectId)> {
     out
 }
 
+#[allow(dead_code)]
 fn collect_sig_fields_from_acroform_dict(
     acroform: &CosDictionary,
     doc: &Document,
@@ -1244,6 +1157,129 @@ fn collect_sig_fields_from_acroform_dict(
                 out.push((name, sig_ref));
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Anchor-tag resolution
+// ---------------------------------------------------------------------------
+
+/// Search the text content of `page_id` for `tag` and return the computed
+/// signature placement rectangle.
+///
+/// ## Algorithm
+/// 1. Collect all `TextChunk`s from the page content stream(s).
+/// 2. Find the first chunk whose `.text` **contains** `tag` (case-sensitive).
+/// 3. Derive a rectangle based on `anchor_mode`:
+///    - `Overlay`  — rect starts at `(chunk.x, chunk.y - height)` covering the
+///      tag position exactly (signature overlays the tag).
+///    - `InFront`  — rect starts at `(chunk.x + font_size, chunk.y - height)`
+///      so it sits to the right of the tag.
+///
+/// ## PDF coordinate system reminder
+/// PDF Y=0 is at the **bottom** of the page.  `TextChunk.y` is the **baseline**
+/// Y of the text.  We place the signature **above** the baseline by `height`
+/// so the full rectangle is `[x, y-height, x+width, y]`.
+///
+/// Returns `Err` if the tag is not found.
+pub fn resolve_anchor_rect(
+    doc:         &Document,
+    page_id:     ObjectId,
+    tag:         &str,
+    width:       f64,
+    height:      f64,
+    mode:        &SignatureAnchorMode,
+) -> Result<[f64; 4], PdfError> {
+    // Collect content stream bytes for this page.
+    let page_dict = doc.objects
+        .get(&page_id)
+        .and_then(|o| o.as_dictionary())
+        .ok_or_else(|| PdfError::Parse {
+            offset: None,
+            context: format!("page object {page_id:?} not found or not a dictionary"),
+        })?
+        .clone();
+
+    let content_bytes = collect_page_content_bytes(doc, &page_dict);
+
+    // Extract text chunks (requires `text` feature).
+    #[cfg(feature = "text")]
+    {
+        use crate::text::extract_chunks;
+
+        let chunks = extract_chunks(&content_bytes, None);
+
+        // Find first chunk containing the tag text (case-sensitive).
+        let hit = chunks.iter().find(|c| c.text.contains(tag));
+        match hit {
+            Some(chunk) => {
+                let x = match mode {
+                    SignatureAnchorMode::Overlay  => chunk.x,
+                    SignatureAnchorMode::InFront  => chunk.x + chunk.font_size.max(8.0),
+                };
+                let y_top = chunk.y;          // baseline = top of sig rect
+                let y_bot = y_top - height;   // bottom of sig rect
+                Ok([x, y_bot, x + width, y_top])
+            }
+            None => Err(PdfError::Parse {
+                offset: None,
+                context: format!(
+                    "anchor tag {:?} not found on page; available text chunks: [{}]",
+                    tag,
+                    chunks.iter().map(|c| format!("{:?}", c.text)).collect::<Vec<_>>().join(", ")
+                ),
+            }),
+        }
+    }
+
+    #[cfg(not(feature = "text"))]
+    Err(PdfError::Unsupported {
+        feature: "anchor_tag requires the 'text' feature to be enabled",
+    })
+}
+
+/// Collect raw (decoded) content stream bytes for a page dictionary.
+///
+/// Handles both single-stream (`/Contents ref`) and multi-stream
+/// (`/Contents [ref ref …]`) pages.
+fn collect_page_content_bytes(doc: &Document, page_dict: &CosDictionary) -> Vec<u8> {
+    use crate::io::decode_stream;
+
+    let contents_obj = match page_dict.get(&CosName::new(b"Contents")) {
+        Some(o) => o.clone(),
+        None    => return vec![],
+    };
+
+    let decode = |obj: &CosObject| -> Vec<u8> {
+        if let Some(stream) = obj.as_stream() {
+            let filter = stream.dictionary.get(&CosName::new(b"Filter"));
+            decode_stream(&stream.data, filter).unwrap_or_else(|_| stream.data.clone())
+        } else if let Some(ref_id) = obj.as_reference() {
+            let inner = match doc.objects.get(&ref_id) {
+                Some(o) => o,
+                None    => return vec![],
+            };
+            if let Some(stream) = inner.as_stream() {
+                let filter = stream.dictionary.get(&CosName::new(b"Filter"));
+                decode_stream(&stream.data, filter).unwrap_or_else(|_| stream.data.clone())
+            } else {
+                vec![]
+            }
+        } else {
+            vec![]
+        }
+    };
+
+    match &contents_obj {
+        CosObject::Array(arr) => {
+            let mut out = Vec::new();
+            for item in arr {
+                out.extend_from_slice(&decode(item));
+                out.push(b' '); // PDF spec: streams in array are concatenated
+            }
+            out
+        }
+        other => decode(other),
     }
 }
 

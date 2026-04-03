@@ -318,6 +318,16 @@ impl ObjectStore {
         self.objects.keys().map(|id| id.object_number).max().unwrap_or(0)
     }
 
+    /// Iterates over all stored object IDs.
+    pub fn keys(&self) -> impl Iterator<Item = &ObjectId> {
+        self.objects.keys()
+    }
+
+    /// Iterates over all (ObjectId, CosObject) pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (&ObjectId, &CosObject)> {
+        self.objects.iter()
+    }
+
     /// Resolve a reference chain: if `obj` is a `Reference`, follow it through
     /// the store until a non-reference value is found (or the chain breaks).
     pub fn resolve<'a>(&'a self, obj: &'a CosObject) -> Option<&'a CosObject> {
