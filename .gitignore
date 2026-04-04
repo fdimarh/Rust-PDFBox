@@ -1,5 +1,8 @@
 /target
 
+# Internal planning documents (not for public repo)
+/PORTING_PLAN.md
+
 # Java build artifacts
 *.class
 *.jar
