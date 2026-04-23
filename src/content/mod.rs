@@ -10,8 +10,10 @@
 //! | `PDGraphicsState` + `PDTextState` | [`graphics_state::GraphicsState`] |
 
 pub mod graphics_state;
+pub mod writer;
 
 pub use graphics_state::{GraphicsState, Matrix, TextState};
+pub use writer::ContentStreamWriter;
 
 use crate::cos::{CosDictionary, CosObject};
 use crate::parser::lexer::{LexError, Lexer, Token};

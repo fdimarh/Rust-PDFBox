@@ -14,6 +14,7 @@
 //! | `PDPage.getContents()` | [`Page::content_stream_data`] |
 
 use crate::cos::{CosDictionary, CosName, CosObject};
+use crate::ObjectId;
 
 // ---------------------------------------------------------------------------
 // Rectangle
@@ -140,6 +141,8 @@ impl<'a> Resources<'a> {
 /// object store; content stream bytes are retrieved on demand.
 #[derive(Debug, Clone)]
 pub struct Page<'a> {
+    /// The page's unique reference ID in the document object store.
+    pub id: ObjectId,
     /// The page's own dictionary (already merged with inherited attributes).
     dict: &'a CosDictionary,
     /// Index of this page within the document (0-based).
@@ -148,8 +151,8 @@ pub struct Page<'a> {
 
 impl<'a> Page<'a> {
     /// Creates a new page from its dictionary and 0-based index.
-    pub fn new(dict: &'a CosDictionary, index: usize) -> Self {
-        Self { dict, index }
+    pub fn new(id: ObjectId, dict: &'a CosDictionary, index: usize) -> Self {
+        Self { id, dict, index }
     }
 
     /// Returns the raw page dictionary.
@@ -227,7 +230,7 @@ mod tests {
     #[test]
     fn page_media_box() {
         let d = make_page_dict(&[0.0, 0.0, 612.0, 792.0], None);
-        let page = Page::new(&d, 0);
+        let page = Page::new(ObjectId::new(1, 0), &d, 0);
         let mb = page.media_box().unwrap();
         assert_eq!(mb.width(), 612.0);
         assert_eq!(mb.height(), 792.0);
@@ -236,21 +239,21 @@ mod tests {
     #[test]
     fn page_rotation_default() {
         let d = make_page_dict(&[0.0, 0.0, 612.0, 792.0], None);
-        let page = Page::new(&d, 0);
+        let page = Page::new(ObjectId::new(1, 0), &d, 0);
         assert_eq!(page.rotation(), 0);
     }
 
     #[test]
     fn page_rotation_explicit() {
         let d = make_page_dict(&[0.0, 0.0, 612.0, 792.0], Some(90));
-        let page = Page::new(&d, 0);
+        let page = Page::new(ObjectId::new(1, 0), &d, 0);
         assert_eq!(page.rotation(), 90);
     }
 
     #[test]
     fn page_crop_box_falls_back_to_media_box() {
         let d = make_page_dict(&[0.0, 0.0, 612.0, 792.0], None);
-        let page = Page::new(&d, 0);
+        let page = Page::new(ObjectId::new(1, 0), &d, 0);
         // No CropBox in dict → falls back to MediaBox.
         let cb = page.crop_box().unwrap();
         assert_eq!(cb.width(), 612.0);
@@ -277,4 +280,3 @@ mod tests {
         assert_eq!(res.font_dict().unwrap().len(), 1);
     }
 }
-

@@ -26,7 +26,7 @@ use super::page::Page;
 /// ancestor nodes (future work for M2 completion).
 pub struct PageTree<'a> {
     /// Flat ordered list of page dictionary references (borrowed from store).
-    pages: Vec<&'a CosDictionary>,
+    pages: Vec<(ObjectId, &'a CosDictionary)>,
 }
 
 impl<'a> PageTree<'a> {
@@ -54,9 +54,14 @@ impl<'a> PageTree<'a> {
         self.pages.len()
     }
 
-    /// Returns the page at the given 0-based index, or `None` if out of range.
+    /// Returns `true` if there are no pages.
+    pub fn is_empty(&self) -> bool {
+        self.pages.is_empty()
+    }
+
+    /// Returns the page at the given 0-based index.
     pub fn get(&self, index: usize) -> Option<Page<'a>> {
-        self.pages.get(index).map(|d| Page::new(d, index))
+        self.pages.get(index).map(|(id, d)| Page::new(*id, d, index))
     }
 
     /// Returns an iterator over all pages in order.
@@ -64,7 +69,7 @@ impl<'a> PageTree<'a> {
         self.pages
             .iter()
             .enumerate()
-            .map(|(i, d)| Page::new(d, i))
+            .map(|(i, (id, d))| Page::new(*id, d, i))
     }
 }
 
@@ -75,7 +80,7 @@ impl<'a> PageTree<'a> {
 fn collect_pages<'a>(
     node_id: ObjectId,
     store: &'a ObjectStore,
-    out: &mut Vec<&'a CosDictionary>,
+    out: &mut Vec<(ObjectId, &'a CosDictionary)>,
     depth: usize,
 ) -> PdfResult<()> {
     const MAX_DEPTH: usize = 64;
@@ -99,10 +104,11 @@ fn collect_pages<'a>(
 
     match node_type.map(|n| n.as_bytes()) {
         Some(b"Page") => {
-            out.push(dict);
+            // Leaf node: emit itself.
+            out.push((node_id, dict));
         }
         Some(b"Pages") | None => {
-            // Intermediate node or missing /Type — traverse /Kids.
+            // Intermediate node: evaluate kids, but fail if we recurse too deep.
             let kids = dict
                 .get(&CosName::kids())
                 .and_then(|v| v.as_array())

@@ -13,6 +13,10 @@
 //! See `docs/porting/` for the porting plan and detailed architecture.
 
 pub mod content;
+#[cfg(feature = "forms")]
+pub mod forms;
+#[cfg(feature = "compress")]
+pub mod compress;
 pub mod cos;
 #[cfg(feature = "crypto")]
 pub mod crypto;
@@ -64,6 +68,10 @@ pub enum PdfError {
     Unsupported {
         feature: &'static str,
     },
+    #[cfg(feature = "compress")]
+    Compress {
+        reason: String,
+    },
 }
 
 impl Display for PdfError {
@@ -91,6 +99,8 @@ impl Display for PdfError {
             Self::Font { font_name } => write!(f, "font error: {font_name}"),
             Self::Crypto => write!(f, "crypto error"),
             Self::Unsupported { feature } => write!(f, "unsupported feature: {feature}"),
+            #[cfg(feature = "compress")]
+            Self::Compress { reason } => write!(f, "compress error: {reason}"),
         }
     }
 }
@@ -214,11 +224,75 @@ fn linear_scan_xref(bytes: &[u8], report: &mut RecoveryReport) -> XRefTable {
             }
         }
 
+        // Also scan for cross-reference stream dicts (PDF 1.5+):
+        // look for /Type /XRef in a dict, then extract /Root, /Info, /Encrypt, /Size.
+        // This handles PDFs that have no "trailer" keyword (only xref streams).
+        if i + 5 <= len && &bytes[i..i+5] == b"/Type" {
+            let after = &bytes[i+5..];
+            let trimmed = skip_spaces(after);
+            if trimmed.starts_with(b"/XRef") {
+                // We're inside an xref stream dict — scan backwards for the opening <<
+                // and try to parse the whole dict. If that fails, hunt for /Root manually.
+                if let Some(dict_start) = find_dict_start_before(bytes, i) {
+                    let dict_slice = &bytes[dict_start..];
+                    let mut p = Parser::new(dict_slice);
+                    if let Ok(Some(CosObject::Dictionary(d))) = p.parse_object() {
+                        table.merge_trailer(&d);
+                    }
+                }
+            }
+        }
+
         i += 1;
+    }
+
+    // Last-resort: if we still have no /Root, scan for /Root N G R patterns
+    // directly in the raw bytes (handles PDFs where dict parsing above fails).
+    if table.trailer.get(&CosName::new(b"Root".to_vec())).is_none() {
+        if let Some(root_id) = scan_bytes_for_root_ref(bytes) {
+            let mut d = CosDictionary::new();
+            d.insert(
+                CosName::new(b"Root".to_vec()),
+                CosObject::Reference(root_id),
+            );
+            table.merge_trailer(&d);
+        }
     }
 
     report.warnings.push(format!("linear scan found {found} objects"));
     table
+}
+
+/// Scan raw bytes for the pattern `/Root N G R` and return the ObjectId.
+fn scan_bytes_for_root_ref(bytes: &[u8]) -> Option<ObjectId> {
+    let needle = b"/Root ";
+    let mut pos = 0;
+    while pos + needle.len() < bytes.len() {
+        if &bytes[pos..pos+needle.len()] == needle {
+            let rest = &bytes[pos+needle.len()..];
+            if let Some((obj_num, after)) = parse_u32_prefix(rest) {
+                let after = skip_spaces(after);
+                if let Some((generation, after2)) = parse_u32_prefix(after) {
+                    let after2 = skip_spaces(after2);
+                    if after2.starts_with(b"R") {
+                        return Some(ObjectId::new(obj_num, generation as u16));
+                    }
+                }
+            }
+        }
+        pos += 1;
+    }
+    None
+}
+
+/// Walk backwards from `keyword_pos` to find the `<<` that opens
+/// the dict containing the keyword. Returns the offset of `<<`.
+fn find_dict_start_before(bytes: &[u8], keyword_pos: usize) -> Option<usize> {
+    // Simple heuristic: scan backwards up to 2 KB for `<<`
+    let search_start = keyword_pos.saturating_sub(2048);
+    let slice = &bytes[search_start..keyword_pos];
+    // Find the last `<<` in the slice
+    slice.windows(2).rposition(|w| w == b"<<").map(|p| search_start + p)
 }
 
 /// Tries to parse an indirect object header `N G obj` starting at `pos`.
@@ -274,6 +348,39 @@ fn backfill_stream_data(obj: CosObject, slice: &[u8]) -> CosObject {
     CosObject::Stream(stream)
 }
 
+/// Recovery fallback for `load_lenient`: when `parse_indirect_object` fails
+/// (e.g. JPEG `0xFF` bytes confusing the parser), try to reconstruct the
+/// stream object by:
+///   1. Parsing just the dict header (`<< … >>`) at the start of `slice`.
+///   2. Using `/Length` to locate and copy the raw stream body.
+///
+/// Returns `Some(CosObject::Stream)` on success, `None` if the slice doesn't
+/// look like a stream object at all.
+fn recover_stream_object(slice: &[u8]) -> Option<CosObject> {
+    // Skip past "N G obj" header if present — find the opening <<
+    let dict_start = slice.windows(2).position(|w| w == b"<<")?;
+    let dict_slice = &slice[dict_start..];
+    let mut p = Parser::new(dict_slice);
+    let dict = match p.parse_object() {
+        Ok(Some(CosObject::Dictionary(d))) => d,
+        _ => return None,
+    };
+
+    // Must have /Length to safely extract raw binary body
+    let length = dict
+        .get(&CosName::new(b"Length".to_vec()))
+        .and_then(|v| v.as_integer())? as usize;
+    if length == 0 { return None; }
+
+    // Find "stream" keyword after the dict
+    const KW: &[u8] = b"stream";
+    let kw_pos = slice.windows(KW.len()).position(|w| w == KW)?;
+    let data_start = kw_pos + KW.len();
+    let data = parser::xref::read_stream_data(slice, data_start, length).ok()?;
+
+    Some(CosObject::Stream(cos::CosStream::new(dict, data)))
+}
+
 // ---------------------------------------------------------------------------
 // Object store — lazy in-memory object cache keyed by ObjectId
 // ---------------------------------------------------------------------------
@@ -300,6 +407,11 @@ impl ObjectStore {
     /// Looks up an object by ID.
     pub fn get(&self, id: &ObjectId) -> Option<&CosObject> {
         self.objects.get(id)
+    }
+
+    /// Looks up an object by ID mutably.
+    pub fn get_mut(&mut self, id: &ObjectId) -> Option<&mut CosObject> {
+        self.objects.get_mut(id)
     }
 
     /// Returns the number of stored objects.
@@ -445,6 +557,17 @@ pub struct Document {
 }
 
 impl Document {
+    /// Creates a completely empty document.
+    pub fn empty() -> Self {
+        Self {
+            source_len: 0,
+            xref: XRefTable::new(),
+            objects: ObjectStore::new(),
+            source_bytes: None,
+            stream_cache: Arc::new(Mutex::new(StreamCache::new())),
+        }
+    }
+
     /// Loads a PDF document from a file on disk.
     pub fn load<P: AsRef<Path>>(path: P) -> PdfResult<Self> {
         let file = File::open(path)?;
@@ -679,6 +802,21 @@ impl Document {
         self.objects.get(&cat_id)?.as_dictionary()
     }
 
+    #[cfg(feature = "forms")]
+    pub fn acro_form(&self) -> Option<forms::PdAcroForm<'_>> {
+        let catalog = self.catalog()?;
+        catalog
+            .get(&CosName::new(b"AcroForm".to_vec()))
+            .and_then(|v| {
+                if let Some(id) = v.as_reference() {
+                    self.objects.get(&id)?.as_dictionary()
+                } else {
+                    v.as_dictionary()
+                }
+            })
+            .map(|dict| forms::PdAcroForm::new(dict, &self.objects))
+    }
+
     /// Returns the number of objects in the object store.
     pub fn object_count(&self) -> usize {
         self.objects.len()
@@ -754,18 +892,81 @@ impl Document {
                         objects.insert(id.clone(), obj);
                     }
                     Ok(None) => { skipped += 1; }
-                    Err(e) => {
-                        skipped += 1;
-                        report.warnings.push(format!(
-                            "skipped object {} {}: {e}",
-                            id.object_number, id.generation
-                        ));
+                    Err(_e) => {
+                        // Parser failed — try manual stream recovery (handles
+                        // objects whose binary body (e.g. JPEG 0xFF bytes)
+                        // confuses the PDF tokeniser).
+                        if let Some(recovered) = recover_stream_object(slice) {
+                            objects.insert(id.clone(), recovered);
+                        } else {
+                            skipped += 1;
+                            report.warnings.push(format!(
+                                "skipped object {} {}: {}",
+                                id.object_number, id.generation, _e
+                            ));
+                        }
                     }
                 }
             }
         }
         if skipped > 0 {
             report.objects_skipped = skipped;
+        }
+
+        // ---- 4. Expand ObjStm (object streams) ----
+        // Objects stored inside ObjStm are not visible to the linear scan.
+        // We must decompress each ObjStm and inject the embedded objects
+        // into the store so the Page tree, fonts, etc. become accessible.
+        let objstm_ids: Vec<ObjectId> = objects
+            .iter()
+            .filter_map(|(id, obj)| {
+                if let CosObject::Stream(s) = obj {
+                    let is_objstm = s.dictionary
+                        .get(&CosName::new(b"Type".to_vec()))
+                        .map(|v| matches!(v, CosObject::Name(n) if n.as_str() == Some("ObjStm")))
+                        .unwrap_or(false);
+                    if is_objstm { return Some(*id); }
+                }
+                None
+            })
+            .collect();
+
+        for stm_id in &objstm_ids {
+            let stream_clone = match objects.get(stm_id) {
+                Some(CosObject::Stream(s)) => s.clone(),
+                _ => continue,
+            };
+            // Decode (FlateDecode) the ObjStm data.
+            let filter = stream_clone.dictionary
+                .get(&CosName::new(b"Filter".to_vec()))
+                .cloned();
+            let decoded = match io::decode_stream(&stream_clone.data, filter.as_ref()) {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
+            // Parse the object stream preamble.
+            let objstm = match parser::ObjectStream::from_stream(
+                &stream_clone.dictionary, decoded,
+            ) {
+                Some(os) => os,
+                None => continue,
+            };
+            // Extract each embedded object and insert into the store.
+            for obj_num in objstm.object_numbers() {
+                let id = ObjectId::new(obj_num, 0);
+                if objects.get(&id).is_some() {
+                    continue; // already loaded
+                }
+                if let Some(obj_bytes) = objstm.get_object(obj_num) {
+                    let mut p = Parser::new(obj_bytes);
+                    match p.parse_object() {
+                        Ok(Some(parsed)) => {
+                            objects.insert(id, parsed);
+                        }
+                        _ => {} // skip unparseable
+                    }
+                }
+            }
         }
 
         let doc = Self {
@@ -805,6 +1006,233 @@ impl Document {
     ) -> std_io::Result<()> {
         writer::IncrementalWriter::write_update(original, self, changed, out)
     }
+
+    // ── Compression API (Bonus 11) ────────────────────────────────────────────
+
+    /// Runs the multi-pass PDF compression pipeline in-place.
+    ///
+    /// This is a convenience method equivalent to calling [`compress::compress`]
+    /// directly. Requires the `compress` feature flag.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use rust_pdfbox::{Document, compress::{CompressOptions, CompressionMode}};
+    /// let mut doc = Document::load("input.pdf").unwrap();
+    /// let report = doc.compress(CompressOptions::for_mode(CompressionMode::Recommended)).unwrap();
+    /// println!("{}", report.summary());
+    /// doc.save("output.pdf").unwrap();
+    /// ```
+    #[cfg(feature = "compress")]
+    pub fn compress(
+        &mut self,
+        opts: compress::CompressOptions,
+    ) -> PdfResult<compress::CompressReport> {
+        compress::compress(self, opts)
+    }
+
+    // ── Document mutation helpers (used by compress module) ───────────────────
+
+    /// Iterates all (ObjectId, &CosObject) pairs in the object store.
+    pub fn objects(&self) -> impl Iterator<Item = (ObjectId, &CosObject)> {
+        self.objects.iter().map(|(id, obj)| (*id, obj))
+    }
+
+    /// Returns a shared reference to the object with `id`, if present.
+    pub fn get_object_ref(&self, id: ObjectId) -> Option<&CosObject> {
+        self.objects.get(&id)
+    }
+
+    /// Mutates the object at `id` in-place via a closure.
+    ///
+    /// The closure receives `&mut CosObject` and can modify it freely.
+    /// Does nothing if `id` is not in the store.
+    pub fn mutate_object<F>(&mut self, id: ObjectId, f: F)
+    where
+        F: FnOnce(&mut CosObject),
+    {
+        if let Some(obj) = self.objects.objects.get_mut(&id) {
+            f(obj);
+        }
+    }
+
+    /// Removes and returns the object at `id` from the store, if present.
+    pub fn remove_object(&mut self, id: ObjectId) -> Option<CosObject> {
+        self.objects.objects.remove(&id)
+    }
+
+    /// Inserts `obj` at `id` into the object store (overwrites any existing entry).
+    pub fn insert_object(&mut self, id: ObjectId, obj: CosObject) {
+        self.objects.insert(id, obj);
+    }
+
+    /// Allocates a fresh `ObjectId` with generation 0, one above the current maximum.
+    pub fn allocate_object_id(&mut self) -> ObjectId {
+        let next = self.objects.max_object_number() + 1;
+        ObjectId::new(next, 0)
+    }
+
+    /// Returns the `ObjectId` of the document catalog, if resolvable.
+    pub fn catalog_id(&self) -> Option<ObjectId> {
+        self.catalog_ref()
+    }
+
+    /// Returns the `ObjectId` of the trailer `/Info` dict, if present.
+    pub fn info_id(&self) -> Option<ObjectId> {
+        self.xref
+            .trailer
+            .get(&CosName::new(b"Info".to_vec()))
+            .and_then(|v| v.as_reference())
+    }
+
+    /// Returns the `ObjectId` of the `/Encrypt` dict in the trailer, if present.
+    pub fn encryption_dict_id(&self) -> Option<ObjectId> {
+        self.xref
+            .trailer
+            .get(&CosName::new(b"Encrypt".to_vec()))
+            .and_then(|v| v.as_reference())
+    }
+
+    /// Returns the PDF major and minor version from the header (e.g. `(1, 7)`).
+    ///
+    /// Reads from the stored version if set; otherwise parses from source bytes.
+    pub fn pdf_version(&self) -> (u8, u8) {
+        self.xref.pdf_version.unwrap_or((1, 4))
+    }
+
+    /// Overrides the PDF version that will be written to the header on the
+    /// next save (e.g. `set_version(1, 4)` for PDF 1.4).
+    pub fn set_version(&mut self, major: u8, minor: u8) {
+        self.xref.pdf_version = Some((major, minor));
+    }
+
+    /// Returns an iterator over the `ObjectId`s of all page dictionaries in
+    /// document order.
+    pub fn page_object_ids(&self) -> impl Iterator<Item = ObjectId> + '_ {
+        // Walk the page tree in order, emitting leaf page IDs.
+        // We use a simple iterative stack traversal.
+        let catalog_id = self.catalog_ref();
+        let pages_id = catalog_id.and_then(|id| {
+            let cat = self.objects.get(&id)?.as_dictionary()?;
+            cat.get(&CosName::new(b"Pages".to_vec()))?.as_reference()
+        });
+
+        let mut stack: Vec<ObjectId> = pages_id.into_iter().collect();
+        let mut result: Vec<ObjectId> = Vec::new();
+
+        while let Some(node_id) = stack.pop() {
+            let obj = match self.objects.get(&node_id) {
+                Some(o) => o,
+                None => continue,
+            };
+            let dict = match obj.as_dictionary() {
+                Some(d) => d,
+                None => continue,
+            };
+            let type_name = dict
+                .get(&CosName::new(b"Type".to_vec()))
+                .and_then(|v| v.as_name())
+                .map(|n| n.as_bytes().to_vec());
+
+            match type_name.as_deref() {
+                Some(b"Page") => result.push(node_id),
+                Some(b"Pages") | None => {
+                    // Push kids in reverse order so the first kid is processed first.
+                    if let Some(CosObject::Array(kids)) =
+                        dict.get(&CosName::new(b"Kids".to_vec()))
+                    {
+                        for kid in kids.iter().rev() {
+                            if let Some(kid_id) = kid.as_reference() {
+                                stack.push(kid_id);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        result.into_iter()
+    }
+
+    /// Returns the `ObjectId` of the `/Resources` dict for `page_id`, if any.
+    ///
+    /// Returns the Resources ID whether the Resources dict is inline or a
+    /// reference to an indirect object.
+    pub fn page_resources_id(&self, page_id: ObjectId) -> Option<ObjectId> {
+        let page_obj = self.objects.get(&page_id)?;
+        let page_dict = page_obj.as_dictionary()?;
+        match page_dict.get(&CosName::new(b"Resources".to_vec()))? {
+            CosObject::Reference(id) => Some(*id),
+            _ => None, // inline resources dict — handled separately
+        }
+    }
+
+    /// Returns the decoded content stream bytes for `page_id`.
+    ///
+    /// Supports both single-stream (`/Contents N G R`) and multi-stream
+    /// (`/Contents [N G R …]`) pages. Streams are decoded through their
+    /// `/Filter` pipeline and concatenated in order.
+    pub fn page_content_bytes(&self, page_id: ObjectId) -> PdfResult<Vec<u8>> {
+        let page_obj = self.objects.get(&page_id).ok_or_else(|| PdfError::Xref {
+            object_id: Some(page_id),
+        })?;
+        let page_dict = page_obj.as_dictionary().ok_or_else(|| PdfError::Parse {
+            offset: None,
+            context: format!("page object {page_id:?} is not a dictionary"),
+        })?;
+
+        let contents = match page_dict.get(&CosName::new(b"Contents".to_vec())) {
+            Some(v) => v.clone(),
+            None => return Ok(Vec::new()),
+        };
+
+        let stream_ids: Vec<ObjectId> = match &contents {
+            CosObject::Reference(id) => vec![*id],
+            CosObject::Array(arr) => arr
+                .iter()
+                .filter_map(|v| v.as_reference())
+                .collect(),
+            _ => return Ok(Vec::new()),
+        };
+
+        let mut all_bytes = Vec::new();
+        for stream_id in stream_ids {
+            let stream_obj = match self.objects.get(&stream_id) {
+                Some(o) => o,
+                None => continue,
+            };
+            let stream = match stream_obj.as_stream() {
+                Some(s) => s,
+                None => continue,
+            };
+            let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec()));
+            let decoded = io::decode_stream(&stream.data, filter)
+                .unwrap_or_else(|_| stream.data.clone());
+            all_bytes.extend_from_slice(&decoded);
+            all_bytes.push(b' '); // separator between concatenated streams
+        }
+
+        Ok(all_bytes)
+    }
+
+    /// Records that `object_id` is now stored inside an ObjStm container.
+    ///
+    /// Updates the xref entry for `object_id` to
+    /// `XRefEntry::Compressed { stream_object_number, index_in_stream }`.
+    pub fn mark_compressed(
+        &mut self,
+        object_id: ObjectId,
+        stream_object_number: u32,
+        index_in_stream: u32,
+    ) {
+        self.xref.insert_if_absent(
+            object_id,
+            XRefEntry::Compressed {
+                stream_object_number,
+                index_in_stream,
+            },
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -824,16 +1252,17 @@ fn looks_like_pdf_header(bytes: &[u8]) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Test helpers — shared across all in-crate test modules
 // ---------------------------------------------------------------------------
 
+/// Shared test fixture builders accessible from sub-module tests via `crate::tests`.
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
     /// Builds a minimal but structurally valid PDF byte sequence suitable for
     /// testing `Document::load_from_bytes`.
-    fn minimal_pdf() -> Vec<u8> {
+    pub fn minimal_pdf() -> Vec<u8> {
         let mut pdf = b"%PDF-1.4\n".to_vec();
         let obj1_offset = pdf.len() as u64;
         pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
@@ -851,6 +1280,8 @@ mod tests {
         pdf.extend_from_slice(format!("startxref\n{xref_offset}\n%%EOF\n").as_bytes());
         pdf
     }
+
+    // ── Original lib tests (kept in-module for compatibility) ─────────────────
 
     #[test]
     fn loads_bytes_with_pdf_header() {
@@ -1085,6 +1516,7 @@ mod tests {
         assert_eq!(resolved, Some(&CosObject::Integer(42)));
     }
 
+    #[cfg(feature = "compress")]
     #[test]
     fn stream_cache_decode_on_demand() {
         // Build a PDF with a FlateDecode content stream

@@ -9,8 +9,10 @@
 //! | [`page`] | [`Page`], [`Rectangle`], [`Resources`] | `PDPage`, `PDRectangle`, `PDResources` |
 //! | [`page_tree`] | [`PageTree`] | `PDPageTree`, `PDDocumentCatalog.getPages()` |
 
+pub mod builder;
 pub mod page;
 pub mod page_tree;
 
+pub use builder::{DocumentBuilder, PageSize};
 pub use page::{Page, Rectangle, Resources, rectangle_from_cos};
 pub use page_tree::PageTree;

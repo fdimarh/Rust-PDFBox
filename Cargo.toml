@@ -4,27 +4,35 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["text", "crypto", "layout"]
+default = ["text", "crypto", "layout", "forms"]
 ## Text extraction and font handling
 text = []
 ## Encryption/decryption and permissions
 crypto = ["dep:aes", "dep:cbc", "dep:md-5", "dep:cipher", "dep:digest", "dep:block-padding"]
 ## Advanced layout analysis (column detection, reading order)
 layout = []
+## Forms API
+forms = ["dep:quick-xml"]
 ## Core compression: stream recompression (flate2) + object deduplication (rustc-hash) + cleanup + version + linearize
 compress = ["dep:flate2", "dep:rustc-hash"]
+## Zopfli DEFLATE: replace zlib level-9 with Zopfli for 3–8% better stream compression (slower)
+compress-zopfli = ["compress", "dep:zopfli"]
 ## Image resampling: pure-Rust JPEG encode/decode + lossless PNG optimizer
 compress-images = ["compress", "dep:jpeg-encoder", "dep:zune-jpeg", "dep:oxipng"]
+## JBIG2 decode: decode JBIG2-compressed 1-bit images via libjbig2dec FFI (C library)
+## Also enables CCITT Group 4 re-encoding of 1-bit images via the `fax` crate (lossless, smaller)
+compress-jbig2 = ["compress-images", "dep:nipdf-jbig2dec", "dep:fax"]
 ## Best-quality JPEG via libjpeg-turbo bindings (same codec as ilovepdf; requires C toolchain)
 compress-mozjpeg = ["compress-images", "dep:mozjpeg"]
 ## CMYK/ICC color conversion: lcms2 ICC engine + palette pure-Rust fallback
 compress-color = ["compress", "dep:lcms2", "dep:palette"]
-## Font subsetting: TrueType + CFF glyph subsetting via subsetter + ttf-parser
+## Font subsetting: TrueType + CFF glyph subsetting via suLB2R2CCQCUGWKZKDbsetter + ttf-parser
 compress-fonts = ["compress", "dep:subsetter", "dep:ttf-parser", "dep:owned_ttf_parser"]
-## Full ilovepdf-grade: all passes (requires C toolchain for mozjpeg + lcms2)
-compress-full = ["compress-mozjpeg", "compress-color", "compress-fonts"]
+## Full ilovepdf-grade: all passes (requires C toolchain for mozjpeg + lcms2 + jbig2dec)
+compress-full = ["compress-mozjpeg", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts"]
 ## All features enabled
-full = ["text", "crypto", "layout", "compress", "compress-images", "compress-color", "compress-fonts"]
+full = ["text", "crypto", "layout", "compress", "compress-images", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts"]
+quick-xml = ["dep:quick-xml"]
 
 [dependencies]
 # RustCrypto ecosystem for cryptographic operations
@@ -68,6 +76,15 @@ oxipng           = { version = "9",    optional = true }   # lossless PNG optimi
 # Best-quality JPEG via libjpeg-turbo (compress-mozjpeg; requires C toolchain)
 mozjpeg          = { version = "0.10", optional = true }   # libjpeg-turbo bindings (same as ilovepdf)
 
+# JBIG2 decode (compress-jbig2; requires C jbig2dec library)
+nipdf-jbig2dec   = { version = "0.4",  optional = true }   # FFI binding to libjbig2dec (embedded PDF mode)
+
+# CCITT Group 3/4 encoder for 1-bit (B&W scanned) images (compress-jbig2)
+fax              = { version = "0.2",  optional = true }   # pure-Rust CCITT G3/G4 encoder+decoder
+
+# Zopfli optimal DEFLATE (compress-zopfli): 3–8% better than zlib level-9, ~100× slower
+zopfli           = { version = "0.8",  optional = true, features = ["zlib"] }
+
 # CMYK/ICC color management (compress-color feature)
 lcms2            = { version = "6",    optional = true }   # ICC color engine (CMYK → sRGB)
 palette          = { version = "0.7",  optional = true }   # pure-Rust color math fallback
@@ -83,6 +100,7 @@ x509-parser = "0.18"
 rasn-ocsp  = "0.28"
 rasn-pkix  = "0.28"
 rasn       = "0.28"
+quick-xml = { version = "0.39.2", features = ["serialize"], optional = true }
 
 [[example]]
 name = "read_info"
@@ -100,6 +118,11 @@ path = "examples/digital_sign.rs"
 name = "compress_pdf"
 path = "examples/compress_pdf.rs"
 required-features = ["compress"]
+
+[[example]]
+name = "fill_form"
+path = "examples/fill_form.rs"
+required-features = ["forms"]
 
 [dev-dependencies]
 
