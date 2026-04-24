@@ -1,8 +1,9 @@
 # Full Java PDFBox Feature Parity Plan
 
 _Created: 2026-04-03_  
+_Last updated: 2026-04-24_  
 _Companion to: `PORTING_PLAN.md` (v1 core + Bonus 11 compression)_  
-_Goal: cover **every** remaining Java PDFBox feature not yet implemented._
+_Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 
 ---
 
@@ -11,7 +12,7 @@ _Goal: cover **every** remaining Java PDFBox feature not yet implemented._
 | Document | Covers | Status |
 |---|---|---|
 | `PORTING_PLAN.md` | Core parse/write/text/encrypt/font + Bonus 1–10 + Bonus 11 compression | ✅ v1 done; B11 planned |
-| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🔲 New |
+| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (partial progress in P12/P15) |
 
 This document is organized as **12 independent phases (P12–P23)**. Each phase can be implemented in any order. Dependencies between phases are noted explicitly.
 
@@ -40,22 +41,22 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 |---|---|
 | PDF Compression (8 passes) | 🔲 Planned — `src/compress/` |
 
-### ❌ Not Yet Planned (Covered in THIS Document)
+### 🔄 Phases Covered in THIS Document (Status Snapshot)
 
-| Java PDFBox Feature Area | Phase |
-|---|---|
-| Interactive Forms (AcroForm + XFA) | P12 |
-| Annotations | P13 |
-| Bookmarks / Document Outline | P14 |
-| Page Manipulation (merge, split, rotate, overlay, watermark) | P15 |
-| PDF Creation from Scratch (content stream writing) | P16 |
-| Image Extraction | P17 |
-| Rendering (page → image) | P18 |
-| Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 |
-| Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 |
-| PDF/A Validation (Preflight) | P21 |
-| Metadata & Document Properties (XMP, DocInfo) | P22 |
-| CLI Tools (PDFBox command-line equivalents) | P23 |
+| Java PDFBox Feature Area | Phase | Current Status |
+|---|---|---|
+| Interactive Forms (AcroForm + XFA) | P12 | 🟡 Partial (read + set value helper + examples) |
+| Annotations | P13 | 🔲 Planned |
+| Bookmarks / Document Outline | P14 | 🔲 Planned |
+| Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | 🟡 Partial (merge/split/extract/rotate prototype) |
+| PDF Creation from Scratch (content stream writing) | P16 | 🔲 Planned |
+| Image Extraction | P17 | 🔲 Planned |
+| Rendering (page → image) | P18 | 🔲 Planned |
+| Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🔲 Planned |
+| Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🔲 Planned |
+| PDF/A Validation (Preflight) | P21 | 🔲 Planned |
+| Metadata & Document Properties (XMP, DocInfo) | P22 | 🔲 Planned |
+| CLI Tools (PDFBox command-line equivalents) | P23 | 🔲 Planned |
 
 ---
 
@@ -67,6 +68,12 @@ _Java PDFBox: `o.a.pdfbox.pdmodel.interactive.form.*`_
 
 Read, fill, and flatten PDF interactive form fields (AcroForm). This is one of the most-used Java PDFBox features.
 
+### Current Status (2026-04-24)
+
+- Implemented: `Document::acro_form()` (feature-gated), `PdAcroForm::fields()`, `PdAcroForm::get_field()`, `PdField` type detection, `set_field_value()` helper.
+- Implemented examples: `examples/fill_form.rs` and `examples/create_all_fields.rs` (single output + `--all-modes`).
+- Not implemented yet: appearance regeneration, flatten, XFA support, FDF/XFDF import/export.
+
 ### Sub-modules: `src/forms/`
 
 | File | Responsibility |
@@ -74,11 +81,11 @@ Read, fill, and flatten PDF interactive form fields (AcroForm). This is one of t
 | `mod.rs` | `PdAcroForm` — load from catalog `/AcroForm`, iterate fields, get/set values |
 | `field.rs` | `PdField` enum — `TextField`, `CheckBox`, `RadioButton`, `ComboBox`, `ListBox`, `PushButton`, `SignatureField` |
 | `widget.rs` | `PdWidget` — annotation widget linked to field; rectangle, appearance dict |
-| `appearance.rs` | `AppearanceGenerator` — regenerate `/AP` appearance stream when field value changes |
-| `flatten.rs` | `flatten_form(doc)` — burn form fields into page content, remove interactivity |
-| `xfa.rs` | `XfaForm` — read-only XFA XML extraction (full XFA rendering is out of scope) |
-| `export.rs` | `export_fdf(doc) → Vec<u8>` / `export_xfdf(doc) → String` — Forms Data Format export |
-| `import.rs` | `import_fdf(doc, fdf_bytes)` / `import_xfdf(doc, xml)` — fill form from FDF/XFDF |
+| `appearance.rs` | Planned (`AppearanceGenerator`) — file exists but not implemented yet |
+| `flatten.rs` | Planned (`flatten_form`) — file exists but not implemented yet |
+| `xfa.rs` | Planned (`XfaForm`) — file exists but not implemented yet |
+| `export.rs` | Planned (`export_fdf` / `export_xfdf`) — file exists but not implemented yet |
+| `import.rs` | Planned (`import_fdf` / `import_xfdf`) — file exists but not implemented yet |
 
 ### Java PDFBox Class Mapping
 
@@ -99,21 +106,18 @@ Read, fill, and flatten PDF interactive form fields (AcroForm). This is one of t
 ### Key APIs
 
 ```rust
-// Read
-let form = doc.acro_form()?;               // Option<PdAcroForm>
-let fields = form.fields();                 // Vec<PdField>
-let val = fields[0].value_as_string();      // Option<String>
+// Read (current)
+let form = doc.acro_form().expect("Document has no AcroForm");
+let fields = form.fields();
+let first_name = fields.first().map(|f| f.fully_qualified_name());
 
-// Write
-form.field_by_name("name")?.set_value("Alice")?;
-form.field_by_name("agree")?.set_checked(true)?;
+// Write (current helper)
+if let Some(field) = form.get_field("name") {
+    let field_id = field.id();
+    rust_pdfbox::forms::set_field_value(&mut doc, field_id, "Alice");
+}
 
-// Flatten
-form.flatten(&mut doc)?;                    // burns into content stream
-
-// Export / Import
-let fdf = form.export_fdf()?;
-form.import_xfdf(xml_bytes)?;
+// Planned APIs (not implemented yet): flatten/import/export helpers.
 ```
 
 ### Rust Crates
@@ -151,7 +155,8 @@ forms = ["dep:quick-xml"]
 ### Examples
 
 - `examples/fill_form.rs` — load PDF with form, fill fields, save
-- `examples/flatten_form.rs` — load, flatten, save (non-interactive output)
+- `examples/create_all_fields.rs` — generate a PDF containing all major AcroForm field variants
+- `examples/create_all_fields.rs -- --all-modes <dir>` — emit multiple mode/state PDFs for manual verification
 
 ---
 
@@ -288,17 +293,23 @@ _Java PDFBox: `o.a.pdfbox.multipdf.*`_
 
 Merge, split, rotate, reorder, overlay, watermark, and stamp pages across documents.
 
+### Current Status (2026-04-24)
+
+- Implemented (prototype): `PdfMerger`, `PdfSplitter`, `extract_pages`, `rotate_page`.
+- Not implemented yet: overlay and watermark APIs/modules.
+- Known limitation: merge/extract currently use simplified object-copy/remap logic and need full deep-copy/resource conflict handling.
+
 ### Sub-modules: `src/pageops/`
 
 | File | Responsibility |
 |---|---|
-| `mod.rs` | Public API: `merge`, `split`, `extract_pages`, `rotate_page`, `overlay`, `watermark` |
-| `merge.rs` | `PdfMerger` — merge multiple `Document` instances into one; handles resource renaming to avoid conflicts |
-| `split.rs` | `PdfSplitter` — split a `Document` into N separate documents by page range |
-| `extract.rs` | `extract_pages(doc, page_range) → Document` — extract a subset of pages into a new document |
+| `mod.rs` | Public API (current): `PdfMerger`, `PdfSplitter`, `extract_pages`, `rotate_page` |
+| `merge.rs` | `PdfMerger` — prototype merge; full resource-conflict-safe merge still pending |
+| `split.rs` | `PdfSplitter` — split a `Document` into N separate documents by page chunk size |
+| `extract.rs` | `extract_pages(doc, &[usize]) -> Document` — extract a subset of pages into a new document |
 | `rotate.rs` | `rotate_page(doc, page_index, degrees)` — add/modify `/Rotate` entry |
-| `overlay.rs` | `PdfOverlay` — overlay one document's pages on top of another (for headers/footers/stamps) |
-| `watermark.rs` | `add_watermark(doc, text, opts)` — add text/image watermark to all pages |
+| `overlay.rs` | Planned (`PdfOverlay`) — not implemented yet |
+| `watermark.rs` | Planned (`add_watermark`) — not implemented yet |
 
 ### Java PDFBox Class Mapping
 
@@ -312,35 +323,23 @@ Merge, split, rotate, reorder, overlay, watermark, and stamp pages across docume
 ### Key APIs
 
 ```rust
-// Merge
-let merged = PdfMerger::new()
-    .add(doc1)?
-    .add(doc2)?
-    .merge()?;                                // → Document
+// Merge (current)
+let mut merger = PdfMerger::new();
+merger.append(&doc1)?;
+merger.append(&doc2)?;
+let merged = merger.finish();
 
-// Split
-let parts = PdfSplitter::new(doc)
-    .split_every(5)?;                         // → Vec<Document>
+// Split (current)
+let mut splitter = PdfSplitter::new(&mut doc);
+let parts = splitter.split(5)?;
 
-// Extract
-let subset = extract_pages(&doc, 2..=5)?;     // pages 3–6
+// Extract (current)
+let subset = extract_pages(&mut doc, &[2, 3, 4, 5])?;
 
-// Rotate
-rotate_page(&mut doc, 0, 90)?;               // first page → landscape
+// Rotate (current)
+rotate_page(&mut doc, 0, 90)?;
 
-// Overlay
-let result = PdfOverlay::new(base_doc)
-    .overlay_all(stamp_doc)?
-    .build()?;
-
-// Watermark
-add_watermark(&mut doc, WatermarkOptions {
-    text: "CONFIDENTIAL",
-    font_size: 48.0,
-    rotation: 45.0,
-    opacity: 0.3,
-    color: [0.8, 0.0, 0.0],
-})?;
+// Overlay/Watermark: planned APIs (not implemented yet).
 ```
 
 ### Challenges
@@ -942,9 +941,11 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 
 ## Feature Flag Map (Complete)
 
+Current implementation snapshot (mirrors `Cargo.toml` as of 2026-04-24):
+
 ```toml
 [features]
-default = ["text", "crypto", "layout"]
+default = ["text", "crypto", "layout", "forms", "pageops"]
 
 # ── Existing (v1) ───────────────────────────
 text             = []
@@ -953,11 +954,13 @@ layout           = []
 
 # ── Bonus 11 (compression) ─────────────────
 compress         = ["dep:flate2", "dep:rustc-hash"]
+compress-zopfli  = ["compress", "dep:zopfli"]
 compress-images  = ["compress", "dep:jpeg-encoder", "dep:zune-jpeg", "dep:oxipng"]
+compress-jbig2   = ["compress-images", "dep:nipdf-jbig2dec", "dep:fax"]
 compress-mozjpeg = ["compress-images", "dep:mozjpeg"]
 compress-color   = ["compress", "dep:lcms2", "dep:palette"]
 compress-fonts   = ["compress", "dep:subsetter", "dep:ttf-parser", "dep:owned_ttf_parser"]
-compress-full    = ["compress-mozjpeg", "compress-color", "compress-fonts"]
+compress-full    = ["compress-mozjpeg", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts"]
 
 # ── P12–P23 (this document) ────────────────
 forms            = ["dep:quick-xml"]
@@ -972,11 +975,11 @@ metadata         = ["dep:quick-xml"]
 
 # ── All features ────────────────────────────
 full = ["text", "crypto", "layout",
-        "compress", "compress-images", "compress-color", "compress-fonts",
-        "forms", "annotations", "outline", "pageops",
-        "image-extract", "render", "filters-advanced",
-        "preflight", "metadata"]
+        "compress", "compress-images", "compress-jbig2", "compress-zopfli",
+        "compress-color", "compress-fonts"]
 ```
+
+> Note: The broader "all phases included" `full` target in this plan (forms/annotations/outline/pageops/render/etc.) remains a future milestone.
 
 ---
 
