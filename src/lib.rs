@@ -15,6 +15,8 @@
 pub mod content;
 #[cfg(feature = "forms")]
 pub mod forms;
+#[cfg(feature = "pageops")]
+pub mod pageops;
 #[cfg(feature = "compress")]
 pub mod compress;
 pub mod cos;
