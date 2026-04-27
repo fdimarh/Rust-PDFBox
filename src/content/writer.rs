@@ -7,6 +7,12 @@ pub struct ContentStreamWriter<'a> {
     buffer: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TextShowElement<'a> {
+    Text(&'a str),
+    Adjust(f64),
+}
+
 impl<'a> ContentStreamWriter<'a> {
     pub fn new(doc: &'a mut Document, page_index: usize) -> PdfResult<Self> {
         let tree = doc.pages()?;
@@ -43,19 +49,96 @@ impl<'a> ContentStreamWriter<'a> {
         Ok(())
     }
 
+    pub fn move_to_next_line(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"T*\n");
+        Ok(())
+    }
+
+    pub fn set_text_matrix(&mut self, a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} {} {} {} {} {} Tm\n", a, b, c, d, e, f).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_char_spacing(&mut self, value: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} Tc\n", value).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_word_spacing(&mut self, value: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} Tw\n", value).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_horizontal_scaling(&mut self, value: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} Tz\n", value).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_text_leading(&mut self, value: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} TL\n", value).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_text_rise(&mut self, value: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} Ts\n", value).as_bytes());
+        Ok(())
+    }
+
     pub fn show_text(&mut self, text: &str) -> PdfResult<()> {
-        // Escaping for PDF strings
-        self.buffer.push(b'(');
-        for byte in text.as_bytes() {
-            match byte {
-                b'(' => self.buffer.extend_from_slice(b"\\("),
-                b')' => self.buffer.extend_from_slice(b"\\)"),
-                b'\\' => self.buffer.extend_from_slice(b"\\\\"),
-                _ => self.buffer.push(*byte),
+        Self::push_pdf_literal_string(&mut self.buffer, text);
+        self.buffer.extend_from_slice(b" Tj\n");
+        Ok(())
+    }
+
+    pub fn show_text_next_line(&mut self, text: &str) -> PdfResult<()> {
+        Self::push_pdf_literal_string(&mut self.buffer, text);
+        self.buffer.extend_from_slice(b" '\n");
+        Ok(())
+    }
+
+    pub fn show_text_next_line_with_spacing(
+        &mut self,
+        word_spacing: f64,
+        char_spacing: f64,
+        text: &str,
+    ) -> PdfResult<()> {
+        self.buffer
+            .extend_from_slice(format!("{} {} ", word_spacing, char_spacing).as_bytes());
+        Self::push_pdf_literal_string(&mut self.buffer, text);
+        self.buffer.extend_from_slice(b" \"\n");
+        Ok(())
+    }
+
+    pub fn show_text_positioned<'b>(&mut self, elements: &[TextShowElement<'b>]) -> PdfResult<()> {
+        self.buffer.push(b'[');
+        let mut first = true;
+        for element in elements {
+            if !first {
+                self.buffer.push(b' ');
+            }
+            first = false;
+            match element {
+                TextShowElement::Text(text) => Self::push_pdf_literal_string(&mut self.buffer, text),
+                TextShowElement::Adjust(amount) => {
+                    self.buffer.extend_from_slice(format!("{}", amount).as_bytes());
+                }
             }
         }
-        self.buffer.extend_from_slice(b") Tj\n");
+        self.buffer.extend_from_slice(b"] TJ\n");
         Ok(())
+    }
+
+    fn push_pdf_literal_string(buffer: &mut Vec<u8>, text: &str) {
+        buffer.push(b'(');
+        for byte in text.as_bytes() {
+            match byte {
+                b'(' => buffer.extend_from_slice(b"\\("),
+                b')' => buffer.extend_from_slice(b"\\)"),
+                b'\\' => buffer.extend_from_slice(b"\\\\"),
+                _ => buffer.push(*byte),
+            }
+        }
+        buffer.push(b')');
     }
 
     pub fn move_to_point(&mut self, x: f64, y: f64) -> PdfResult<()> {
@@ -78,6 +161,11 @@ impl<'a> ContentStreamWriter<'a> {
         Ok(())
     }
 
+    pub fn close_path(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"h\n");
+        Ok(())
+    }
+
     pub fn stroke(&mut self) -> PdfResult<()> {
         self.buffer.extend_from_slice(b"S\n");
         Ok(())
@@ -88,8 +176,48 @@ impl<'a> ContentStreamWriter<'a> {
         Ok(())
     }
 
+    pub fn fill_even_odd(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"f*\n");
+        Ok(())
+    }
+
+    pub fn stroke_and_close(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"s\n");
+        Ok(())
+    }
+
+    pub fn fill_and_stroke(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"B\n");
+        Ok(())
+    }
+
+    pub fn fill_and_stroke_even_odd(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"B*\n");
+        Ok(())
+    }
+
+    pub fn end_path(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"n\n");
+        Ok(())
+    }
+
     pub fn set_line_width(&mut self, width: f64) -> PdfResult<()> {
         self.buffer.extend_from_slice(format!("{} w\n", width).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_line_cap(&mut self, style: u8) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} J\n", style).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_line_join(&mut self, style: u8) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} j\n", style).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_miter_limit(&mut self, value: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} M\n", value).as_bytes());
         Ok(())
     }
 
@@ -100,6 +228,26 @@ impl<'a> ContentStreamWriter<'a> {
 
     pub fn set_fill_color(&mut self, r: f64, g: f64, b: f64) -> PdfResult<()> {
         self.buffer.extend_from_slice(format!("{} {} {} rg\n", r, g, b).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_fill_gray(&mut self, gray: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} g\n", gray).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_stroke_gray(&mut self, gray: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} G\n", gray).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_fill_color_cmyk(&mut self, c: f64, m: f64, y: f64, k: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} {} {} {} k\n", c, m, y, k).as_bytes());
+        Ok(())
+    }
+
+    pub fn set_stroke_color_cmyk(&mut self, c: f64, m: f64, y: f64, k: f64) -> PdfResult<()> {
+        self.buffer.extend_from_slice(format!("{} {} {} {} K\n", c, m, y, k).as_bytes());
         Ok(())
     }
 

@@ -1,7 +1,7 @@
 # Full Java PDFBox Feature Parity Plan
 
 _Created: 2026-04-03_  
-_Last updated: 2026-04-24_  
+_Last updated: 2026-04-27_  
 _Companion to: `PORTING_PLAN.md` (v1 core + Bonus 11 compression)_  
 _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 
@@ -49,7 +49,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Annotations | P13 | 🔲 Planned |
 | Bookmarks / Document Outline | P14 | 🔲 Planned |
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | 🟡 Partial (merge/split/extract/rotate prototype) |
-| PDF Creation from Scratch (content stream writing) | P16 | 🔲 Planned |
+| PDF Creation from Scratch (content stream writing) | P16 | 🟡 Partial (writer MVP + extended operators incl. `TJ`) |
 | Image Extraction | P17 | 🔲 Planned |
 | Rendering (page → image) | P18 | 🔲 Planned |
 | Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🔲 Planned |
@@ -68,7 +68,7 @@ _Java PDFBox: `o.a.pdfbox.pdmodel.interactive.form.*`_
 
 Read, fill, and flatten PDF interactive form fields (AcroForm). This is one of the most-used Java PDFBox features.
 
-### Current Status (2026-04-24)
+### Current Status (2026-04-27)
 
 - Implemented: `Document::acro_form()` (feature-gated), `PdAcroForm::fields()`, `PdAcroForm::get_field()`, `PdField` type detection, `set_field_value()` helper.
 - Implemented examples: `examples/fill_form.rs` and `examples/create_all_fields.rs` (single output + `--all-modes`).
@@ -380,6 +380,13 @@ _Java PDFBox: `o.a.pdfbox.pdmodel.PDPageContentStream`_
 ### Scope
 
 Create PDFs from scratch; write text, draw lines/curves/shapes, place images, and set graphics state in content streams. This is a **critical dependency** for phases P12, P13, P15.
+
+### Current Status (2026-04-24)
+
+- Implemented: `DocumentBuilder` and baseline `ContentStreamWriter` APIs for text, path drawing, paint operators, graphics state save/restore, transforms, and image `Do` invocation.
+- Implemented (this step): additional text-state operators (`T*`, `Tm`, `Tc`, `Tw`, `Tz`, `TL`, `Ts`), advanced text show operators (`TJ`, `'`, `"`), paint variants (`h`, `f*`, `s`, `B`, `B*`, `n`), stroke style operators (`J`, `j`, `M`), and grayscale/CMYK color operators (`g`, `G`, `k`, `K`).
+- Added integration coverage: extended writer round-trip test in `tests/creation.rs`.
+- Not implemented yet: clipping helpers (`W`, `W*`) and robust image resource embedding helpers (currently only `Do` emission).
 
 ### Sub-modules: `src/content/writer.rs` (extends existing `src/content/`)
 
