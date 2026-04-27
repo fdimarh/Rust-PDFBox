@@ -48,6 +48,12 @@ fn test_content_stream_writer_extended_operators_roundtrip() -> PdfResult<()> {
     writer.set_stroke_gray(0.2)?;
     writer.set_fill_gray(0.8)?;
     writer.add_rect(72.0, 700.0, 120.0, 30.0)?;
+    writer.clip()?;
+    writer.end_path()?;
+    writer.add_rect(80.0, 680.0, 60.0, 20.0)?;
+    writer.clip_even_odd()?;
+    writer.end_path()?;
+    writer.add_rect(72.0, 700.0, 120.0, 30.0)?;
     writer.fill_and_stroke()?;
     writer.restore_state()?;
 
@@ -103,6 +109,15 @@ fn test_content_stream_writer_extended_operators_roundtrip() -> PdfResult<()> {
         positioned_text.operands.first(),
         Some(CosObject::Array(arr)) if arr.len() == 3
     ));
+
+    assert!(
+        instructions.iter().any(|ins| ins.operator.name.as_slice() == b"W"),
+        "expected clipping operator W"
+    );
+    assert!(
+        instructions.iter().any(|ins| ins.operator.name.as_slice() == b"W*"),
+        "expected clipping operator W*"
+    );
 
     let quote_single = instructions
         .iter()

@@ -196,6 +196,16 @@ impl<'a> ContentStreamWriter<'a> {
         Ok(())
     }
 
+    pub fn clip(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"W\n");
+        Ok(())
+    }
+
+    pub fn clip_even_odd(&mut self) -> PdfResult<()> {
+        self.buffer.extend_from_slice(b"W*\n");
+        Ok(())
+    }
+
     pub fn end_path(&mut self) -> PdfResult<()> {
         self.buffer.extend_from_slice(b"n\n");
         Ok(())

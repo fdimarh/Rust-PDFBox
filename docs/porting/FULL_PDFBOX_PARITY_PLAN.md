@@ -49,7 +49,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Annotations | P13 | 🔲 Planned |
 | Bookmarks / Document Outline | P14 | 🔲 Planned |
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | 🟡 Partial (merge/split/extract/rotate prototype) |
-| PDF Creation from Scratch (content stream writing) | P16 | 🟡 Partial (writer MVP + extended operators incl. `TJ`) |
+| PDF Creation from Scratch (content stream writing) | P16 | 🟡 Partial (writer MVP + extended operators incl. `TJ`, `W`, `W*`) |
 | Image Extraction | P17 | 🔲 Planned |
 | Rendering (page → image) | P18 | 🔲 Planned |
 | Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🔲 Planned |
@@ -384,9 +384,9 @@ Create PDFs from scratch; write text, draw lines/curves/shapes, place images, an
 ### Current Status (2026-04-24)
 
 - Implemented: `DocumentBuilder` and baseline `ContentStreamWriter` APIs for text, path drawing, paint operators, graphics state save/restore, transforms, and image `Do` invocation.
-- Implemented (this step): additional text-state operators (`T*`, `Tm`, `Tc`, `Tw`, `Tz`, `TL`, `Ts`), advanced text show operators (`TJ`, `'`, `"`), paint variants (`h`, `f*`, `s`, `B`, `B*`, `n`), stroke style operators (`J`, `j`, `M`), and grayscale/CMYK color operators (`g`, `G`, `k`, `K`).
+- Implemented (this step): additional text-state operators (`T*`, `Tm`, `Tc`, `Tw`, `Tz`, `TL`, `Ts`), advanced text show operators (`TJ`, `'`, `"`), clipping helpers (`W`, `W*`), paint variants (`h`, `f*`, `s`, `B`, `B*`, `n`), stroke style operators (`J`, `j`, `M`), and grayscale/CMYK color operators (`g`, `G`, `k`, `K`).
 - Added integration coverage: extended writer round-trip test in `tests/creation.rs`.
-- Not implemented yet: clipping helpers (`W`, `W*`) and robust image resource embedding helpers (currently only `Do` emission).
+- Not implemented yet: robust image resource embedding helpers (currently only `Do` emission).
 
 ### Sub-modules: `src/content/writer.rs` (extends existing `src/content/`)
 
