@@ -167,6 +167,18 @@ impl CosDictionary {
             _ => None,
         }
     }
+
+    /// Alias for [`iter`] — iterates `(key, value)` pairs.
+    ///
+    /// Provided for symmetry with the compress module conventions.
+    pub fn entries(&self) -> impl Iterator<Item = (&CosName, &CosObject)> {
+        self.iter()
+    }
+
+    /// Mutable alias for [`iter_mut`] — iterates `(key, &mut value)` pairs.
+    pub fn entries_mut(&mut self) -> impl Iterator<Item = (&CosName, &mut CosObject)> {
+        self.iter_mut()
+    }
 }
 
 impl Default for CosDictionary {

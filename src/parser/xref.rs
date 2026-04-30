@@ -66,6 +66,9 @@ pub struct XRefTable {
     entries: HashMap<ObjectId, XRefEntry>,
     /// The merged trailer dictionary (latest update wins per key).
     pub trailer: CosDictionary,
+    /// PDF header version as `(major, minor)`, e.g. `Some((1, 7))`.
+    /// Set from the `%PDF-M.m` header during loading; overridable for downgrade.
+    pub pdf_version: Option<(u8, u8)>,
 }
 
 impl XRefTable {

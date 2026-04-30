@@ -1,4 +1,4 @@
-use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+use crate::cos::{CosDictionary, ObjectId};
 use crate::ObjectStore;
 
 /// Represents a widget annotation linking a form field to the visual page.
@@ -8,6 +8,7 @@ use crate::ObjectStore;
 pub struct PdWidget<'a> {
     pub id: ObjectId,
     pub dict: &'a CosDictionary,
+    #[allow(dead_code)]
     store: &'a ObjectStore,
 }
 

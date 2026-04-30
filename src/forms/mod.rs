@@ -14,7 +14,7 @@ pub mod import;
 pub use field::{PdField, set_field_value};
 pub use widget::PdWidget;
 
-use crate::{Document, ObjectStore, PdfResult, ObjectId};
+use crate::ObjectStore;
 use crate::cos::{CosDictionary, CosName, CosObject};
 
 /// The interactive form of a document.

@@ -1070,7 +1070,9 @@ impl Document {
     /// Allocates a fresh `ObjectId` with generation 0, one above the current maximum.
     pub fn allocate_object_id(&mut self) -> ObjectId {
         let next = self.objects.max_object_number() + 1;
-        ObjectId::new(next, 0)
+        let id = ObjectId::new(next, 0);
+        self.objects.insert(id, CosObject::Null); // Reserve it
+        id
     }
 
     /// Returns the `ObjectId` of the document catalog, if resolvable.

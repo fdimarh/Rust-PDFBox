@@ -78,7 +78,11 @@ impl<'a> PdField<'a> {
         self.dictionary()
             .get(&CosName::new(b"T".to_vec()))
             .and_then(|v| v.as_string())
-            .map(|s| String::from_utf8_lossy(s).into_owned())
+            .map(|s| {
+                let parsed = String::from_utf8_lossy(s).into_owned();
+                // Depending on string generation it might have parens if the parser included them
+                parsed.trim_matches(|c| c == '(' || c == ')').to_string()
+            })
             .unwrap_or_default()
     }
 

@@ -301,9 +301,12 @@ impl<'a> Parser<'a> {
             .unwrap_or(CosObject::Null);
 
         // Consume optional `endobj`.
-        if let Some(tok) = self.peek_token()? {
+        // Use `ok()` to ignore lexer errors — if the object body is a stream
+        // whose raw bytes (e.g. JPEG 0xFF markers) are still in the buffer,
+        // the lexer will fail; that's fine because we already have the value.
+        if let Some(tok) = self.peek_token().ok().flatten() {
             if tok.is_keyword(b"endobj") {
-                self.next_token()?;
+                let _ = self.next_token();
             }
         }
 
