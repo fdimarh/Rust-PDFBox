@@ -13,6 +13,7 @@ pub mod import;
 
 pub use appearance::{generate_all_appearances, generate_field_appearance};
 pub use field::{PdField, set_field_value};
+pub use flatten::{flatten_all_fields, flatten_fields};
 pub use widget::PdWidget;
 
 use crate::ObjectStore;

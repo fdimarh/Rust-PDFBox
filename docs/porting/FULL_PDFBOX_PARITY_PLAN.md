@@ -45,7 +45,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 
 | Java PDFBox Feature Area | Phase | Current Status |
 |---|---|---|
-| Interactive Forms (AcroForm + XFA) | P12 | 🟡 Partial (read + set value + appearance gen + examples) |
+| Interactive Forms (AcroForm + XFA) | P12 | 🟡 Partial (read + set value + appearance gen + flatten + examples) |
 | Annotations | P13 | 🔲 Planned |
 | Bookmarks / Document Outline | P14 | 🔲 Planned |
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | ✅ Complete (merge, split, extract, rotate, overlay, watermark — 29 tests) |
@@ -73,7 +73,8 @@ Read, fill, and flatten PDF interactive form fields (AcroForm). This is one of t
 - Implemented: `Document::acro_form()` (feature-gated), `PdAcroForm::fields()`, `PdAcroForm::get_field()`, `PdField` type detection, `set_field_value()` helper.
 - Implemented: `generate_field_appearance()` and `generate_all_appearances()` — generates `/AP` `/N` streams for text fields, checkboxes, radio buttons, combo boxes, list boxes, push buttons, and signature fields. Also writes `/AP` sub-dictionaries for checkbox/radio named values.
 - Implemented examples: `examples/fill_form.rs` and `examples/create_all_fields.rs` (single output + `--all-modes`).
-- Not implemented yet: flatten, XFA support, FDF/XFDF import/export.
+- Implemented: `flatten_fields()` and `flatten_all_fields()` — merges appearance Form XObject content into page content streams, removes widget annotations from pages, removes fields from AcroForm, and removes AcroForm from catalog when empty.
+- Not implemented yet: XFA support, FDF/XFDF import/export.
 
 ### Sub-modules: `src/forms/`
 
@@ -83,7 +84,7 @@ Read, fill, and flatten PDF interactive form fields (AcroForm). This is one of t
 | `field.rs` | `PdField` enum — `TextField`, `CheckBox`, `RadioButton`, `ComboBox`, `ListBox`, `PushButton`, `SignatureField` |
 | `widget.rs` | `PdWidget` — annotation widget linked to field; rectangle, appearance dict |
 | `appearance.rs` | ✅ Implemented — `generate_field_appearance()` / `generate_all_appearances()` — text, check, radio, combo, list, push, signature; `/AP` `/N` sub-dicts for named values |
-| `flatten.rs` | Planned (`flatten_form`) — file exists but not implemented yet |
+| `flatten.rs` | ✅ Implemented — `flatten_fields()` / `flatten_all_fields()` — merge appearances into pages, remove widgets and AcroForm |
 | `xfa.rs` | Planned (`XfaForm`) — file exists but not implemented yet |
 | `export.rs` | Planned (`export_fdf` / `export_xfdf`) — file exists but not implemented yet |
 | `import.rs` | Planned (`import_fdf` / `import_xfdf`) — file exists but not implemented yet |
