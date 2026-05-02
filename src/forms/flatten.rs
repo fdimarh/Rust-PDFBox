@@ -358,15 +358,17 @@ mod tests {
 
     fn create_doc_with_acroform() -> Document {
         // Create a document with a single page and a minimal AcroForm
-        let bytes = b"%PDF-1.7\n1 0 obj<< /Type /Catalog /Pages 2 0 R /AcroForm 4 0 R >>endobj\n\
-            2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n\
-            3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [5 0 R] >>endobj\n\
-            4 0 obj<< /Fields [5 0 R] /DA (/Helv 10 Tf 0 g) >>endobj\n\
-            5 0 obj<< /Type /Annot /Subtype /Widget /FT /Tx /T (test) /Rect [100 700 300 720] /P 3 0 R /V (hello) >>endobj\n\
-            xref\n0 6\n0000000000 65535 f \n0000000015 00000 n \n0000000069 00000 n \n\
-            0000000153 00000 n \n0000000285 00000 n \n0000000360 00000 n \n\
-            trailer<< /Size 6 /Root 1 0 R >>\nstartxref\n458\n%%EOF";
-        Document::load_from_bytes(bytes).expect("doc should load")
+        let bytes = b"%PDF-1.7\n\
+            1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm 4 0 R >>\nendobj\n\
+            2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+            3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [5 0 R] >>\nendobj\n\
+            4 0 obj\n<< /Fields [5 0 R] /DA (/Helv 10 Tf 0 g) >>\nendobj\n\
+            5 0 obj\n<< /Type /Annot /Subtype /Widget /FT /Tx /T (test) /Rect [100 700 300 720] /P 3 0 R /V (hello) >>\nendobj\n\
+            xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000081 00000 n \n\
+            0000000143 00000 n \n0000000237 00000 n \n0000000299 00000 n \n\
+            trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n419\n%%EOF";
+        let (doc, _report) = Document::load_lenient(bytes);
+        doc
     }
 
     #[test]
@@ -419,12 +421,13 @@ mod tests {
     #[test]
     fn test_flatten_all_fields_no_acroform() {
         // Document without AcroForm should not panic
-        let bytes = b"%PDF-1.7\n1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n\
-            2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n\
-            3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>endobj\n\
-            xref\n0 4\n0000000000 65535 f \n0000000015 00000 n \n0000000058 00000 n \n\
-            0000000141 00000 n \ntrailer<< /Size 4 /Root 1 0 R >>\nstartxref\n214\n%%EOF";
-        let mut doc = Document::load_from_bytes(bytes).expect("doc should load");
+        let bytes = b"%PDF-1.7\n\
+            1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+            2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+            3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n\
+            xref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000037 00000 n \n\
+            0000000090 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n143\n%%EOF";
+        let (mut doc, _report) = Document::load_lenient(bytes);
         let result = flatten_all_fields(&mut doc);
         assert!(result.is_ok());
     }
