@@ -2,6 +2,7 @@
 
 _Created: 2026-04-03_  
 _Last updated: 2026-05-02_  
+_P14 Bookmarks — ✅ complete_  
 _Companion to: `PORTING_PLAN.md` (v1 core + Bonus 11 compression)_  
 _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 
@@ -47,7 +48,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 |---|---|---|
 | Interactive Forms (AcroForm + XFA) | P12 | 🟡 Partial (read + set value + appearance gen + flatten + examples) |
 | Annotations | P13 | 🔲 Planned |
-| Bookmarks / Document Outline | P14 | 🔲 Planned |
+| Bookmarks / Document Outline | P14 | ✅ Complete (DocumentOutline, OutlineItem, Destination with all Fit modes; 15 tests) |
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | ✅ Complete (merge, split, extract, rotate, overlay, watermark — 29 tests) |
 | PDF Creation from Scratch (content stream writing) | P16 | ✅ Complete (full 16-category operator API + image registration helpers — 16 dedicated tests + 434 lib tests) |
 | Image Extraction | P17 | 🔲 Planned |

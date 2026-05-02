@@ -15,6 +15,8 @@
 pub mod content;
 #[cfg(feature = "forms")]
 pub mod forms;
+#[cfg(feature = "outline")]
+pub mod outline;
 #[cfg(feature = "pageops")]
 pub mod pageops;
 #[cfg(feature = "compress")]
@@ -802,6 +804,11 @@ impl Document {
     pub fn catalog(&self) -> Option<&cos::CosDictionary> {
         let cat_id = self.catalog_ref()?;
         self.objects.get(&cat_id)?.as_dictionary()
+    }
+
+    #[cfg(feature = "outline")]
+    pub fn outline(&self) -> Option<outline::DocumentOutline<'_>> {
+        outline::OutlineExt::outline(self)
     }
 
     #[cfg(feature = "forms")]

@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["text", "crypto", "layout", "forms", "pageops"]
+default = ["text", "crypto", "layout", "forms", "pageops", "outline"]
 ## Text extraction and font handling
 text = []
+## Document outline (bookmarks)
+outline = []
 ## Encryption/decryption and permissions
 crypto = ["dep:aes", "dep:cbc", "dep:md-5", "dep:cipher", "dep:digest", "dep:block-padding"]
 ## Advanced layout analysis (column detection, reading order)
