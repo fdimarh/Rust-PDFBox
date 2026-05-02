@@ -11,6 +11,7 @@ pub mod xfa;
 pub mod export;
 pub mod import;
 
+pub use appearance::{generate_all_appearances, generate_field_appearance};
 pub use field::{PdField, set_field_value};
 pub use widget::PdWidget;
 
