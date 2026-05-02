@@ -12,8 +12,10 @@ pub mod export;
 pub mod import;
 
 pub use appearance::{generate_all_appearances, generate_field_appearance};
-pub use field::{PdField, set_field_value};
+pub use field::{PdField, get_field_value_for_export, set_field_value};
+pub use export::{export_fdf, export_xfdf};
 pub use flatten::{flatten_all_fields, flatten_fields};
+pub use import::{import_fdf, import_xfdf};
 pub use widget::PdWidget;
 
 use crate::ObjectStore;

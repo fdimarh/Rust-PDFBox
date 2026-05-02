@@ -115,3 +115,29 @@ pub fn set_field_value(doc: &mut Document, field_id: ObjectId, string_value: &st
         });
     }
 }
+
+/// Extracts a field's current value as an exportable string.
+///
+/// Handles `/V` strings, names (for checkboxes/radios), and arrays (for
+/// multi-select list boxes).
+pub fn get_field_value_for_export(field_dict: &CosDictionary) -> Option<String> {
+    let v = field_dict.get(&CosName::new(b"V".to_vec()))?;
+    match v {
+        CosObject::String(bytes) => {
+            Some(String::from_utf8_lossy(bytes).to_string())
+        }
+        CosObject::Name(name) => {
+            // For checkboxes/radio buttons, return the selected state name
+            let s = name.as_str().unwrap_or("Off");
+            if s == "Off" { None } else { Some(s.to_string()) }
+        }
+        CosObject::Array(arr) => {
+            // Multi-select: join values with newlines
+            let values: Vec<String> = arr.iter().filter_map(|item| {
+                item.as_string().map(|s| String::from_utf8_lossy(s).to_string())
+            }).collect();
+            if values.is_empty() { None } else { Some(values.join("\n")) }
+        }
+        _ => None,
+    }
+}
