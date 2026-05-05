@@ -7,6 +7,7 @@ use std::collections::HashSet;
 
 use crate::content::parse_content_stream;
 use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+use crate::parser::Parser;
 use crate::{Document, PdfError, PdfResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,24 +82,18 @@ impl Document {
             context: format!("page object {page_id:?} is not a dictionary"),
         })?;
 
-        let resources = resolve_dict(page_dict.get(&CosName::new(b"Resources".to_vec())), &self.objects);
-        let Some(resources) = resources else {
-            return Ok(Vec::new());
-        };
+        let content_bytes = self.page_content_bytes(page_id)?;
+        let instructions = parse_content_stream(&content_bytes).unwrap_or_default();
 
-        let xobjects = resolve_dict(resources.get(&CosName::new(b"XObject".to_vec())), &self.objects);
-        let Some(xobjects) = xobjects else {
-            return Ok(Vec::new());
-        };
-
-        let instructions = parse_content_stream(&self.page_content_bytes(page_id)?).map_err(|e| PdfError::Parse {
-            offset: None,
-            context: format!("content stream parse failed: {e}"),
-        })?;
-
-        let mut out = Vec::new();
+        let mut out = extract_inline_images(&content_bytes);
         let mut seen_object_ids = HashSet::new();
         let mut seen_inline_names = HashSet::new();
+
+        let resources = resolve_dict(page_dict.get(&CosName::new(b"Resources".to_vec())), &self.objects);
+        let xobjects = resources.and_then(|r| resolve_dict(r.get(&CosName::new(b"XObject".to_vec())), &self.objects));
+        let Some(xobjects) = xobjects else {
+            return Ok(out);
+        };
 
         for instr in instructions {
             if !instr.operator.is_do() || instr.operands.len() != 1 {
@@ -215,5 +210,172 @@ fn parse_filter_names(filter: Option<&CosObject>) -> Vec<String> {
             .collect(),
         _ => Vec::new(),
     }
+}
+
+fn extract_inline_images(content: &[u8]) -> Vec<PdImage> {
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    let mut index = 1usize;
+
+    while i + 2 < content.len() {
+        if !((i == 0 || is_boundary(content, i - 1))
+            && &content[i..i + 2] == b"BI"
+            && is_boundary(content, i + 2))
+        {
+            i += 1;
+            continue;
+        }
+
+        let mut j = i + 2;
+        while j < content.len() && is_white(content[j]) {
+            j += 1;
+        }
+        if j >= content.len() {
+            break;
+        }
+
+        let Some((dict_end, data_start)) = find_id_marker(content, j) else {
+            break;
+        };
+        let Some(data_end) = find_ei_marker(content, data_start) else {
+            break;
+        };
+
+        let dict_slice = &content[j..dict_end];
+        let data = content[data_start..data_end].to_vec();
+
+        if let Some(img) = build_inline_image(dict_slice, data, index) {
+            out.push(img);
+            index += 1;
+        }
+
+        i = data_end + 2;
+    }
+
+    out
+}
+
+fn build_inline_image(dict_slice: &[u8], data: Vec<u8>, index: usize) -> Option<PdImage> {
+    let mut wrapped = Vec::with_capacity(dict_slice.len() + 6);
+    wrapped.extend_from_slice(b"<< ");
+    wrapped.extend_from_slice(dict_slice);
+    wrapped.extend_from_slice(b" >>");
+
+    let mut parser = Parser::new(&wrapped);
+    let obj = parser.parse_object().ok().flatten()?;
+    let dict = obj.as_dictionary()?.clone();
+    let dict = normalize_inline_dict(&dict);
+
+    let width = dict
+        .get(&CosName::new(b"Width".to_vec()))
+        .and_then(|v| v.as_integer())
+        .unwrap_or(0)
+        .max(0) as u32;
+    let height = dict
+        .get(&CosName::new(b"Height".to_vec()))
+        .and_then(|v| v.as_integer())
+        .unwrap_or(0)
+        .max(0) as u32;
+    let bits_per_component = dict
+        .get(&CosName::new(b"BitsPerComponent".to_vec()))
+        .and_then(|v| v.as_integer())
+        .unwrap_or(8)
+        .clamp(0, 255) as u8;
+    let color_space = parse_color_space_name(dict.get(&CosName::new(b"ColorSpace".to_vec())));
+    let filter = dict.get(&CosName::new(b"Filter".to_vec())).cloned();
+    let filter_names = parse_filter_names(filter.as_ref());
+
+    Some(PdImage {
+        object_id: None,
+        resource_name: format!("inline_{index}"),
+        width,
+        height,
+        bits_per_component,
+        color_space,
+        filter_names,
+        data,
+        filter,
+    })
+}
+
+fn normalize_inline_dict(input: &CosDictionary) -> CosDictionary {
+    let mut out = CosDictionary::new();
+    for (k, v) in input.iter() {
+        let key = match k.as_str() {
+            Some("W") => CosName::new(b"Width".to_vec()),
+            Some("H") => CosName::new(b"Height".to_vec()),
+            Some("BPC") => CosName::new(b"BitsPerComponent".to_vec()),
+            Some("CS") => CosName::new(b"ColorSpace".to_vec()),
+            Some("F") => CosName::new(b"Filter".to_vec()),
+            _ => k.clone(),
+        };
+        out.insert(key, normalize_inline_value(v));
+    }
+    out
+}
+
+fn normalize_inline_value(v: &CosObject) -> CosObject {
+    match v {
+        CosObject::Name(n) => {
+            let mapped = match n.as_str() {
+                Some("G") => CosName::new(b"DeviceGray".to_vec()),
+                Some("RGB") => CosName::new(b"DeviceRGB".to_vec()),
+                Some("CMYK") => CosName::new(b"DeviceCMYK".to_vec()),
+                _ => n.clone(),
+            };
+            CosObject::Name(mapped)
+        }
+        CosObject::Array(a) => CosObject::Array(a.iter().map(normalize_inline_value).collect()),
+        other => other.clone(),
+    }
+}
+
+fn is_white(b: u8) -> bool {
+    matches!(b, b' ' | b'\t' | b'\r' | b'\n' | 0x0c | 0x00)
+}
+
+fn is_boundary(content: &[u8], i: usize) -> bool {
+    if i >= content.len() {
+        return true;
+    }
+    is_white(content[i])
+}
+
+fn find_id_marker(content: &[u8], start: usize) -> Option<(usize, usize)> {
+    let mut i = start;
+    while i + 2 < content.len() {
+        if content[i] == b'I'
+            && content[i + 1] == b'D'
+            && (i == 0 || is_boundary(content, i - 1))
+            && is_boundary(content, i + 2)
+        {
+            let mut data_start = i + 2;
+            if data_start < content.len() {
+                if content[data_start] == b'\r' && data_start + 1 < content.len() && content[data_start + 1] == b'\n' {
+                    data_start += 2;
+                } else if is_white(content[data_start]) {
+                    data_start += 1;
+                }
+            }
+            return Some((i, data_start));
+        }
+        i += 1;
+    }
+    None
+}
+
+fn find_ei_marker(content: &[u8], start: usize) -> Option<usize> {
+    let mut i = start;
+    while i + 2 < content.len() {
+        if content[i] == b'E'
+            && content[i + 1] == b'I'
+            && (i == 0 || is_boundary(content, i - 1))
+            && is_boundary(content, i + 2)
+        {
+            return Some(i.saturating_sub(1));
+        }
+        i += 1;
+    }
+    None
 }
 

@@ -59,6 +59,40 @@ fn build_single_image_pdf(image_dict_extra: &str, image_data: &[u8], content_str
     pdf
 }
 
+fn build_inline_only_pdf(content_stream: &[u8]) -> Vec<u8> {
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+
+    let obj1_offset = pdf.len();
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+    let obj2_offset = pdf.len();
+    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+
+    let obj3_offset = pdf.len();
+    pdf.extend_from_slice(
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Contents 4 0 R >>\nendobj\n",
+    );
+
+    let obj4_offset = pdf.len();
+    pdf.extend_from_slice(
+        format!("4 0 obj\n<< /Length {} >>\nstream\n", content_stream.len()).as_bytes(),
+    );
+    pdf.extend_from_slice(content_stream);
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+    let xref_offset = pdf.len();
+    pdf.extend_from_slice(b"xref\n0 5\n");
+    pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj1_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj2_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj3_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj4_offset).as_bytes());
+    pdf.extend_from_slice(b"trailer\n<< /Size 5 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(format!("startxref\n{}\n%%EOF\n", xref_offset).as_bytes());
+
+    pdf
+}
+
 fn make_stored_zlib(data: &[u8]) -> Vec<u8> {
     let cmf: u8 = 0x78;
     let rem = (cmf as u16 * 256) % 31;
@@ -174,5 +208,41 @@ fn export_png_from_dct_image_is_not_supported() {
 
     let err = images[0].save_as(&out, ImageExportFormat::Png).unwrap_err();
     assert!(matches!(err, PdfError::Unsupported { .. }));
+}
+
+#[test]
+fn extract_inline_image_and_decode_pixels() {
+    let inline_content = b"q BI /W 2 /H 1 /BPC 8 /CS /RGB ID \xFF\x00\x00\x00\xFF\x00 EI Q";
+    let pdf = build_inline_only_pdf(inline_content);
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+
+    assert_eq!(images.len(), 1);
+    let img = &images[0];
+    assert_eq!(img.resource_name(), "inline_1");
+    assert_eq!(img.width(), 2);
+    assert_eq!(img.height(), 1);
+    assert_eq!(img.color_space(), Some("DeviceRGB"));
+    assert!(img.filter_names().is_empty());
+    assert_eq!(img.decode_pixels().unwrap(), vec![255, 0, 0, 0, 255, 0]);
+}
+
+#[test]
+fn export_inline_image_as_png() {
+    let inline_content = b"BI /W 2 /H 1 /BPC 8 /CS /RGB ID \x00\x00\xFF\xFF\xFF\xFF EI";
+    let pdf = build_inline_only_pdf(inline_content);
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("png");
+
+    images[0].save_as(&out, ImageExportFormat::Png).unwrap();
+    let saved = image::open(&out).unwrap().to_rgb8();
+    assert_eq!(saved.width(), 2);
+    assert_eq!(saved.height(), 1);
+    assert_eq!(saved.into_raw(), vec![0, 0, 255, 255, 255, 255]);
+
+    let _ = std::fs::remove_file(out);
 }
 
