@@ -3,13 +3,18 @@
 use rust_pdfbox::Document;
 use rust_pdfbox::PdfError;
 use rust_pdfbox::image_extract::ImageExportFormat;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn temp_output_path(ext: &str) -> std::path::PathBuf {
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    std::env::temp_dir().join(format!("rust_pdfbox_image_extract_{nonce}.{ext}"))
+    let pid = std::process::id();
+    let seq = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!("rust_pdfbox_image_extract_{pid}_{nonce}_{seq}.{ext}"))
 }
 
 fn build_single_image_pdf(image_dict_extra: &str, image_data: &[u8], content_stream: &[u8]) -> Vec<u8> {
@@ -244,5 +249,104 @@ fn export_inline_image_as_png() {
     assert_eq!(saved.into_raw(), vec![0, 0, 255, 255, 255, 255]);
 
     let _ = std::fs::remove_file(out);
+}
+
+#[test]
+fn extract_indexed_image_decodes_to_rgb_pixels() {
+    let indices = vec![0u8, 1u8];
+    let compressed = make_stored_zlib(&indices);
+    let pdf = build_single_image_pdf(
+        "/ColorSpace [/Indexed /DeviceRGB 1 <FF000000FF00>] /Filter /FlateDecode",
+        &compressed,
+        b"/Im1 Do",
+    );
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+
+    assert_eq!(images.len(), 1);
+    assert_eq!(images[0].color_space(), Some("Indexed"));
+    let decoded = images[0].decode_pixels().unwrap();
+    assert_eq!(decoded, vec![255, 0, 0, 0, 255, 0]);
+}
+
+#[test]
+fn export_indexed_image_as_png() {
+    let indices = vec![0u8, 1u8];
+    let compressed = make_stored_zlib(&indices);
+    let pdf = build_single_image_pdf(
+        "/ColorSpace [/Indexed /DeviceRGB 1 <0000FFFFFFFF>] /Filter /FlateDecode",
+        &compressed,
+        b"/Im1 Do",
+    );
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("png");
+
+    images[0].save_as(&out, ImageExportFormat::Png).unwrap();
+    let saved = image::open(&out).unwrap().to_rgb8();
+    assert_eq!(saved.width(), 2);
+    assert_eq!(saved.height(), 1);
+    assert_eq!(saved.into_raw(), vec![0, 0, 255, 255, 255, 255]);
+
+    let _ = std::fs::remove_file(out);
+}
+
+#[test]
+fn export_cmyk_image_as_png() {
+    // 2x1 CMYK: cyan then black
+    let cmyk = vec![255, 0, 0, 0, 0, 0, 0, 255];
+    let compressed = make_stored_zlib(&cmyk);
+    let pdf = build_single_image_pdf(
+        "/ColorSpace /DeviceCMYK /Filter /FlateDecode",
+        &compressed,
+        b"/Im1 Do",
+    );
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("png");
+
+    images[0].save_as(&out, ImageExportFormat::Png).unwrap();
+    let saved = image::open(&out).unwrap().to_rgb8();
+    assert_eq!(saved.width(), 2);
+    assert_eq!(saved.height(), 1);
+    assert_eq!(saved.into_raw(), vec![0, 255, 255, 0, 0, 0]);
+
+    let _ = std::fs::remove_file(out);
+}
+
+#[test]
+fn export_cmyk_dct_image_as_png_is_not_supported() {
+    let jpeg_like = vec![0xFF, 0xD8, 0xFF, 0xD9];
+    let pdf = build_single_image_pdf(
+        "/ColorSpace /DeviceCMYK /Filter /DCTDecode",
+        &jpeg_like,
+        b"/Im1 Do",
+    );
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("png");
+
+    let err = images[0].save_as(&out, ImageExportFormat::Png).unwrap_err();
+    assert!(matches!(err, PdfError::Unsupported { .. }));
+}
+
+#[test]
+fn extract_indexed_non_rgb_base_is_rejected() {
+    let indices = vec![0u8, 1u8];
+    let compressed = make_stored_zlib(&indices);
+    let pdf = build_single_image_pdf(
+        "/ColorSpace [/Indexed /DeviceGray 1 <00FF>] /Filter /FlateDecode",
+        &compressed,
+        b"/Im1 Do",
+    );
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let err = images[0].decode_pixels().unwrap_err();
+    assert!(matches!(err, PdfError::Unsupported { .. }));
 }
 

@@ -10,7 +10,7 @@ impl PdImage {
     /// Saves this extracted image to a file in the requested format.
     ///
     /// Current support:
-    /// - `ImageExportFormat::Png` for decodable 8-bit Gray/RGB images
+    /// - `ImageExportFormat::Png` for decodable 8-bit Gray/RGB/Indexed/CMYK images
     /// - `ImageExportFormat::Jpeg` passthrough when source filter is DCTDecode
     pub fn save_as<P: AsRef<Path>>(&self, path: P, format: ImageExportFormat) -> PdfResult<()> {
         match format {
@@ -23,21 +23,17 @@ impl PdImage {
         let pixels = self.decode_pixels()?;
         let Some(color_space) = self.color_space() else {
             return Err(PdfError::Unsupported {
-                feature: "PNG export requires explicit DeviceGray/DeviceRGB color space",
+                feature: "PNG export requires explicit DeviceGray/DeviceRGB/Indexed/DeviceCMYK color space",
             });
         };
 
-        let color = match color_space {
-            "DeviceGray" => image::ColorType::L8,
-            "DeviceRGB" => image::ColorType::Rgb8,
-            "DeviceCMYK" => {
-                return Err(PdfError::Unsupported {
-                    feature: "PNG export does not support DeviceCMYK in this phase",
-                });
-            }
+        let (pixels, color) = match color_space {
+            "DeviceGray" => (pixels, image::ColorType::L8),
+            "DeviceRGB" | "Indexed" => (pixels, image::ColorType::Rgb8),
+            "DeviceCMYK" => (cmyk_to_rgb8_for_png(&pixels), image::ColorType::Rgb8),
             _ => {
                 return Err(PdfError::Unsupported {
-                    feature: "PNG export supports only DeviceGray/DeviceRGB in this phase",
+                    feature: "PNG export supports only DeviceGray/DeviceRGB/Indexed/DeviceCMYK in this phase",
                 });
             }
         };
@@ -69,5 +65,25 @@ impl PdImage {
 
         std::fs::write(path, self.encoded_bytes()).map_err(PdfError::Io)
     }
+}
+
+fn cmyk_to_rgb8_for_png(cmyk: &[u8]) -> Vec<u8> {
+    let pixels = cmyk.len() / 4;
+    let mut out = Vec::with_capacity(pixels * 3);
+
+    for chunk in cmyk.chunks_exact(4) {
+        let c = chunk[0] as u16;
+        let m = chunk[1] as u16;
+        let y = chunk[2] as u16;
+        let k = chunk[3] as u16;
+
+        // Device-CMYK approximation: RGB = (1-C)*(1-K), etc.
+        let r = (((255 - c) * (255 - k) + 127) / 255) as u8;
+        let g = (((255 - m) * (255 - k) + 127) / 255) as u8;
+        let b = (((255 - y) * (255 - k) + 127) / 255) as u8;
+        out.extend_from_slice(&[r, g, b]);
+    }
+
+    out
 }
 

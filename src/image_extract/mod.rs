@@ -24,6 +24,7 @@ pub struct PdImage {
     height: u32,
     bits_per_component: u8,
     color_space: Option<String>,
+    color_space_obj: Option<CosObject>,
     filter_names: Vec<String>,
     data: Vec<u8>,
     filter: Option<CosObject>,
@@ -149,6 +150,7 @@ impl Document {
                 .unwrap_or(8)
                 .clamp(0, 255) as u8;
             let color_space = parse_color_space_name(stream.dictionary.get(&CosName::new(b"ColorSpace".to_vec())));
+            let color_space_obj = stream.dictionary.get(&CosName::new(b"ColorSpace".to_vec())).cloned();
             let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec())).cloned();
             let filter_names = parse_filter_names(filter.as_ref());
 
@@ -159,6 +161,7 @@ impl Document {
                 height,
                 bits_per_component,
                 color_space,
+                color_space_obj,
                 filter_names,
                 data: stream.data.clone(),
                 filter,
@@ -282,6 +285,7 @@ fn build_inline_image(dict_slice: &[u8], data: Vec<u8>, index: usize) -> Option<
         .unwrap_or(8)
         .clamp(0, 255) as u8;
     let color_space = parse_color_space_name(dict.get(&CosName::new(b"ColorSpace".to_vec())));
+    let color_space_obj = dict.get(&CosName::new(b"ColorSpace".to_vec())).cloned();
     let filter = dict.get(&CosName::new(b"Filter".to_vec())).cloned();
     let filter_names = parse_filter_names(filter.as_ref());
 
@@ -292,6 +296,7 @@ fn build_inline_image(dict_slice: &[u8], data: Vec<u8>, index: usize) -> Option<
         height,
         bits_per_component,
         color_space,
+        color_space_obj,
         filter_names,
         data,
         filter,
