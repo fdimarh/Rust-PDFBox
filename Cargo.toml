@@ -137,6 +137,11 @@ path = "examples/fill_form_xfa_hybrid.rs"
 required-features = ["forms"]
 
 [[example]]
+name = "extract_images"
+path = "examples/extract_images.rs"
+required-features = ["image-extract"]
+
+[[example]]
 name = "pageops_example"
 path = "examples/pageops_example.rs"
 required-features = ["pageops"]

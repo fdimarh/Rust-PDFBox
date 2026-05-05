@@ -104,6 +104,9 @@ cargo run --example read_xfa -- path/to/form.pdf
 
 # Fill AcroForm field and inspect XFA packets in one run
 cargo run --example fill_form_xfa_hybrid -- in.pdf out.pdf field_name "new value"
+
+# Extract page images (XObject + inline BI/ID/EI) into an output directory
+cargo run --features image-extract --example extract_images -- in.pdf out_images/
 ```
 
 ## Running Tests

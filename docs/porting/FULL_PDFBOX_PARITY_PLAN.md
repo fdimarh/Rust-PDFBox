@@ -13,7 +13,7 @@ _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 | Document | Covers | Status |
 |---|---|---|
 | `PORTING_PLAN.md` | Core parse/write/text/encrypt/font + Bonus 1–10 + Bonus 11 compression | ✅ v1 done; B11 planned |
-| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (P12 ✅; P15 overlay+watermark ✅; P16 extended operators ✅; P15 merge/split/extract/rotate ✅) |
+| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (P12 ✅; P15 overlay+watermark ✅; P16 extended operators ✅; P15 merge/split/extract/rotate ✅; P17 baseline ✅) |
 
 This document is organized as **12 independent phases (P12–P23)**. Each phase can be implemented in any order. Dependencies between phases are noted explicitly.
 
@@ -51,7 +51,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Bookmarks / Document Outline | P14 | ✅ Complete (DocumentOutline, OutlineItem, Destination with all Fit modes; 15 tests) |
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | ✅ Complete (merge, split, extract, rotate, overlay, watermark — 29 tests) |
 | PDF Creation from Scratch (content stream writing) | P16 | ✅ Complete (full 16-category operator API + image registration helpers — 16 dedicated tests + 434 lib tests) |
-| Image Extraction | P17 | 🔲 Planned |
+| Image Extraction | P17 | 🟡 In Progress (baseline: `extract_images`, `decode_pixels`, PNG/JPEG export, inline `BI`/`ID`/`EI`, 8 tests) |
 | Rendering (page → image) | P18 | 🔲 Planned |
 | Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🔲 Planned |
 | Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🔲 Planned |
@@ -508,13 +508,22 @@ _Java PDFBox: `o.a.pdfbox.pdmodel.graphics.image.PDImageXObject`_
 
 Extract embedded images from PDF pages as raw pixel buffers or encoded files (JPEG, PNG).
 
-### Sub-modules: `src/image/`
+### Current Status (2026-05-05)
+
+- ✅ Baseline implemented under `src/image_extract/` and feature-gated by `image-extract`.
+- ✅ Implemented: `Document::extract_images(page_index)` for page `Do` XObjects and inline `BI`/`ID`/`EI` images.
+- ✅ Implemented: `PdImage` metadata accessors (`width`, `height`, `color_space`, `filter_names`, `encoded_bytes`).
+- ✅ Implemented: `decode_pixels()` baseline for unfiltered/Flate 8-bit `DeviceGray`/`DeviceRGB`/`DeviceCMYK`.
+- ✅ Implemented: `save_as(path, format)` with PNG export (decoded path) and JPEG passthrough for DCT images.
+- 🔲 Remaining for full parity: broader color-space coverage (Indexed/ICCBased), SMask/transparency handling, TIFF/CCITT export path.
+
+### Sub-modules: `src/image_extract/`
 
 | File | Responsibility |
 |---|---|
-| `mod.rs` | `PdImage` — parsed image XObject; `extract_images(doc, page) → Vec<PdImage>` |
-| `decode.rs` | Decode image streams: DCTDecode → JPEG bytes, FlateDecode → raw pixels, CCITTFax → TIFF |
-| `export.rs` | `PdImage::save_as(path, format)` — export to JPEG/PNG/TIFF file |
+| `mod.rs` | `PdImage` model + `Document::extract_images(page_index)` for XObject and inline images |
+| `decode.rs` | Baseline pixel decode for unfiltered/Flate 8-bit `DeviceGray`/`DeviceRGB`/`DeviceCMYK` |
+| `export.rs` | `PdImage::save_as(path, format)` for PNG export and DCT JPEG passthrough |
 
 ### Key APIs
 
@@ -522,7 +531,7 @@ Extract embedded images from PDF pages as raw pixel buffers or encoded files (JP
 let images = doc.extract_images(page_index)?;   // Vec<PdImage>
 for img in &images {
     println!("{}x{} {:?}", img.width(), img.height(), img.color_space());
-    img.save_as("output.png", ImageFormat::Png)?;
+    img.save_as("output.png", ImageExportFormat::Png)?;
     let pixels = img.decode_pixels()?;           // Vec<u8> (raw RGB/RGBA)
 }
 ```
@@ -532,18 +541,24 @@ for img in &images {
 | Crate | Purpose |
 |---|---|
 | `image` `0.25` | Already in deps — encode to PNG/JPEG |
-| `tiff` `0.9` | TIFF encoder for CCITTFax images |
+
+No additional crate was needed for the current baseline.
 
 ### Test Plan — 15+ tests
 
-- Extract JPEG image from PDF, verify dimensions
-- Extract FlateDecode (PNG-like) image, verify pixels
-- Extract multiple images from one page
-- Color spaces: DeviceRGB, DeviceGray, DeviceCMYK, Indexed, ICCBased
-- Inline images (`BI`/`EI` operators)
-- Image with SMask (transparency)
-- Save as PNG, reload, compare pixel values
-- Empty page → empty image list
+- ✅ Baseline implemented (8 integration tests in `tests/image_extract.rs`):
+  - DCT image metadata and encoded-byte passthrough
+  - Flate image decode to raw pixels
+  - Empty page returns empty image list
+  - PNG export round-trip pixel verification
+  - JPEG passthrough export byte verification
+  - Unsupported DCT→PNG export rejection
+  - Inline image (`BI`/`ID`/`EI`) extraction + decode
+  - Inline image PNG export
+- 🔲 Remaining for full parity target:
+  - broader color spaces (`Indexed`, `ICCBased`)
+  - SMask/transparency handling
+  - additional multi-image and edge-case fixtures
 
 ### Depends On
 
@@ -553,7 +568,7 @@ for img in &images {
 ### Feature Flag
 
 ```toml
-image-extract = ["dep:tiff"]
+image-extract = []
 ```
 
 ---
@@ -915,7 +930,7 @@ indicatif = "0.17"
 | Phase | New Crate | Version | Purpose | Optional |
 |---|---|---|---|---|
 | P12 | `quick-xml` | `0.36` | XFDF parsing | Yes (`forms`) |
-| P17 | `tiff` | `0.9` | TIFF export for extracted images | Yes (`image-extract`) |
+| P17 | None (baseline) | — | Uses existing `image` crate already in deps | — |
 | P18 | `tiny-skia` | `0.11` | 2D raster rendering engine | Yes (`render`) |
 | P18 | `ab_glyph` | `0.2` | Glyph rasterization | Yes (`render`) |
 | P18 | `fontdb` | `0.22` | System font matching | Yes (`render`) |
@@ -938,7 +953,7 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 | 🔴 2 | **P12 — Interactive Forms** | ✅ **Done** — AcroForm complete + XFA read/detect helpers and packet APIs |
 | 🔴 3 | **P15 — Page Manipulation** | ✅ **Done** — merge, split, extract, rotate, overlay, watermark; 29 integration tests |
 | 🟠 4 | **P14 — Bookmarks** | Low effort, high value — simple dict traversal |
-| 🟠 5 | **P17 — Image Extraction** | Commonly requested; builds on existing stream decode |
+| 🟠 5 | **P17 — Image Extraction** | Baseline implemented; remaining parity work is broader decode/export coverage |
 | 🟠 6 | **P22 — Metadata** | Low effort; needed for P21 (PDF/A) |
 | 🟠 7 | **P13 — Annotations** | Depends on P16; commonly needed for markup workflows |
 | 🟡 8 | **P19 — Advanced Encryption** | AES-256 Rev 5/6 increasingly common in modern PDFs |
@@ -958,7 +973,7 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 | **P12 (forms)** | **30 + XFA read-path integration tests** | **652+** |
 | **P15 (page ops)** | **29** | **681** |
 | P14 (bookmarks) | 12 | 693 |
-| P17 (image extract) | 15 | 708 |
+| P17 (image extract) | 8 implemented + 7 planned | 708 |
 | P22 (metadata) | 12 | 720 |
 | P13 (annotations) | 25 | 745 |
 | P19 (adv encryption) | 15 | 760 |
@@ -972,11 +987,11 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 
 ## Feature Flag Map (Complete)
 
-Current implementation snapshot (mirrors `Cargo.toml` as of 2026-04-24):
+Current implementation snapshot (mirrors `Cargo.toml` as of 2026-05-05):
 
 ```toml
 [features]
-default = ["text", "crypto", "layout", "forms", "pageops"]
+default = ["text", "crypto", "layout", "forms", "pageops", "outline"]
 
 # ── Existing (v1) ───────────────────────────
 text             = []
@@ -998,7 +1013,7 @@ forms            = ["dep:quick-xml"]
 annotations      = []
 outline          = []
 pageops          = []
-image-extract    = ["dep:tiff"]
+image-extract    = []
 render           = ["dep:tiny-skia", "dep:ab_glyph", "dep:fontdb", "dep:kurbo"]
 filters-advanced = ["dep:jbig2dec", "dep:jpeg2000", "dep:fax"]
 preflight        = ["dep:quick-xml"]
