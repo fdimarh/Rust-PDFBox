@@ -2,6 +2,15 @@
 
 use rust_pdfbox::Document;
 
+fn load_fixture_bytes(name: &str) -> Vec<u8> {
+    let path = format!(
+        "{}/tests/fixtures/smoke/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        name
+    );
+    std::fs::read(path).expect("fixture must exist")
+}
+
 fn make_pdf_with_single_stream_xfa() -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
 
@@ -111,5 +120,19 @@ fn packet_array_xfa_supports_named_packet_lookup() {
         xfa.datasets_xml(),
         Some(b"<datasets><name>Bob</name></datasets>".as_slice())
     );
+}
+
+#[test]
+fn tiny_hybrid_xfa_fixture_smoke() {
+    let bytes = load_fixture_bytes("hybrid_xfa_smoke_001.pdf");
+    let doc = Document::load_from_bytes(&bytes).unwrap();
+
+    assert!(doc.has_xfa_form());
+    let form = doc.acro_form().unwrap();
+    assert!(form.is_hybrid_xfa());
+
+    let xfa = doc.xfa_form().unwrap();
+    assert_eq!(xfa.packets().len(), 1);
+    assert!(xfa.raw_xml().starts_with(b"<xdp:xdp"));
 }
 

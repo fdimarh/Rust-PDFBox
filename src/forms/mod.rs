@@ -17,6 +17,7 @@ pub use export::{export_fdf, export_xfdf};
 pub use flatten::{flatten_all_fields, flatten_fields};
 pub use import::{import_fdf, import_xfdf};
 pub use widget::PdWidget;
+pub use xfa::{XfaForm, XfaPacket};
 
 use crate::ObjectStore;
 use crate::cos::{CosDictionary, CosName, CosObject};
@@ -62,5 +63,20 @@ impl<'a> PdAcroForm<'a> {
     pub fn get_field(&self, fully_qualified_name: &str) -> Option<PdField<'a>> {
         // Simple linear scan for now. True implementation should climb/descend.
         self.fields().into_iter().find(|f| f.fully_qualified_name() == fully_qualified_name)
+    }
+
+    /// Returns true if the AcroForm contains an `/XFA` entry.
+    pub fn has_xfa(&self) -> bool {
+        self.dict.contains_key(&CosName::new(b"XFA".to_vec()))
+    }
+
+    /// Returns a read-only XFA view when `/XFA` is present.
+    pub fn xfa(&self) -> Option<XfaForm> {
+        XfaForm::from_acro_form_dict(self.dict, self.store)
+    }
+
+    /// Returns true for hybrid forms (both AcroForm fields and XFA payload).
+    pub fn is_hybrid_xfa(&self) -> bool {
+        self.has_xfa() && !self.fields().is_empty()
     }
 }

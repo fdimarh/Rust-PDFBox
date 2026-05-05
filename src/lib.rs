@@ -826,6 +826,16 @@ impl Document {
             .map(|dict| forms::PdAcroForm::new(dict, &self.objects))
     }
 
+    #[cfg(feature = "forms")]
+    pub fn xfa_form(&self) -> Option<forms::XfaForm> {
+        self.acro_form()?.xfa()
+    }
+
+    #[cfg(feature = "forms")]
+    pub fn has_xfa_form(&self) -> bool {
+        self.acro_form().map(|f| f.has_xfa()).unwrap_or(false)
+    }
+
     /// Returns the number of objects in the object store.
     pub fn object_count(&self) -> usize {
         self.objects.len()

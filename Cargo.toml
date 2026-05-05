@@ -130,6 +130,11 @@ path = "examples/fill_form.rs"
 required-features = ["forms"]
 
 [[example]]
+name = "fill_form_xfa_hybrid"
+path = "examples/fill_form_xfa_hybrid.rs"
+required-features = ["forms"]
+
+[[example]]
 name = "pageops_example"
 path = "examples/pageops_example.rs"
 required-features = ["pageops"]

@@ -1,8 +1,8 @@
 # Full Java PDFBox Feature Parity Plan
 
 _Created: 2026-04-03_  
-_Last updated: 2026-05-02_  
-_P14 Bookmarks — ✅ complete_  
+_Last updated: 2026-05-05_  
+_P12 Interactive Forms — ✅ complete; P14 Bookmarks — ✅ complete_  
 _Companion to: `PORTING_PLAN.md` (v1 core + Bonus 11 compression)_  
 _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 
@@ -13,7 +13,7 @@ _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 | Document | Covers | Status |
 |---|---|---|
 | `PORTING_PLAN.md` | Core parse/write/text/encrypt/font + Bonus 1–10 + Bonus 11 compression | ✅ v1 done; B11 planned |
-| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (P15 overlay+watermark ✅; P16 extended operators ✅; P15 merge/split/extract/rotate ✅; P12 partial) |
+| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (P12 ✅; P15 overlay+watermark ✅; P16 extended operators ✅; P15 merge/split/extract/rotate ✅) |
 
 This document is organized as **12 independent phases (P12–P23)**. Each phase can be implemented in any order. Dependencies between phases are noted explicitly.
 
@@ -46,7 +46,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 
 | Java PDFBox Feature Area | Phase | Current Status |
 |---|---|---|
-| Interactive Forms (AcroForm + XFA) | P12 | 🟡 Partial (read, set value, appearance gen, flatten, FDF/XFDF import/export; XFA still pending) |
+| Interactive Forms (AcroForm + XFA) | P12 | ✅ Complete (AcroForm read/fill/appearance/flatten/FDF/XFDF + XFA read/detect/packet access) |
 | Annotations | P13 | 🔲 Planned |
 | Bookmarks / Document Outline | P14 | ✅ Complete (DocumentOutline, OutlineItem, Destination with all Fit modes; 15 tests) |
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | ✅ Complete (merge, split, extract, rotate, overlay, watermark — 29 tests) |
@@ -77,7 +77,7 @@ Read, fill, and flatten PDF interactive form fields (AcroForm). This is one of t
 - Implemented: `flatten_fields()` and `flatten_all_fields()` — merges appearance Form XObject content into page content streams, removes widget annotations from pages, removes fields from AcroForm, and removes AcroForm from catalog when empty.
 - Implemented: `export_fdf()` / `export_xfdf()` — export field values to FDF (PDF-based) and XFDF (XML) formats.
 - Implemented: `import_fdf()` / `import_xfdf()` — import field values from FDF and XFDF data back into the AcroForm.
-- Not implemented yet: XFA support.
+- Implemented: XFA read support (`has_xfa`, `xfa`, `is_hybrid_xfa`, `Document::xfa_form`, `Document::has_xfa_form`) with packet-level APIs (`packet`, `packet_names`, `datasets_xml`, `raw_xml`).
 
 ### Sub-modules: `src/forms/`
 
@@ -88,7 +88,7 @@ Read, fill, and flatten PDF interactive form fields (AcroForm). This is one of t
 | `widget.rs` | `PdWidget` — annotation widget linked to field; rectangle, appearance dict |
 | `appearance.rs` | ✅ Implemented — `generate_field_appearance()` / `generate_all_appearances()` — text, check, radio, combo, list, push, signature; `/AP` `/N` sub-dicts for named values |
 | `flatten.rs` | ✅ Implemented — `flatten_fields()` / `flatten_all_fields()` — merge appearances into pages, remove widgets and AcroForm |
-| `xfa.rs` | Planned (`XfaForm`) — file exists but not implemented yet |
+| `xfa.rs` | ✅ Implemented — read-only `XfaForm` packet parser for stream/array `/XFA` payloads |
 | `export.rs` | ✅ Implemented — `export_fdf()` / `export_xfdf()` — FDF + XFDF export |
 | `import.rs` | ✅ Implemented — `import_fdf()` / `import_xfdf()` — FDF + XFDF import with tokenizer |
 
@@ -122,7 +122,10 @@ if let Some(field) = form.get_field("name") {
     rust_pdfbox::forms::set_field_value(&mut doc, field_id, "Alice");
 }
 
-// Planned APIs (not implemented yet): flatten/import/export helpers.
+// XFA helpers (current)
+let has_xfa = form.has_xfa();
+let hybrid = form.is_hybrid_xfa();
+let xfa = form.xfa();
 ```
 
 ### Rust Crates
@@ -932,7 +935,7 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 | Priority | Phase | Why |
 |---|---|---|
 | 🔴 1 | **P16 — Content Stream Writing** | ✅ **Done** — full operator API, image/form XObject registration, 16 integration tests |
-| 🔴 2 | **P12 — Interactive Forms** | Most-requested Java PDFBox feature after text extraction |
+| 🔴 2 | **P12 — Interactive Forms** | ✅ **Done** — AcroForm complete + XFA read/detect helpers and packet APIs |
 | 🔴 3 | **P15 — Page Manipulation** | ✅ **Done** — merge, split, extract, rotate, overlay, watermark; 29 integration tests |
 | 🟠 4 | **P14 — Bookmarks** | Low effort, high value — simple dict traversal |
 | 🟠 5 | **P17 — Image Extraction** | Commonly requested; builds on existing stream decode |
@@ -952,7 +955,7 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 |---|---|---|
 | B11 (compression) | 40 | 576 |
 | **P16 (content writing)** | **16 (dedicated) + 30 (creation round-trip)** | **622** |
-| P12 (forms) | 30 | 652 |
+| **P12 (forms)** | **30 + XFA read-path integration tests** | **652+** |
 | **P15 (page ops)** | **29** | **681** |
 | P14 (bookmarks) | 12 | 693 |
 | P17 (image extract) | 15 | 708 |

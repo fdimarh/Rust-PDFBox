@@ -98,6 +98,12 @@ cargo run --example extract_text -- path/to/file.pdf
 
 # Digital signature (see source for key/cert setup)
 cargo run --example digital_sign
+
+# Inspect XFA packets (hybrid AcroForm/XFA PDFs)
+cargo run --example read_xfa -- path/to/form.pdf
+
+# Fill AcroForm field and inspect XFA packets in one run
+cargo run --example fill_form_xfa_hybrid -- in.pdf out.pdf field_name "new value"
 ```
 
 ## Running Tests
@@ -126,7 +132,7 @@ cargo bench --bench bench_core
 
 The project is being ported phase-by-phase from Java PDFBox. The core pipeline (parse → model → text → write → crypto → sign) is complete. Upcoming work includes:
 
-- **Forms** — AcroForm / XFA field read/write
+- **Forms** — AcroForm complete (fill/appearance/flatten/FDF/XFDF) + XFA read/inspect
 - **Annotations** — markup, widget, link annotations
 - **Bookmarks / Outlines** — document navigation tree
 - **Page operations** — merge, split, rotate, crop

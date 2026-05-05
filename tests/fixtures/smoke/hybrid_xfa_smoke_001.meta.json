@@ -1,0 +1,11 @@
+{
+  "description": "Tiny hybrid AcroForm+XFA smoke fixture",
+  "expected": {
+    "page_count": 0,
+    "encrypted": false,
+    "text_extractable": false,
+    "has_acroform": true,
+    "has_xfa": true
+  },
+  "tags": ["smoke", "forms", "xfa", "hybrid"]
+}

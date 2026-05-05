@@ -22,6 +22,11 @@ Example:
 - `acme_invoice_smoke_001.pdf`
 - `acme_invoice_smoke_001.meta.json`
 
+Current smoke fixture examples include:
+
+- `hybrid_xfa_smoke_001.pdf`
+- `hybrid_xfa_smoke_001.meta.json`
+
 ## Metadata Template
 
 ```json
