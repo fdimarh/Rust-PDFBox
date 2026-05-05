@@ -17,6 +17,8 @@ layout = []
 forms = ["dep:quick-xml"]
 ## Page Manipulation
 pageops = []
+## Image extraction (Phase 17 baseline)
+image-extract = []
 ## Core compression: stream recompression (flate2) + object deduplication (rustc-hash) + cleanup + version + linearize
 compress = ["dep:flate2", "dep:rustc-hash"]
 ## Zopfli DEFLATE: replace zlib level-9 with Zopfli for 3–8% better stream compression (slower)

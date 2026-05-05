@@ -26,6 +26,8 @@ pub mod cos;
 pub mod crypto;
 #[cfg(feature = "text")]
 pub mod font;
+#[cfg(feature = "image-extract")]
+pub mod image_extract;
 pub mod io;
 pub mod parser;
 pub mod pdmodel;
