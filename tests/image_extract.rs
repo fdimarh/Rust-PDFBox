@@ -1,6 +1,16 @@
 #![cfg(feature = "image-extract")]
 
 use rust_pdfbox::Document;
+use rust_pdfbox::PdfError;
+use rust_pdfbox::image_extract::ImageExportFormat;
+
+fn temp_output_path(ext: &str) -> std::path::PathBuf {
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    std::env::temp_dir().join(format!("rust_pdfbox_image_extract_{nonce}.{ext}"))
+}
 
 fn build_single_image_pdf(image_dict_extra: &str, image_data: &[u8], content_stream: &[u8]) -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
@@ -114,5 +124,55 @@ fn extract_images_returns_empty_when_page_has_no_image_do() {
     let images = doc.extract_images(0).unwrap();
 
     assert!(images.is_empty());
+}
+
+#[test]
+fn export_png_writes_decoded_pixels() {
+    let rgb = vec![255, 0, 0, 0, 255, 0]; // 2x1 RGB
+    let compressed = make_stored_zlib(&rgb);
+    let pdf = build_single_image_pdf("/Filter /FlateDecode", &compressed, b"/Im1 Do");
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("png");
+
+    images[0].save_as(&out, ImageExportFormat::Png).unwrap();
+
+    let saved = image::open(&out).unwrap().to_rgb8();
+    assert_eq!(saved.width(), 2);
+    assert_eq!(saved.height(), 1);
+    assert_eq!(saved.into_raw(), rgb);
+
+    let _ = std::fs::remove_file(out);
+}
+
+#[test]
+fn export_jpeg_passthrough_writes_original_encoded_bytes() {
+    let jpeg_like = vec![0xFF, 0xD8, 0x11, 0x22, 0x33, 0xFF, 0xD9];
+    let pdf = build_single_image_pdf("/Filter /DCTDecode", &jpeg_like, b"/Im1 Do");
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("jpg");
+
+    images[0].save_as(&out, ImageExportFormat::Jpeg).unwrap();
+
+    let saved = std::fs::read(&out).unwrap();
+    assert_eq!(saved, jpeg_like);
+
+    let _ = std::fs::remove_file(out);
+}
+
+#[test]
+fn export_png_from_dct_image_is_not_supported() {
+    let jpeg_like = vec![0xFF, 0xD8, 0xFF, 0xD9];
+    let pdf = build_single_image_pdf("/Filter /DCTDecode", &jpeg_like, b"/Im1 Do");
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("png");
+
+    let err = images[0].save_as(&out, ImageExportFormat::Png).unwrap_err();
+    assert!(matches!(err, PdfError::Unsupported { .. }));
 }
 

@@ -1,12 +1,19 @@
 //! Phase 17 baseline: image XObject discovery and basic decode helpers.
 
 mod decode;
+mod export;
 
 use std::collections::HashSet;
 
 use crate::content::parse_content_stream;
 use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 use crate::{Document, PdfError, PdfResult};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageExportFormat {
+    Png,
+    Jpeg,
+}
 
 #[derive(Debug, Clone)]
 pub struct PdImage {
