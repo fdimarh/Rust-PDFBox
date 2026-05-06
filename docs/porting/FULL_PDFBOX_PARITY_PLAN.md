@@ -56,7 +56,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🔲 Planned |
 | Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🔲 Planned |
 | PDF/A Validation (Preflight) | P21 | 🔲 Planned |
-| Metadata & Document Properties (XMP, DocInfo) | P22 | 🟡 In Progress (DocInfo read + title/author write baseline, 2 tests) |
+| Metadata & Document Properties (XMP, DocInfo) | P22 | 🟡 In Progress (DocInfo read/write baseline + XMP read-path, 5 tests) |
 | CLI Tools (PDFBox command-line equivalents) | P23 | 🔲 Planned |
 
 ---
@@ -823,8 +823,9 @@ Full read/write access to document metadata: DocInfo dictionary and XMP metadata
 - ✅ Implemented baseline `DocInfo` API in `src/metadata/mod.rs` behind the `metadata` feature flag.
 - ✅ Implemented: `Document::document_info()` read access for `Title`, `Author`, `Subject`, `Keywords`, `Creator`, `Producer`, `CreationDate`, `ModDate`.
 - ✅ Implemented: `Document::document_info_mut()` with safe `/Info` creation when missing and mutation APIs `set_title()` / `set_author()`.
-- ✅ Added integration coverage in `tests/metadata_info.rs` (read existing `/Info`; create+round-trip when missing).
-- 🔲 Remaining for full P22 parity: XMP stream parsing/writing (`xmp.rs`) and DocInfo↔XMP sync (`sync.rs`).
+- ✅ Implemented XMP read-path baseline via `Document::xmp_metadata()` and `XmpMetadata` (`raw_xml`, `dc_title`, `dc_creator`) in `src/metadata/xmp.rs`.
+- ✅ Added integration coverage in `tests/metadata_info.rs` + `tests/metadata_xmp.rs` (5 tests total).
+- 🔲 Remaining for full P22 parity: XMP write-path and DocInfo↔XMP sync (`sync.rs`).
 
 ### Sub-modules: `src/metadata/`
 

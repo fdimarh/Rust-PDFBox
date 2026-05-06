@@ -3,6 +3,9 @@ use std::borrow::Cow;
 use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 use crate::{Document, PdfError, PdfResult};
 
+pub mod xmp;
+pub use xmp::XmpMetadata;
+
 pub struct DocumentInfo<'a> {
     dict: Option<&'a CosDictionary>,
 }
@@ -126,6 +129,23 @@ impl Document {
         };
 
         Ok(DocumentInfoMut { doc: self, info_id })
+    }
+
+    pub fn xmp_metadata(&self) -> Option<XmpMetadata> {
+        let catalog = self.catalog()?;
+        let metadata_obj = catalog.get(&CosName::new(b"Metadata".to_vec()))?;
+
+        let stream = match metadata_obj {
+            CosObject::Reference(id) => self.objects.get(id)?.as_stream()?,
+            CosObject::Stream(s) => s,
+            _ => return None,
+        };
+
+        let filter = stream
+            .dictionary
+            .get(&CosName::new(b"Filter".to_vec()));
+        let decoded = crate::io::decode_stream(&stream.data, filter).ok()?;
+        XmpMetadata::from_bytes(&decoded)
     }
 }
 
