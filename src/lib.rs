@@ -29,6 +29,8 @@ pub mod font;
 #[cfg(feature = "image-extract")]
 pub mod image_extract;
 pub mod io;
+#[cfg(feature = "metadata")]
+pub mod metadata;
 pub mod parser;
 pub mod pdmodel;
 pub mod render;
