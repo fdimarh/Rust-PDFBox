@@ -31,14 +31,14 @@ impl PdImage {
             context: format!("image stream decode failed: {e}"),
         })?;
 
-        let channels = match self.color_space.as_deref() {
+        let channels = match self.effective_color_space() {
             Some("DeviceGray") => 1usize,
             Some("DeviceRGB") => 3usize,
             Some("DeviceCMYK") => 4usize,
             Some("Indexed") => 1usize,
             _ => {
                 return Err(PdfError::Unsupported {
-                    feature: "image decode supports only DeviceGray/DeviceRGB/DeviceCMYK/Indexed in this phase",
+                    feature: "image decode supports only DeviceGray/DeviceRGB/DeviceCMYK/Indexed/ICCBased in this phase",
                 });
             }
         };

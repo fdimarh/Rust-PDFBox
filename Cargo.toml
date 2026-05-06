@@ -67,7 +67,7 @@ cryptographic-message-syntax = "0.28.0"
 x509-certificate = "0.25.0"
 bcder = "0.7.6"
 
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff"] }
 png = "0.17"
 
 # ── Compression (Bonus 11) ──────────────────────────────────────────────────

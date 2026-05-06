@@ -2,7 +2,7 @@
 
 _Created: 2026-04-03_  
 _Last updated: 2026-05-05_  
-_P12 Interactive Forms — ✅ complete; P14 Bookmarks — ✅ complete_  
+_P12 Interactive Forms — ✅ complete; P14 Bookmarks — ✅ complete; P17 Image Extraction — ✅ complete_  
 _Companion to: `PORTING_PLAN.md` (v1 core + Bonus 11 compression)_  
 _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 
@@ -13,7 +13,7 @@ _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 | Document | Covers | Status |
 |---|---|---|
 | `PORTING_PLAN.md` | Core parse/write/text/encrypt/font + Bonus 1–10 + Bonus 11 compression | ✅ v1 done; B11 planned |
-| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (P12 ✅; P15 overlay+watermark ✅; P16 extended operators ✅; P15 merge/split/extract/rotate ✅; P17 baseline ✅) |
+| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (P12 ✅; P15 overlay+watermark ✅; P16 extended operators ✅; P15 merge/split/extract/rotate ✅; P17 ✅ complete) |
 
 This document is organized as **12 independent phases (P12–P23)**. Each phase can be implemented in any order. Dependencies between phases are noted explicitly.
 
@@ -51,7 +51,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Bookmarks / Document Outline | P14 | ✅ Complete (DocumentOutline, OutlineItem, Destination with all Fit modes; 15 tests) |
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | ✅ Complete (merge, split, extract, rotate, overlay, watermark — 29 tests) |
 | PDF Creation from Scratch (content stream writing) | P16 | ✅ Complete (full 16-category operator API + image registration helpers — 16 dedicated tests + 434 lib tests) |
-| Image Extraction | P17 | 🟡 In Progress (baseline: `extract_images`, `decode_pixels`, PNG/JPEG export, inline `BI`/`ID`/`EI`, 8 tests) |
+| Image Extraction | P17 | ✅ Complete (`extract_images`, `decode_pixels` + Indexed/ICCBased fallback, PNG/JPEG/TIFF export incl. CMYK + SMask alpha PNG, inline `BI`/`ID`/`EI`, 17 tests) |
 | Rendering (page → image) | P18 | 🔲 Planned |
 | Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🔲 Planned |
 | Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🔲 Planned |
@@ -513,17 +513,17 @@ Extract embedded images from PDF pages as raw pixel buffers or encoded files (JP
 - ✅ Baseline implemented under `src/image_extract/` and feature-gated by `image-extract`.
 - ✅ Implemented: `Document::extract_images(page_index)` for page `Do` XObjects and inline `BI`/`ID`/`EI` images.
 - ✅ Implemented: `PdImage` metadata accessors (`width`, `height`, `color_space`, `filter_names`, `encoded_bytes`).
-- ✅ Implemented: `decode_pixels()` baseline for unfiltered/Flate 8-bit `DeviceGray`/`DeviceRGB`/`DeviceCMYK`.
-- ✅ Implemented: `save_as(path, format)` with PNG export (decoded path) and JPEG passthrough for DCT images.
-- 🔲 Remaining for full parity: broader color-space coverage (Indexed/ICCBased), SMask/transparency handling, TIFF/CCITT export path.
+- ✅ Implemented: `decode_pixels()` for unfiltered/Flate 8-bit `DeviceGray`/`DeviceRGB`/`DeviceCMYK`, plus `Indexed` (DeviceRGB palette expansion) and `ICCBased` fallback via `/Alternate` or `/N`.
+- ✅ Implemented: `save_as(path, format)` with PNG export (decoded path, including DeviceCMYK -> RGB conversion and SMask alpha composition), TIFF export for decodable pixel buffers, and JPEG passthrough for DCT images.
+- Note: CCITTFax/JPX/JBIG2 decode remains in P20 (advanced filters).
 
 ### Sub-modules: `src/image_extract/`
 
 | File | Responsibility |
 |---|---|
 | `mod.rs` | `PdImage` model + `Document::extract_images(page_index)` for XObject and inline images |
-| `decode.rs` | Baseline pixel decode for unfiltered/Flate 8-bit `DeviceGray`/`DeviceRGB`/`DeviceCMYK` |
-| `export.rs` | `PdImage::save_as(path, format)` for PNG export and DCT JPEG passthrough |
+| `decode.rs` | Pixel decode for unfiltered/Flate 8-bit Device spaces + Indexed (DeviceRGB) + ICCBased fallback |
+| `export.rs` | `PdImage::save_as(path, format)` for PNG/TIFF export (incl. DeviceCMYK conversion + SMask alpha on PNG/TIFF) and DCT JPEG passthrough |
 
 ### Key APIs
 
@@ -546,19 +546,19 @@ No additional crate was needed for the current baseline.
 
 ### Test Plan — 15+ tests
 
-- ✅ Baseline implemented (8 integration tests in `tests/image_extract.rs`):
+- ✅ Implemented (17 integration tests in `tests/image_extract.rs`):
   - DCT image metadata and encoded-byte passthrough
   - Flate image decode to raw pixels
   - Empty page returns empty image list
   - PNG export round-trip pixel verification
   - JPEG passthrough export byte verification
   - Unsupported DCT→PNG export rejection
-  - Inline image (`BI`/`ID`/`EI`) extraction + decode
-  - Inline image PNG export
-- 🔲 Remaining for full parity target:
-  - broader color spaces (`Indexed`, `ICCBased`)
-  - SMask/transparency handling
-  - additional multi-image and edge-case fixtures
+  - Inline image (`BI`/`ID`/`EI`) extraction + decode/export
+  - Indexed image decode + PNG export
+  - ICCBased fallback decode + PNG export (RGB and CMYK alternate)
+  - DeviceCMYK PNG export
+  - SMask alpha PNG export
+- TIFF export for decodable raster paths
 
 ### Depends On
 
@@ -953,7 +953,7 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 | 🔴 2 | **P12 — Interactive Forms** | ✅ **Done** — AcroForm complete + XFA read/detect helpers and packet APIs |
 | 🔴 3 | **P15 — Page Manipulation** | ✅ **Done** — merge, split, extract, rotate, overlay, watermark; 29 integration tests |
 | 🟠 4 | **P14 — Bookmarks** | Low effort, high value — simple dict traversal |
-| 🟠 5 | **P17 — Image Extraction** | Baseline implemented; remaining parity work is broader decode/export coverage |
+| 🟠 5 | **P17 — Image Extraction** | ✅ Complete — extraction + decode + export shipped; advanced-filter decode paths continue in P20 |
 | 🟠 6 | **P22 — Metadata** | Low effort; needed for P21 (PDF/A) |
 | 🟠 7 | **P13 — Annotations** | Depends on P16; commonly needed for markup workflows |
 | 🟡 8 | **P19 — Advanced Encryption** | AES-256 Rev 5/6 increasingly common in modern PDFs |
@@ -973,7 +973,7 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 | **P12 (forms)** | **30 + XFA read-path integration tests** | **652+** |
 | **P15 (page ops)** | **29** | **681** |
 | P14 (bookmarks) | 12 | 693 |
-| P17 (image extract) | 8 implemented + 7 planned | 708 |
+| P17 (image extract) | 17 implemented | 708 |
 | P22 (metadata) | 12 | 720 |
 | P13 (annotations) | 25 | 745 |
 | P19 (adv encryption) | 15 | 760 |

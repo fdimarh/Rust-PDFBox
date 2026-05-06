@@ -14,6 +14,16 @@ use crate::{Document, PdfError, PdfResult};
 pub enum ImageExportFormat {
     Png,
     Jpeg,
+    Tiff,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ImageMask {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) bits_per_component: u8,
+    pub(crate) data: Vec<u8>,
+    pub(crate) filter: Option<CosObject>,
 }
 
 #[derive(Debug, Clone)]
@@ -25,6 +35,7 @@ pub struct PdImage {
     bits_per_component: u8,
     color_space: Option<String>,
     color_space_obj: Option<CosObject>,
+    smask: Option<ImageMask>,
     filter_names: Vec<String>,
     data: Vec<u8>,
     filter: Option<CosObject>,
@@ -61,6 +72,43 @@ impl PdImage {
 
     pub fn encoded_bytes(&self) -> &[u8] {
         &self.data
+    }
+
+    pub(crate) fn effective_color_space(&self) -> Option<&str> {
+        if self.color_space.as_deref() != Some("ICCBased") {
+            return self.color_space.as_deref();
+        }
+
+        let arr = self.color_space_obj.as_ref()?.as_array()?;
+        let tag = arr.first()?.as_name()?.as_str()?;
+        if tag != "ICCBased" {
+            return self.color_space.as_deref();
+        }
+
+        let profile_obj = arr.get(1)?;
+        let profile_dict = profile_obj
+            .as_stream()
+            .map(|s| &s.dictionary)
+            .or_else(|| profile_obj.as_dictionary())?;
+
+        let alternate = profile_dict
+            .get(&CosName::new(b"Alternate".to_vec()))
+            .and_then(|v| v.as_name())
+            .and_then(|n| n.as_str());
+        match alternate {
+            Some("DeviceGray") | Some("DeviceRGB") | Some("DeviceCMYK") => return alternate,
+            _ => {}
+        }
+
+        let n = profile_dict
+            .get(&CosName::new(b"N".to_vec()))
+            .and_then(|v| v.as_integer());
+        match n {
+            Some(1) => Some("DeviceGray"),
+            Some(3) => Some("DeviceRGB"),
+            Some(4) => Some("DeviceCMYK"),
+            _ => None,
+        }
     }
 }
 
@@ -149,8 +197,12 @@ impl Document {
                 .and_then(|v| v.as_integer())
                 .unwrap_or(8)
                 .clamp(0, 255) as u8;
-            let color_space = parse_color_space_name(stream.dictionary.get(&CosName::new(b"ColorSpace".to_vec())));
-            let color_space_obj = stream.dictionary.get(&CosName::new(b"ColorSpace".to_vec())).cloned();
+            let color_space_obj = resolve_color_space_obj(
+                stream.dictionary.get(&CosName::new(b"ColorSpace".to_vec())),
+                &self.objects,
+            );
+            let color_space = parse_color_space_name(color_space_obj.as_ref());
+            let smask = extract_smask(&stream.dictionary, &self.objects);
             let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec())).cloned();
             let filter_names = parse_filter_names(filter.as_ref());
 
@@ -162,6 +214,7 @@ impl Document {
                 bits_per_component,
                 color_space,
                 color_space_obj,
+                smask,
                 filter_names,
                 data: stream.data.clone(),
                 filter,
@@ -284,8 +337,9 @@ fn build_inline_image(dict_slice: &[u8], data: Vec<u8>, index: usize) -> Option<
         .and_then(|v| v.as_integer())
         .unwrap_or(8)
         .clamp(0, 255) as u8;
-    let color_space = parse_color_space_name(dict.get(&CosName::new(b"ColorSpace".to_vec())));
     let color_space_obj = dict.get(&CosName::new(b"ColorSpace".to_vec())).cloned();
+    let color_space = parse_color_space_name(color_space_obj.as_ref());
+    let smask = None;
     let filter = dict.get(&CosName::new(b"Filter".to_vec())).cloned();
     let filter_names = parse_filter_names(filter.as_ref());
 
@@ -297,6 +351,7 @@ fn build_inline_image(dict_slice: &[u8], data: Vec<u8>, index: usize) -> Option<
         bits_per_component,
         color_space,
         color_space_obj,
+        smask,
         filter_names,
         data,
         filter,
@@ -382,5 +437,62 @@ fn find_ei_marker(content: &[u8], start: usize) -> Option<usize> {
         i += 1;
     }
     None
+}
+
+fn resolve_color_space_obj(obj: Option<&CosObject>, store: &crate::ObjectStore) -> Option<CosObject> {
+    fn resolve(obj: &CosObject, store: &crate::ObjectStore) -> CosObject {
+        match obj {
+            CosObject::Reference(id) => store
+                .get(id)
+                .map(|o| resolve(o, store))
+                .unwrap_or_else(|| CosObject::Reference(*id)),
+            CosObject::Array(values) => {
+                CosObject::Array(values.iter().map(|v| resolve(v, store)).collect())
+            }
+            other => other.clone(),
+        }
+    }
+
+    obj.map(|v| resolve(v, store))
+}
+
+fn extract_smask(dict: &CosDictionary, store: &crate::ObjectStore) -> Option<ImageMask> {
+    let smask_obj = dict.get(&CosName::new(b"SMask".to_vec()))?;
+    let smask_stream = match smask_obj {
+        CosObject::Reference(id) => store.get(id)?.as_stream()?,
+        CosObject::Stream(s) => s,
+        _ => return None,
+    };
+
+    let width = smask_stream
+        .dictionary
+        .get(&CosName::new(b"Width".to_vec()))
+        .and_then(|v| v.as_integer())
+        .unwrap_or(0)
+        .max(0) as u32;
+    let height = smask_stream
+        .dictionary
+        .get(&CosName::new(b"Height".to_vec()))
+        .and_then(|v| v.as_integer())
+        .unwrap_or(0)
+        .max(0) as u32;
+    let bits_per_component = smask_stream
+        .dictionary
+        .get(&CosName::new(b"BitsPerComponent".to_vec()))
+        .and_then(|v| v.as_integer())
+        .unwrap_or(8)
+        .clamp(0, 255) as u8;
+    let filter = smask_stream
+        .dictionary
+        .get(&CosName::new(b"Filter".to_vec()))
+        .cloned();
+
+    Some(ImageMask {
+        width,
+        height,
+        bits_per_component,
+        data: smask_stream.data.clone(),
+        filter,
+    })
 }
 

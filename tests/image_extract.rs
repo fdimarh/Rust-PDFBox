@@ -64,6 +64,129 @@ fn build_single_image_pdf(image_dict_extra: &str, image_data: &[u8], content_str
     pdf
 }
 
+fn build_iccbased_image_pdf(
+    image_data: &[u8],
+    content_stream: &[u8],
+    icc_profile_dict_body: &str,
+) -> Vec<u8> {
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+
+    let obj1_offset = pdf.len();
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+    let obj2_offset = pdf.len();
+    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+
+    let obj3_offset = pdf.len();
+    pdf.extend_from_slice(
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n",
+    );
+
+    let obj4_offset = pdf.len();
+    pdf.extend_from_slice(
+        format!("4 0 obj\n<< /Length {} >>\nstream\n", content_stream.len()).as_bytes(),
+    );
+    pdf.extend_from_slice(content_stream);
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+    let obj5_offset = pdf.len();
+    pdf.extend_from_slice(
+        format!(
+            "5 0 obj\n<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /BitsPerComponent 8 /ColorSpace [/ICCBased 6 0 R] /Filter /FlateDecode /Length {} >>\nstream\n",
+            image_data.len()
+        )
+        .as_bytes(),
+    );
+    pdf.extend_from_slice(image_data);
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+    let obj6_offset = pdf.len();
+    let icc_stream = Vec::<u8>::new();
+    pdf.extend_from_slice(
+        format!("6 0 obj\n<< {} /Length {} >>\nstream\n", icc_profile_dict_body, icc_stream.len()).as_bytes(),
+    );
+    pdf.extend_from_slice(&icc_stream);
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+    let xref_offset = pdf.len();
+    pdf.extend_from_slice(b"xref\n0 7\n");
+    pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj1_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj2_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj3_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj4_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj5_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj6_offset).as_bytes());
+    pdf.extend_from_slice(b"trailer\n<< /Size 7 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(format!("startxref\n{}\n%%EOF\n", xref_offset).as_bytes());
+
+    pdf
+}
+
+fn build_single_image_with_smask_pdf(
+    image_dict_extra: &str,
+    image_data: &[u8],
+    smask_data: &[u8],
+) -> Vec<u8> {
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+
+    let obj1_offset = pdf.len();
+    pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+    let obj2_offset = pdf.len();
+    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+
+    let obj3_offset = pdf.len();
+    pdf.extend_from_slice(
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n",
+    );
+
+    let content_stream = b"/Im1 Do";
+    let obj4_offset = pdf.len();
+    pdf.extend_from_slice(
+        format!("4 0 obj\n<< /Length {} >>\nstream\n", content_stream.len()).as_bytes(),
+    );
+    pdf.extend_from_slice(content_stream);
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+    let obj5_offset = pdf.len();
+    pdf.extend_from_slice(
+        format!(
+            "5 0 obj\n<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /BitsPerComponent 8 /ColorSpace /DeviceRGB {} /Filter /FlateDecode /SMask 6 0 R /Length {} >>\nstream\n",
+            image_dict_extra,
+            image_data.len()
+        )
+        .as_bytes(),
+    );
+    pdf.extend_from_slice(image_data);
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+    let obj6_offset = pdf.len();
+    pdf.extend_from_slice(
+        format!(
+            "6 0 obj\n<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /BitsPerComponent 8 /ColorSpace /DeviceGray /Filter /FlateDecode /Length {} >>\nstream\n",
+            smask_data.len()
+        )
+        .as_bytes(),
+    );
+    pdf.extend_from_slice(smask_data);
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+    let xref_offset = pdf.len();
+    pdf.extend_from_slice(b"xref\n0 7\n");
+    pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj1_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj2_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj3_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj4_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj5_offset).as_bytes());
+    pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj6_offset).as_bytes());
+    pdf.extend_from_slice(b"trailer\n<< /Size 7 /Root 1 0 R >>\n");
+    pdf.extend_from_slice(format!("startxref\n{}\n%%EOF\n", xref_offset).as_bytes());
+
+    pdf
+}
+
 fn build_inline_only_pdf(content_stream: &[u8]) -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
 
@@ -177,6 +300,25 @@ fn export_png_writes_decoded_pixels() {
 
     images[0].save_as(&out, ImageExportFormat::Png).unwrap();
 
+    let saved = image::open(&out).unwrap().to_rgb8();
+    assert_eq!(saved.width(), 2);
+    assert_eq!(saved.height(), 1);
+    assert_eq!(saved.into_raw(), rgb);
+
+    let _ = std::fs::remove_file(out);
+}
+
+#[test]
+fn export_tiff_writes_decoded_pixels() {
+    let rgb = vec![255, 0, 0, 0, 255, 0];
+    let compressed = make_stored_zlib(&rgb);
+    let pdf = build_single_image_pdf("/Filter /FlateDecode", &compressed, b"/Im1 Do");
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("tiff");
+
+    images[0].save_as(&out, ImageExportFormat::Tiff).unwrap();
     let saved = image::open(&out).unwrap().to_rgb8();
     assert_eq!(saved.width(), 2);
     assert_eq!(saved.height(), 1);
@@ -332,6 +474,61 @@ fn export_cmyk_dct_image_as_png_is_not_supported() {
 
     let err = images[0].save_as(&out, ImageExportFormat::Png).unwrap_err();
     assert!(matches!(err, PdfError::Unsupported { .. }));
+}
+
+#[test]
+fn extract_iccbased_alternate_rgb_decodes_pixels() {
+    let rgb = vec![255, 0, 0, 0, 255, 0];
+    let compressed = make_stored_zlib(&rgb);
+    let pdf = build_iccbased_image_pdf(&compressed, b"/Im1 Do", "/N 3 /Alternate /DeviceRGB");
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+
+    assert_eq!(images.len(), 1);
+    assert_eq!(images[0].color_space(), Some("ICCBased"));
+    assert_eq!(images[0].decode_pixels().unwrap(), rgb);
+}
+
+#[test]
+fn export_png_with_smask_alpha() {
+    let rgb = vec![255, 0, 0, 0, 255, 0];
+    let alpha = vec![0u8, 255u8];
+    let rgb_compressed = make_stored_zlib(&rgb);
+    let alpha_compressed = make_stored_zlib(&alpha);
+    let pdf = build_single_image_with_smask_pdf("", &rgb_compressed, &alpha_compressed);
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("png");
+
+    images[0].save_as(&out, ImageExportFormat::Png).unwrap();
+    let saved = image::open(&out).unwrap().to_rgba8();
+    assert_eq!(saved.width(), 2);
+    assert_eq!(saved.height(), 1);
+    assert_eq!(saved.into_raw(), vec![255, 0, 0, 0, 0, 255, 0, 255]);
+
+    let _ = std::fs::remove_file(out);
+}
+
+#[test]
+fn export_iccbased_alternate_cmyk_as_png() {
+    // 2x1 CMYK: cyan then black
+    let cmyk = vec![255, 0, 0, 0, 0, 0, 0, 255];
+    let compressed = make_stored_zlib(&cmyk);
+    let pdf = build_iccbased_image_pdf(&compressed, b"/Im1 Do", "/N 4 /Alternate /DeviceCMYK");
+
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+    let images = doc.extract_images(0).unwrap();
+    let out = temp_output_path("png");
+
+    images[0].save_as(&out, ImageExportFormat::Png).unwrap();
+    let saved = image::open(&out).unwrap().to_rgb8();
+    assert_eq!(saved.width(), 2);
+    assert_eq!(saved.height(), 1);
+    assert_eq!(saved.into_raw(), vec![0, 255, 255, 0, 0, 0]);
+
+    let _ = std::fs::remove_file(out);
 }
 
 #[test]
