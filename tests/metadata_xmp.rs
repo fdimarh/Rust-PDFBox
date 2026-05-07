@@ -100,3 +100,40 @@ fn malformed_xmp_is_tolerated() {
     assert_eq!(meta.dc_title(), None);
 }
 
+#[test]
+fn set_xmp_metadata_raw_roundtrip() {
+    let pdf = build_pdf_with_xmp(None);
+    let mut doc = Document::load_from_bytes(&pdf).unwrap();
+
+    let xml = "<x:xmpmeta xmlns:x='adobe:ns:meta/'><dc:title xmlns:dc='http://purl.org/dc/elements/1.1/'>Raw</dc:title></x:xmpmeta>";
+    doc.set_xmp_metadata_raw(xml).unwrap();
+
+    let mut out = std::io::Cursor::new(Vec::new());
+    doc.save_to(&mut out).unwrap();
+    let reloaded = Document::load_from_bytes(&out.into_inner()).unwrap();
+
+    let meta = reloaded.xmp_metadata().unwrap();
+    assert!(meta.raw_xml().contains("xmpmeta"));
+}
+
+#[test]
+fn sync_docinfo_to_xmp_writes_title_and_author() {
+    let pdf = build_pdf_with_xmp(None);
+    let mut doc = Document::load_from_bytes(&pdf).unwrap();
+
+    {
+        let mut info = doc.document_info_mut().unwrap();
+        info.set_title("Synced Title").unwrap();
+        info.set_author("Synced Author").unwrap();
+    }
+    doc.sync_docinfo_to_xmp().unwrap();
+
+    let mut out = std::io::Cursor::new(Vec::new());
+    doc.save_to(&mut out).unwrap();
+    let reloaded = Document::load_from_bytes(&out.into_inner()).unwrap();
+
+    let meta = reloaded.xmp_metadata().unwrap();
+    assert_eq!(meta.dc_title(), Some("Synced Title"));
+    assert_eq!(meta.dc_creator(), Some("Synced Author"));
+}
+

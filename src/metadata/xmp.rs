@@ -31,6 +31,22 @@ impl XmpMetadata {
     }
 }
 
+pub fn build_minimal_xmp(title: Option<&str>, creator: Option<&str>) -> String {
+    let title_li = title
+        .map(escape_xml)
+        .map(|t| format!("<rdf:li xml:lang=\"x-default\">{t}</rdf:li>"))
+        .unwrap_or_else(|| "<rdf:li xml:lang=\"x-default\"></rdf:li>".to_string());
+
+    let creator_li = creator
+        .map(escape_xml)
+        .map(|c| format!("<rdf:li>{c}</rdf:li>"))
+        .unwrap_or_else(|| "<rdf:li></rdf:li>".to_string());
+
+    format!(
+        "<?xpacket begin=\"\u{FEFF}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n  <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description>\n      <dc:title><rdf:Alt>{title_li}</rdf:Alt></dc:title>\n      <dc:creator><rdf:Seq>{creator_li}</rdf:Seq></dc:creator>\n    </rdf:Description>\n  </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>"
+    )
+}
+
 fn extract_dc_title(xml: &str) -> Option<String> {
     extract_first_li(xml, "dc:title")
         .or_else(|| extract_tag_text(xml, "dc:title"))
@@ -75,5 +91,13 @@ fn decode_xml_entities(s: &str) -> String {
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
         .replace("&apos;", "'")
+}
+
+fn escape_xml(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
 }
 

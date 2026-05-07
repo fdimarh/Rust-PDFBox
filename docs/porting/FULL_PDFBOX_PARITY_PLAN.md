@@ -56,7 +56,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🔲 Planned |
 | Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🔲 Planned |
 | PDF/A Validation (Preflight) | P21 | 🔲 Planned |
-| Metadata & Document Properties (XMP, DocInfo) | P22 | 🟡 In Progress (DocInfo read/write baseline + XMP read-path, 5 tests) |
+| Metadata & Document Properties (XMP, DocInfo) | P22 | 🟡 In Progress (DocInfo read/write baseline + XMP read/write + DocInfo->XMP sync baseline, 7 tests) |
 | CLI Tools (PDFBox command-line equivalents) | P23 | 🔲 Planned |
 
 ---
@@ -430,8 +430,10 @@ Create PDFs from scratch; write text, draw lines/curves/shapes, place images, an
 
 ```rust
 // Create from scratch
-let mut doc = DocumentBuilder::new()
-    .page_size(PageSize::A4)
+let mut doc = DocumentBuilder::new()]\
+
+]
+\.page_size(PageSize::A4)
     .build()?;
 
 let mut cs = ContentStreamWriter::new(&mut doc, 0)?;  // page 0
@@ -824,8 +826,10 @@ Full read/write access to document metadata: DocInfo dictionary and XMP metadata
 - ✅ Implemented: `Document::document_info()` read access for `Title`, `Author`, `Subject`, `Keywords`, `Creator`, `Producer`, `CreationDate`, `ModDate`.
 - ✅ Implemented: `Document::document_info_mut()` with safe `/Info` creation when missing and mutation APIs `set_title()` / `set_author()`.
 - ✅ Implemented XMP read-path baseline via `Document::xmp_metadata()` and `XmpMetadata` (`raw_xml`, `dc_title`, `dc_creator`) in `src/metadata/xmp.rs`.
-- ✅ Added integration coverage in `tests/metadata_info.rs` + `tests/metadata_xmp.rs` (5 tests total).
-- 🔲 Remaining for full P22 parity: XMP write-path and DocInfo↔XMP sync (`sync.rs`).
+- ✅ Implemented XMP write-path baseline via `Document::set_xmp_metadata_raw()`.
+- ✅ Implemented DocInfo->XMP sync baseline via `Document::sync_docinfo_to_xmp()`.
+- ✅ Added integration coverage in `tests/metadata_info.rs` + `tests/metadata_xmp.rs` (7 tests total).
+- 🔲 Remaining for full P22 parity: dedicated sync policy module (`sync.rs`) and broader XMP field coverage.
 
 ### Sub-modules: `src/metadata/`
 

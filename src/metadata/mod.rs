@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
 use crate::{Document, PdfError, PdfResult};
 
 pub mod xmp;
@@ -146,6 +146,53 @@ impl Document {
             .get(&CosName::new(b"Filter".to_vec()));
         let decoded = crate::io::decode_stream(&stream.data, filter).ok()?;
         XmpMetadata::from_bytes(&decoded)
+    }
+
+    pub fn set_xmp_metadata_raw(&mut self, xml: &str) -> PdfResult<()> {
+        let catalog_id = self.catalog_id().ok_or_else(|| PdfError::Parse {
+            offset: None,
+            context: "cannot resolve catalog object id".to_string(),
+        })?;
+
+        let metadata_name = CosName::new(b"Metadata".to_vec());
+        let metadata_id = self
+            .objects
+            .get(&catalog_id)
+            .and_then(|o| o.as_dictionary())
+            .and_then(|d| d.get(&metadata_name))
+            .and_then(|v| v.as_reference())
+            .unwrap_or_else(|| self.allocate_object_id());
+
+        let mut dict = CosDictionary::new();
+        dict.insert(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"Metadata".to_vec())),
+        );
+        dict.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"XML".to_vec())),
+        );
+        dict.insert(CosName::length(), CosObject::Integer(xml.len() as i64));
+
+        self.insert_object(
+            metadata_id,
+            CosObject::Stream(CosStream::new(dict, xml.as_bytes().to_vec())),
+        );
+
+        self.mutate_object(catalog_id, |obj| {
+            if let Some(cat) = obj.as_dictionary_mut() {
+                cat.insert(metadata_name.clone(), CosObject::Reference(metadata_id));
+            }
+        });
+
+        Ok(())
+    }
+
+    pub fn sync_docinfo_to_xmp(&mut self) -> PdfResult<()> {
+        let title = self.document_info().title().map(|s| s.into_owned());
+        let creator = self.document_info().author().map(|s| s.into_owned());
+        let xml = xmp::build_minimal_xmp(title.as_deref(), creator.as_deref());
+        self.set_xmp_metadata_raw(&xml)
     }
 }
 
