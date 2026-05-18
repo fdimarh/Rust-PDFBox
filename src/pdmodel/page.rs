@@ -15,6 +15,8 @@
 
 use crate::cos::{CosDictionary, CosName, CosObject};
 use crate::ObjectId;
+#[cfg(feature = "annotations")]
+use crate::{annotations::PdAnnotation, Document, PdfResult};
 
 // ---------------------------------------------------------------------------
 // Rectangle
@@ -197,6 +199,36 @@ impl<'a> Page<'a> {
     /// Returns the raw `/Contents` object (reference, array of refs, or stream).
     pub fn contents_object(&self) -> Option<&CosObject> {
         self.dict.get(&CosName::contents())
+    }
+
+    /// Returns the annotations on this page (if any).
+    #[cfg(feature = "annotations")]
+    pub fn annotations(&self, doc: &Document) -> PdfResult<Vec<PdAnnotation>> {
+        let annots_obj = match self.dict.get(&CosName::new(b"Annots".to_vec())) {
+            Some(obj) => obj,
+            None => return Ok(Vec::new()),
+        };
+
+        let resolved = doc.objects.resolve(annots_obj).unwrap_or(annots_obj);
+        let CosObject::Array(items) = resolved else {
+            return Ok(Vec::new());
+        };
+
+        let mut annotations = Vec::new();
+        for item in items {
+            let (resolved_item, id) = match item {
+                CosObject::Reference(id) => (doc.objects.get(id), Some(*id)),
+                other => (Some(other), None),
+            };
+
+            let Some(CosObject::Dictionary(dict)) = resolved_item else {
+                continue;
+            };
+
+            annotations.push(PdAnnotation::from_dict(dict, id)?);
+        }
+
+        Ok(annotations)
     }
 }
 

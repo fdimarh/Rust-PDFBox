@@ -13,6 +13,8 @@
 //! See `docs/porting/` for the porting plan and detailed architecture.
 
 pub mod content;
+#[cfg(feature = "annotations")]
+pub mod annotations;
 #[cfg(feature = "forms")]
 pub mod forms;
 #[cfg(feature = "outline")]
