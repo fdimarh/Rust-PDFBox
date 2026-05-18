@@ -5,6 +5,8 @@ use crate::{Document, PdfError, PdfResult};
 
 pub mod xmp;
 pub use xmp::XmpMetadata;
+pub mod sync;
+pub use sync::SyncPolicy;
 
 pub struct DocumentInfo<'a> {
     dict: Option<&'a CosDictionary>,
@@ -87,6 +89,30 @@ impl<'a> DocumentInfoMut<'a> {
 
     pub fn set_author(&mut self, value: &str) -> PdfResult<()> {
         self.set_text(b"Author", value)
+    }
+
+    pub fn set_subject(&mut self, value: &str) -> PdfResult<()> {
+        self.set_text(b"Subject", value)
+    }
+
+    pub fn set_keywords(&mut self, value: &str) -> PdfResult<()> {
+        self.set_text(b"Keywords", value)
+    }
+
+    pub fn set_creator(&mut self, value: &str) -> PdfResult<()> {
+        self.set_text(b"Creator", value)
+    }
+
+    pub fn set_producer(&mut self, value: &str) -> PdfResult<()> {
+        self.set_text(b"Producer", value)
+    }
+
+    pub fn set_creation_date(&mut self, value: &str) -> PdfResult<()> {
+        self.set_text(b"CreationDate", value)
+    }
+
+    pub fn set_mod_date(&mut self, value: &str) -> PdfResult<()> {
+        self.set_text(b"ModDate", value)
     }
 }
 
@@ -189,10 +215,19 @@ impl Document {
     }
 
     pub fn sync_docinfo_to_xmp(&mut self) -> PdfResult<()> {
-        let title = self.document_info().title().map(|s| s.into_owned());
-        let creator = self.document_info().author().map(|s| s.into_owned());
-        let xml = xmp::build_minimal_xmp(title.as_deref(), creator.as_deref());
-        self.set_xmp_metadata_raw(&xml)
+        self.sync_docinfo_to_xmp_with(SyncPolicy::default())
+    }
+
+    pub fn sync_docinfo_to_xmp_with(&mut self, policy: SyncPolicy) -> PdfResult<()> {
+        sync::sync_docinfo_to_xmp(self, policy)
+    }
+
+    pub fn sync_xmp_to_docinfo(&mut self) -> PdfResult<()> {
+        self.sync_xmp_to_docinfo_with(SyncPolicy::default())
+    }
+
+    pub fn sync_xmp_to_docinfo_with(&mut self, policy: SyncPolicy) -> PdfResult<()> {
+        sync::sync_xmp_to_docinfo(self, policy)
     }
 }
 

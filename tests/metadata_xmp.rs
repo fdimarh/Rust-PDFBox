@@ -1,5 +1,6 @@
 #![cfg(feature = "metadata")]
 
+use rust_pdfbox::metadata::SyncPolicy;
 use rust_pdfbox::Document;
 
 fn build_pdf_with_xmp(xmp_xml: Option<&[u8]>) -> Vec<u8> {
@@ -84,6 +85,38 @@ fn reads_xmp_title_and_creator() {
 }
 
 #[test]
+fn reads_extended_xmp_fields() {
+    let xmp = br#"<?xpacket begin='\uFEFF'?>
+<x:xmpmeta xmlns:x='adobe:ns:meta/'>
+  <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+           xmlns:dc='http://purl.org/dc/elements/1.1/'
+           xmlns:xmp='http://ns.adobe.com/xap/1.0/'
+           xmlns:pdf='http://ns.adobe.com/pdf/1.3/'>
+    <rdf:Description>
+      <dc:subject><rdf:Bag><rdf:li>Subject</rdf:li></rdf:Bag></dc:subject>
+      <pdf:Keywords>k1,k2</pdf:Keywords>
+      <xmp:CreatorTool>Tool</xmp:CreatorTool>
+      <pdf:Producer>Producer</pdf:Producer>
+      <xmp:CreateDate>2026-05-06T12:00:00Z</xmp:CreateDate>
+      <xmp:ModifyDate>2026-05-06T12:30:00Z</xmp:ModifyDate>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end='w'?>"#;
+
+    let pdf = build_pdf_with_xmp(Some(xmp));
+    let doc = Document::load_from_bytes(&pdf).unwrap();
+
+    let meta = doc.xmp_metadata().expect("metadata should exist");
+    assert_eq!(meta.dc_subject(), Some("Subject"));
+    assert_eq!(meta.pdf_keywords(), Some("k1,k2"));
+    assert_eq!(meta.xmp_creator_tool(), Some("Tool"));
+    assert_eq!(meta.pdf_producer(), Some("Producer"));
+    assert_eq!(meta.xmp_create_date(), Some("2026-05-06T12:00:00Z"));
+    assert_eq!(meta.xmp_modify_date(), Some("2026-05-06T12:30:00Z"));
+}
+
+#[test]
 fn missing_xmp_returns_none() {
     let pdf = build_pdf_with_xmp(None);
     let doc = Document::load_from_bytes(&pdf).unwrap();
@@ -135,5 +168,42 @@ fn sync_docinfo_to_xmp_writes_title_and_author() {
     let meta = reloaded.xmp_metadata().unwrap();
     assert_eq!(meta.dc_title(), Some("Synced Title"));
     assert_eq!(meta.dc_creator(), Some("Synced Author"));
+}
+
+#[test]
+fn sync_xmp_to_docinfo_populates_fields() {
+    let xmp = br#"<?xpacket begin='\uFEFF'?>
+<x:xmpmeta xmlns:x='adobe:ns:meta/'>
+  <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+           xmlns:dc='http://purl.org/dc/elements/1.1/'
+           xmlns:xmp='http://ns.adobe.com/xap/1.0/'
+           xmlns:pdf='http://ns.adobe.com/pdf/1.3/'>
+    <rdf:Description>
+      <dc:title><rdf:Alt><rdf:li xml:lang='x-default'>Title</rdf:li></rdf:Alt></dc:title>
+      <dc:creator><rdf:Seq><rdf:li>Author</rdf:li></rdf:Seq></dc:creator>
+      <dc:subject><rdf:Bag><rdf:li>Subject</rdf:li></rdf:Bag></dc:subject>
+      <pdf:Keywords>k1 k2</pdf:Keywords>
+      <xmp:CreatorTool>Tool</xmp:CreatorTool>
+      <pdf:Producer>Producer</pdf:Producer>
+      <xmp:CreateDate>2026-05-06T12:00:00Z</xmp:CreateDate>
+      <xmp:ModifyDate>2026-05-06T12:30:00Z</xmp:ModifyDate>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end='w'?>"#;
+
+    let pdf = build_pdf_with_xmp(Some(xmp));
+    let mut doc = Document::load_from_bytes(&pdf).unwrap();
+    doc.sync_xmp_to_docinfo_with(SyncPolicy::all_fields()).unwrap();
+
+    let info = doc.document_info();
+    assert_eq!(info.title().as_deref(), Some("Title"));
+    assert_eq!(info.author().as_deref(), Some("Author"));
+    assert_eq!(info.subject().as_deref(), Some("Subject"));
+    assert_eq!(info.keywords().as_deref(), Some("k1 k2"));
+    assert_eq!(info.creator().as_deref(), Some("Tool"));
+    assert_eq!(info.producer().as_deref(), Some("Producer"));
+    assert_eq!(info.creation_date().as_deref(), Some("2026-05-06T12:00:00Z"));
+    assert_eq!(info.mod_date().as_deref(), Some("2026-05-06T12:30:00Z"));
 }
 
