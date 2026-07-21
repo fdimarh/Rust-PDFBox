@@ -44,6 +44,10 @@ compress-full = ["compress-mozjpeg", "compress-jbig2", "compress-zopfli", "compr
 full = ["text", "crypto", "layout", "compress", "compress-images", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts"]
 quick-xml = ["dep:quick-xml"]
 
+[[bin]]
+name = "rust-pdfbox"
+path = "src/bin/pdfbox.rs"
+
 [dependencies]
 # RustCrypto ecosystem for cryptographic operations
 aes = { version = "0.8", optional = true }
@@ -97,7 +101,7 @@ fax              = { version = "0.2",  optional = true }   # pure-Rust CCITT G3/
 zopfli           = { version = "0.8",  optional = true, features = ["zlib"] }
 
 # CMYK/ICC color management (compress-color feature)
-lcms2            = { version = "6",    optional = true }   # ICC color engine (CMYK → sRGB)
+lcms2            = { version = "6", optional = true }   # ICC color engine (CMYK → sRGB)
 palette          = { version = "0.7",  optional = true }   # pure-Rust color math fallback
 
 # Font subsetting (compress-fonts feature)
@@ -114,6 +118,7 @@ rasn       = "0.28"
 quick-xml = { version = "0.39.2", features = ["serialize"], optional = true }
 tiny-skia = "0.12.0"
 kurbo = "0.13.1"
+clap = { version = "4.6.3", features = ["derive"] }
 
 [[example]]
 name = "read_info"
