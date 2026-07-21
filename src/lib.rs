@@ -40,6 +40,7 @@ pub mod signing;
 #[cfg(feature = "text")]
 pub mod text;
 pub mod writer;
+pub mod preflight;
 
 use std::collections::HashMap;
 use std::error::Error;
