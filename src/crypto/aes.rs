@@ -5,22 +5,12 @@
 //!
 //! Maps to Java PDFBox `AES128DecryptionFilter` and `AES256DecryptionFilter`.
 
-use aes::Aes128;
+use aes::{Aes128, Aes256};
 use cbc::Decryptor;
 use cipher::{KeyIvInit, BlockDecryptMut};
 use block_padding::Pkcs7;
 
-/// Decrypt data using AES in CBC mode with PKCS#7 padding.
-///
-/// PDF uses CBC mode with PKCS#5 padding (compatible with PKCS#7).
-///
-/// # Arguments
-/// - `key`: AES key (16 bytes for AES-128)
-/// - `iv`: Initialization vector (16 bytes)
-/// - `ciphertext`: Data to decrypt
-///
-/// # Returns
-/// Decrypted plaintext with padding removed, or `None` on error
+/// Decrypt data using AES-128 in CBC mode with PKCS#7 padding.
 pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Validate key, IV lengths, and that ciphertext is non-empty and block-aligned
     if key.len() != 16 || iv.len() != 16 || ciphertext.is_empty() || ciphertext.len() % 16 != 0 {
@@ -38,6 +28,22 @@ pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u
             // Padding invalid — return raw decrypted bytes without padding removal
             Some(plaintext)
         },
+    }
+}
+
+/// Decrypt data using AES-256 in CBC mode with PKCS#7 padding.
+/// PDF Rev 5 and Rev 6 use AES-256 (32 byte key).
+pub fn aes256_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
+    if key.len() != 32 || iv.len() != 16 || ciphertext.is_empty() || ciphertext.len() % 16 != 0 {
+        return None;
+    }
+
+    let cipher = Decryptor::<Aes256>::new(key.into(), iv.into());
+    let mut plaintext = ciphertext.to_vec();
+    
+    match cipher.decrypt_padded_mut::<Pkcs7>(&mut plaintext) {
+        Ok(decrypted) => Some(decrypted.to_vec()),
+        Err(_) => Some(plaintext),
     }
 }
 

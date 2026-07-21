@@ -71,14 +71,12 @@ pub fn sync_docinfo_to_xmp(doc: &mut Document, policy: SyncPolicy) -> PdfResult<
         None
     };
     let creation_date = if policy.creation_date {
-        info.creation_date()
-            .and_then(|s| pdf_date_to_xmp(&s).map(|v| v.into_owned()))
+        info.creation_date().and_then(|s| pdf_date_to_xmp(&s))
     } else {
         None
     };
     let mod_date = if policy.mod_date {
-        info.mod_date()
-            .and_then(|s| pdf_date_to_xmp(&s).map(|v| v.into_owned()))
+        info.mod_date().and_then(|s| pdf_date_to_xmp(&s))
     } else {
         None
     };
@@ -173,19 +171,15 @@ fn pdf_date_to_xmp(input: &str) -> Option<String> {
     let minute = s.get(10..12).unwrap_or("00");
     let second = s.get(12..14).unwrap_or("00");
 
-    let mut cursor = 14;
-    let tz = if s.len() > cursor {
-        let tz_char = s.as_bytes()[cursor] as char;
+    let tz = if s.len() > 14 {
+        let tz_char = s.as_bytes()[14] as char;
         if tz_char == 'Z' {
-            cursor += 1;
             Some("Z".to_string())
         } else if tz_char == '+' || tz_char == '-' {
-            cursor += 1;
             let sign = tz_char;
-            let offset_hour = s.get(cursor..cursor + 2).unwrap_or("00");
-            cursor += 2;
+            let offset_hour = s.get(15..17).unwrap_or("00");
             let mut offset_minute = "00";
-            if let Some(rest) = s.get(cursor..) {
+            if let Some(rest) = s.get(17..) {
                 if rest.starts_with("'") && rest.len() >= 3 {
                     offset_minute = &rest[1..3];
                 }

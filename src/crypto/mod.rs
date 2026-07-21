@@ -10,6 +10,8 @@ pub mod handlers;
 pub mod aes;
 #[cfg(feature = "crypto")]
 pub mod md5;
+#[cfg(feature = "crypto")]
+pub mod rev56;
 
 pub use permissions::Permissions;
 pub use rc4::Rc4;

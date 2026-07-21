@@ -147,14 +147,20 @@ impl StandardSecurityHandler {
         let obj_key = Self::per_object_key(file_key, object_number, generation, use_aes);
         if use_aes {
             // AES-128 CBC: first 16 bytes of ciphertext are the IV.
-            // Full AES is out of scope for this milestone — return plaintext stub.
-            // TODO: implement AES-128 CBC in a follow-up.
             if ciphertext.len() < 16 {
                 return ciphertext.to_vec();
             }
-            // For now, just return the data after the IV unchanged so the
-            // architecture is wired and tests can verify the key derivation path.
-            ciphertext[16..].to_vec()
+            let iv = &ciphertext[0..16];
+            let data = &ciphertext[16..];
+            
+            // Decrypt using our AES-128 module.
+            // If decryption fails (e.g., bad padding), fallback to returning raw data 
+            // so lenient parsers can still attempt to read the stream.
+            if let Some(decrypted) = super::aes::aes_cbc_decrypt(&obj_key, iv, data) {
+                decrypted
+            } else {
+                data.to_vec()
+            }
         } else {
             Rc4::crypt(&obj_key, ciphertext)
         }

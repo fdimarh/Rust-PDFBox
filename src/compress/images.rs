@@ -438,8 +438,8 @@ fn decode_image_pixels(
     doc: &Document,
     id: ObjectId,
     filter: &str,
-    _width: u32,
-    _height: u32,
+    width: u32,
+    height: u32,
     _bits: u32,
     _colorspace: &str,
 ) -> PdfResult<(Vec<u8>, bool)> {

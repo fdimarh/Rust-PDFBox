@@ -54,16 +54,18 @@ fn reads_page_annotations() {
     let annots = page.annotations(&doc).unwrap();
     assert_eq!(annots.len(), 1);
 
-    let annot = &annots[0];
-    assert_eq!(annot.subtype, "Text");
-    assert_eq!(annot.contents.as_deref(), Some("Note"));
-    assert_eq!(annot.name.as_deref(), Some("Comment"));
-    assert_eq!(annot.flags, Some(4));
-    assert_eq!(annot.opacity, Some(0.5));
-    assert_eq!(annot.color, Some([1.0, 0.0, 0.0]));
-    assert_eq!(annot.rect.lower_left_x, 10.0);
-    assert_eq!(annot.rect.lower_left_y, 20.0);
-    assert_eq!(annot.rect.upper_right_x, 30.0);
-    assert_eq!(annot.rect.upper_right_y, 40.0);
+    match &annots[0] {
+        rust_pdfbox::annotations::PdAnnotation::Text(text) => {
+            assert_eq!(text.common.contents.as_deref(), Some("Note"));
+            assert_eq!(text.common.name.as_deref(), Some("Comment"));
+            assert_eq!(text.common.flags, Some(4));
+            assert_eq!(text.common.opacity, Some(0.5));
+            assert_eq!(text.common.color, Some([1.0, 0.0, 0.0]));
+            assert_eq!(text.common.rect.lower_left_x, 10.0);
+            assert_eq!(text.common.rect.lower_left_y, 20.0);
+            assert_eq!(text.common.rect.upper_right_x, 30.0);
+            assert_eq!(text.common.rect.upper_right_y, 40.0);
+        }
+        other => panic!("unexpected annotation: {other:?}"),
+    }
 }
-

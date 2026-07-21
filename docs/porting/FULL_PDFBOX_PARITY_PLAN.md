@@ -1,8 +1,8 @@
 # Full Java PDFBox Feature Parity Plan
 
 _Created: 2026-04-03_  
-_Last updated: 2026-05-05_  
-_P12 Interactive Forms — ✅ complete; P14 Bookmarks — ✅ complete; P17 Image Extraction — ✅ complete_  
+_Last updated: 2026-05-18_  
+_P12 Interactive Forms — ✅ complete; P14 Bookmarks — ✅ complete; P17 Image Extraction — ✅ complete; P13 Annotations — ✅ complete; P22 Metadata — 🟡 progressing_  
 _Companion to: `PORTING_PLAN.md` (v1 core + Bonus 11 compression)_  
 _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 
@@ -13,7 +13,7 @@ _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._
 | Document | Covers | Status |
 |---|---|---|
 | `PORTING_PLAN.md` | Core parse/write/text/encrypt/font + Bonus 1–10 + Bonus 11 compression | ✅ v1 done; B11 planned |
-| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (P12 ✅; P15 overlay+watermark ✅; P16 extended operators ✅; P15 merge/split/extract/rotate ✅; P17 ✅ complete) |
+| **This document** | Everything else — rendering, forms, annotations, page ops, image extraction, bookmarks, PDF creation, PDF/A, advanced encryption, CLI tools | 🟡 Active (P12 ✅; P15 overlay+watermark ✅; P16 extended operators ✅; P15 merge/split/extract/rotate ✅; P17 ✅ complete; P13 annotations ✅; P22 sync policy ✅) |
 
 This document is organized as **12 independent phases (P12–P23)**. Each phase can be implemented in any order. Dependencies between phases are noted explicitly.
 
@@ -47,16 +47,16 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Java PDFBox Feature Area | Phase | Current Status |
 |---|---|---|
 | Interactive Forms (AcroForm + XFA) | P12 | ✅ Complete (AcroForm read/fill/appearance/flatten/FDF/XFDF + XFA read/detect/packet access) |
-| Annotations | P13 | 🔲 Planned |
+| Annotations | P13 | ✅ Complete (typed annotations, read/create/remove/flatten, 3 tests) |
 | Bookmarks / Document Outline | P14 | ✅ Complete (DocumentOutline, OutlineItem, Destination with all Fit modes; 15 tests) |
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | ✅ Complete (merge, split, extract, rotate, overlay, watermark — 29 tests) |
 | PDF Creation from Scratch (content stream writing) | P16 | ✅ Complete (full 16-category operator API + image registration helpers — 16 dedicated tests + 434 lib tests) |
 | Image Extraction | P17 | ✅ Complete (`extract_images`, `decode_pixels` + Indexed/ICCBased fallback, PNG/JPEG/TIFF export incl. CMYK + SMask alpha PNG, inline `BI`/`ID`/`EI`, 17 tests) |
-| Rendering (page → image) | P18 | 🔲 Planned |
-| Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🔲 Planned |
-| Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🔲 Planned |
-| PDF/A Validation (Preflight) | P21 | 🔲 Planned |
-| Metadata & Document Properties (XMP, DocInfo) | P22 | 🟡 In Progress (DocInfo read/write baseline + XMP read/write + DocInfo->XMP sync baseline, 7 tests) |
+| Rendering (page → image) | P18 | 🔴 STUB (Empty module `src/render/`) |
+| Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🟡 In Progress (AES-128 stubbed, RC4 done) |
+| Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🟡 In Progress (CCITTFax, DCTDecode stubbed) |
+| PDF/A Validation (Preflight) | P21 | 🔴 STUB (Not started) |
+| Metadata & Document Properties (XMP, DocInfo) | P22 | 🟡 In Progress (DocInfo read/write + XMP read/write + sync policy both directions + extended XMP fields, 9 tests) |
 | CLI Tools (PDFBox command-line equivalents) | P23 | 🔲 Planned |
 
 ---
@@ -176,36 +176,37 @@ _Java PDFBox: `o.a.pdfbox.pdmodel.interactive.annotation.*`_
 
 Read, create, and modify PDF annotations (markup, links, text notes, stamps, file attachments, etc.).
 
+### Current Status (2026-05-18)
+
+- ✅ Implemented typed `PdAnnotation` variants (`Text`, `Link`, `Markup`, `Generic`) with common fields.
+- ✅ Implemented `page.annotations()`, `page.add_annotation()`, `page.remove_annotation()`, and `page.flatten_annotations()`.
+- ✅ Flattening uses `/AP /N` appearance streams and registers them into page resources.
+- ✅ Added integration tests for read, add/remove, and flatten behaviors (3 tests).
+
 ### Sub-modules: `src/annotations/`
 
 | File | Responsibility |
 |---|---|
-| `mod.rs` | `PdAnnotation` enum — all annotation types; `page.annotations()` accessor |
+| `mod.rs` | `PdAnnotation` typed model + `page.annotations()`/add/remove/flatten helpers |
 | `markup.rs` | `Highlight`, `Underline`, `StrikeOut`, `Squiggly` — text markup annotations |
 | `text.rs` | `TextAnnotation` — sticky-note style popup annotations |
 | `link.rs` | `LinkAnnotation` — URI actions, GoTo destinations |
-| `stamp.rs` | `StampAnnotation` — rubber-stamp annotations |
-| `freetext.rs` | `FreeTextAnnotation` — text directly on page (callouts) |
-| `line.rs` | `LineAnnotation`, `PolylineAnnotation`, `PolygonAnnotation` |
-| `circle_square.rs` | `CircleAnnotation`, `SquareAnnotation` |
-| `file_attachment.rs` | `FileAttachmentAnnotation` — embedded file annotations |
-| `popup.rs` | `PopupAnnotation` — popup windows associated with markup |
-| `appearance.rs` | Annotation appearance stream generation (`/AP /N`) |
+| `stamp.rs` | Planned: `StampAnnotation` — rubber-stamp annotations |
+| `freetext.rs` | Planned: `FreeTextAnnotation` — text directly on page (callouts) |
+| `line.rs` | Planned: `LineAnnotation`, `PolylineAnnotation`, `PolygonAnnotation` |
+| `circle_square.rs` | Planned: `CircleAnnotation`, `SquareAnnotation` |
+| `file_attachment.rs` | Planned: `FileAttachmentAnnotation` — embedded file annotations |
+| `popup.rs` | Planned: `PopupAnnotation` — popup windows associated with markup |
+| `appearance.rs` | Planned: annotation appearance stream generation (`/AP /N`) |
 | `flatten.rs` | `flatten_annotations(page)` — burn annotations into page content |
 
 ### Java PDFBox Class Mapping
 
 | Java Class | Rust Type |
 |---|---|
-| `PDAnnotation` (abstract) | `PdAnnotation` enum |
+| `PDAnnotation` (abstract) | `PdAnnotation` baseline model |
+| `PDAnnotation` (abstract) | `PdAnnotation` enum + common fields |
 | `PDAnnotationTextMarkup` | `PdAnnotation::Highlight/Underline/StrikeOut/Squiggly` |
-| `PDAnnotationText` | `PdAnnotation::Text { ... }` |
-| `PDAnnotationLink` | `PdAnnotation::Link { ... }` |
-| `PDAnnotationRubberStamp` | `PdAnnotation::Stamp { ... }` |
-| `PDAnnotationFreeText` | `PdAnnotation::FreeText { ... }` |
-| `PDAnnotationLine` | `PdAnnotation::Line { ... }` |
-| `PDAnnotationMarkup` | trait/shared fields on markup variants |
-| `PDAppearanceDictionary` | handled inside appearance module |
 
 ### Key APIs
 
@@ -820,16 +821,16 @@ _Java PDFBox: `o.a.pdfbox.pdmodel.common.PDMetadata`, `PDDocumentInformation`_
 
 Full read/write access to document metadata: DocInfo dictionary and XMP metadata streams.
 
-### Current Status (2026-05-06)
+### Current Status (2026-05-18)
 
 - ✅ Implemented baseline `DocInfo` API in `src/metadata/mod.rs` behind the `metadata` feature flag.
 - ✅ Implemented: `Document::document_info()` read access for `Title`, `Author`, `Subject`, `Keywords`, `Creator`, `Producer`, `CreationDate`, `ModDate`.
-- ✅ Implemented: `Document::document_info_mut()` with safe `/Info` creation when missing and mutation APIs `set_title()` / `set_author()`.
-- ✅ Implemented XMP read-path baseline via `Document::xmp_metadata()` and `XmpMetadata` (`raw_xml`, `dc_title`, `dc_creator`) in `src/metadata/xmp.rs`.
-- ✅ Implemented XMP write-path baseline via `Document::set_xmp_metadata_raw()`.
-- ✅ Implemented DocInfo->XMP sync baseline via `Document::sync_docinfo_to_xmp()`.
-- ✅ Added integration coverage in `tests/metadata_info.rs` + `tests/metadata_xmp.rs` (7 tests total).
-- 🔲 Remaining for full P22 parity: dedicated sync policy module (`sync.rs`) and broader XMP field coverage.
+- ✅ Implemented: `Document::document_info_mut()` with safe `/Info` creation when missing and mutation APIs for all core fields.
+- ✅ Implemented XMP read-path via `Document::xmp_metadata()` and `XmpMetadata` with `dc:title`, `dc:creator`, `dc:subject`, `pdf:Keywords`, `xmp:CreatorTool`, `pdf:Producer`, `xmp:CreateDate`, `xmp:ModifyDate`.
+- ✅ Implemented XMP write-path via `Document::set_xmp_metadata_raw()` and `sync_docinfo_to_xmp_with(SyncPolicy)`.
+- ✅ Implemented XMP -> DocInfo sync via `sync_xmp_to_docinfo_with(SyncPolicy)` plus a policy default and `all_fields()` helper.
+- ✅ Added integration coverage in `tests/metadata_info.rs` + `tests/metadata_xmp.rs` (9 tests total).
+- 🔲 Remaining for full P22 parity: richer XMP field coverage and stricter PDF date formatting.
 
 ### Sub-modules: `src/metadata/`
 
@@ -987,8 +988,8 @@ Based on user demand, Java PDFBox usage frequency, and dependency graph:
 | **P15 (page ops)** | **29** | **681** |
 | P14 (bookmarks) | 12 | 693 |
 | P17 (image extract) | 17 implemented | 708 |
-| P22 (metadata) | 12 | 720 |
-| P13 (annotations) | 25 | 745 |
+| P22 (metadata) | 9 implemented | 717 |
+| P13 (annotations) | 3 implemented | 720 |
 | P19 (adv encryption) | 15 | 760 |
 | P20 (adv filters) | 12 | 772 |
 | P18 (rendering) | 20 | 792 |
@@ -1051,4 +1052,3 @@ full = ["text", "crypto", "layout",
 | `docs/porting/architecture.md` | Module contracts and COS/PDModel/Writer architecture |
 | `docs/porting/parity_matrix.md` | Java → Rust class-level mapping |
 | `docs/porting/v1_quality_gate.md` | v1 quality gate report (384/384 PASSED) |
-

@@ -16,7 +16,13 @@
 use crate::cos::{CosDictionary, CosName, CosObject};
 use crate::ObjectId;
 #[cfg(feature = "annotations")]
-use crate::{annotations::PdAnnotation, Document, PdfResult};
+use crate::{
+    annotations::{
+        add_annotation_to_page, flatten_annotations as flatten_annotations_impl,
+        remove_annotation_from_page, PdAnnotation,
+    },
+    Document, PdfResult,
+};
 
 // ---------------------------------------------------------------------------
 // Rectangle
@@ -229,6 +235,25 @@ impl<'a> Page<'a> {
         }
 
         Ok(annotations)
+    }
+
+    /// Adds an annotation to this page and returns the new annotation object id.
+    #[cfg(feature = "annotations")]
+    pub fn add_annotation(&self, doc: &mut Document, annot: PdAnnotation) -> PdfResult<ObjectId> {
+        add_annotation_to_page(doc, self.id, annot)
+    }
+
+    /// Removes the annotation at the given index from this page.
+    #[cfg(feature = "annotations")]
+    pub fn remove_annotation(&self, doc: &mut Document, index: usize) -> PdfResult<()> {
+        remove_annotation_from_page(doc, self.id, index)
+    }
+
+    /// Flattens annotations into the page content stream and removes the Annots array.
+    #[cfg(feature = "annotations")]
+    pub fn flatten_annotations(&self, doc: &mut Document) -> PdfResult<()> {
+        let annotations = self.annotations(doc)?;
+        flatten_annotations_impl(doc, self.id, self.index, &annotations)
     }
 }
 

@@ -112,6 +112,8 @@ rasn-ocsp  = "0.28"
 rasn-pkix  = "0.28"
 rasn       = "0.28"
 quick-xml = { version = "0.39.2", features = ["serialize"], optional = true }
+tiny-skia = "0.12.0"
+kurbo = "0.13.1"
 
 [[example]]
 name = "read_info"
