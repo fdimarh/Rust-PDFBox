@@ -14,7 +14,8 @@ impl PreflightValidator {
         // Add ISO 19005-1 (PDF/A-1b) rules
         rules.push(Box::new(NoEncryptionRule));
         rules.push(Box::new(NoLzwFilterRule));
-        rules.push(Box::new(FontEmbeddingRule));
+        rules.push(Box::new(NoJavaScriptRule));
+        rules.push(Box::new(NoOpiRule));
         
         // TODO: MetadataRule, ColorSpaceRule
         
