@@ -13,9 +13,7 @@ use tiny_skia::Pixmap;
 
 /// Configuration for PDF to Image rendering.
 pub struct RenderOptions {
-    /// Dots per inch. Default is 72.0 (1 unit = 1 pixel).
     pub dpi: f32,
-    /// Render annotations?
     pub render_annotations: bool,
 }
 
@@ -40,17 +38,13 @@ impl PdfRenderer {
         let width = (bbox.width() as f64 * scale).round() as u32;
         let height = (bbox.height() as f64 * scale).round() as u32;
         
-        // Allocate a pixel buffer
         let mut pixmap = Pixmap::new(width, height).unwrap();
         pixmap.fill(tiny_skia::Color::WHITE);
         
-        // TODO: Bridge with `ContentStream` and `tiny_skia::PathBuilder`.
-        // This will be expanded with `painter::PagePainter`.
+        let mut painter = painter::PagePainter::new(pixmap.as_mut(), tiny_skia::Transform::default());
+        let _ = painter.paint_page(page);
         
-        // Convert tiny-skia Pixmap to standard `image::DynamicImage`
-        let rgba = RgbaImage::from_raw(width, height, pixmap.data().to_vec())
-            .unwrap();
-            
+        let rgba = RgbaImage::from_raw(width, height, pixmap.data().to_vec()).unwrap();
         Ok(DynamicImage::ImageRgba8(rgba))
     }
 }
