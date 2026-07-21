@@ -21,14 +21,15 @@ Unlike many "abandoned" ports, this project is substantially complete for most d
 To achieve 100% full parity with Apache PDFBox 3.x, the following areas require implementation:
 
 1. **Rendering (`PDFRenderer` parity):** 
-   - `src/render/` is currently an empty stub.
-   - **Goal:** Render PDF pages to raster images (PNG/JPEG) interpreting vector paths, shadings, and blend modes. (Requires a 2D rendering backend like `raqote` or `skia-safe`).
+   - `src/render/` scaffolded with `tiny-skia`.
 2. **Advanced Stream Filters (`src/io`):**
-   - `CCITTFaxDecode` (TIFF G3/G4), `DCTDecode`, and `JPXDecode` are currently pass-through stubs.
+   - `CCITTFaxDecode` (TIFF G3/G4), `DCTDecode`, and `JPXDecode` are pass-through stubs.
 3. **PDF/A Preflight Validation (`preflight` parity):**
-   - Needs an implementation for ISO 19005-1 rule-checking.
+   - Rules engine and `FontEmbeddingRule` scaffolded.
 4. **Advanced Encryption (`src/crypto`):**
-   - `AES-128 CBC` decryption is marked as `TODO` (currently returns plaintext).
+   - `AES-128` and `AES-256` Rev 5/6 wired.
+5. **CLI Tools & Color Profiling:**
+   - Scaffolded `pdfbox.rs` using `clap` and LCMS integration wired.
 
 ## Documentation
 - `FULL_PDFBOX_PARITY_PLAN.md` has been updated to reflect the exact gaps.

@@ -57,7 +57,7 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🟡 In Progress (CCITTFax, DCTDecode stubbed) |
 | PDF/A Validation (Preflight) | P21 | 🔴 STUB (Not started) |
 | Metadata & Document Properties (XMP, DocInfo) | P22 | 🟡 In Progress (DocInfo read/write + XMP read/write + sync policy both directions + extended XMP fields, 9 tests) |
-| CLI Tools (PDFBox command-line equivalents) | P23 | 🔲 Planned |
+| CLI Tools (PDFBox command-line equivalents) | P23 | 🟡 In Progress (CLI wrapper `pdfbox.rs` built) |
 
 ---
 
