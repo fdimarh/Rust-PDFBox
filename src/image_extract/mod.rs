@@ -1,8 +1,10 @@
 //! Phase 17 baseline: image XObject discovery and basic decode helpers.
-
-mod decode;
-mod export;
-
+pub mod export;
+pub mod decode;
+pub mod lcms;
+pub mod export;
+pub mod decode;
+pub mod lcms;
 use std::collections::HashSet;
 
 use crate::content::parse_content_stream;
