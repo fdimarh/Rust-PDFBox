@@ -52,10 +52,10 @@ This document is organized as **12 independent phases (P12–P23)**. Each phase 
 | Page Manipulation (merge, split, rotate, overlay, watermark) | P15 | ✅ Complete (merge, split, extract, rotate, overlay, watermark — 29 tests) |
 | PDF Creation from Scratch (content stream writing) | P16 | ✅ Complete (full 16-category operator API + image registration helpers — 16 dedicated tests + 434 lib tests) |
 | Image Extraction | P17 | ✅ Complete (`extract_images`, `decode_pixels` + Indexed/ICCBased fallback, PNG/JPEG/TIFF export incl. CMYK + SMask alpha PNG, inline `BI`/`ID`/`EI`, 17 tests) |
-| Rendering (page → image) | P18 | 🔴 STUB (Empty module `src/render/`) |
+| Rendering (page → image) | P18 | 🟡 In Progress (Canvas scaffolded with `tiny-skia` + `ab_glyph`) |
 | Advanced Encryption (AES-256, Rev 5/6, public-key) | P19 | 🟡 In Progress (AES-128 stubbed, RC4 done) |
 | Advanced Filters (JBIG2, JPEG2000, CCITTFax) | P20 | 🟡 In Progress (CCITTFax, DCTDecode stubbed) |
-| PDF/A Validation (Preflight) | P21 | 🔴 STUB (Not started) |
+| PDF/A Validation (Preflight) | P21 | 🟡 In Progress (Rules engine scaffolded, JS/OPI/LZW rules added) |
 | Metadata & Document Properties (XMP, DocInfo) | P22 | 🟡 In Progress (DocInfo read/write + XMP read/write + sync policy both directions + extended XMP fields, 9 tests) |
 | CLI Tools (PDFBox command-line equivalents) | P23 | 🟡 In Progress (CLI wrapper `pdfbox.rs` built) |
 

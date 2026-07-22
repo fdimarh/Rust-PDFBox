@@ -21,6 +21,7 @@ Unlike many "abandoned" ports, this project is substantially complete for most d
 To achieve 100% full parity with Apache PDFBox 3.x, the following areas require implementation:
 
 1. **Rendering (`PDFRenderer` parity):** 
+   - Scaffolded using `tiny-skia` and `ab_glyph`.
    - `src/render/` scaffolded with `tiny-skia`.
 2. **Advanced Stream Filters (`src/io`):**
    - `CCITTFaxDecode` (TIFF G3/G4), `DCTDecode`, and `JPXDecode` are pass-through stubs.
