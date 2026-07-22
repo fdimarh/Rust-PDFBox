@@ -176,6 +176,17 @@ impl StandardSecurityHandler {
         password: &[u8],
         file_id: &[u8],
     ) -> Vec<u8> {
+        // Dispatch to Rev 5 / 6 implementations
+        if enc.revision >= 6 {
+            if let Some(validation_salt) = enc.u_entry.get(..8) {
+                return crate::crypto::rev56::compute_encryption_key_rev6(password, validation_salt, &enc.u_entry);
+            }
+        } else if enc.revision == 5 {
+            if let Some(validation_salt) = enc.u_entry.get(..8) {
+                return crate::crypto::rev56::compute_encryption_key_rev5(password, validation_salt);
+            }
+        }
+
         // Step 1 — pad/truncate password to 32 bytes
         let pwd_padded = Self::pad_password(password);
 
