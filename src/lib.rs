@@ -661,6 +661,8 @@ impl Document {
             u_entry: get_bytes(b"U"),
             permissions,
             crypt_filter,
+            oe_entry: get_bytes(b"OE"),
+            ue_entry: get_bytes(b"UE"),
         };
 
         // Authenticate

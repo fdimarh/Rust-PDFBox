@@ -532,7 +532,7 @@ pub fn sign_pdf(
             changed.insert(catalog_id, updated_catalog);
 
             return sign_pdf_with_changes(pdf_bytes, cert_chain_pem, private_key_pem, opts,
-                changed, &date_str, sub_filter_bytes, sig_id);
+                changed, &date_str, sub_filter_bytes, sig_id, doc.file_encryption_key.clone());
         }
     }
 
@@ -560,7 +560,7 @@ pub fn sign_pdf(
     changed.insert(catalog_id, updated_catalog);
 
     sign_pdf_with_changes(pdf_bytes, cert_chain_pem, private_key_pem, opts,
-        changed, &date_str, sub_filter_bytes, sig_id)
+        changed, &date_str, sub_filter_bytes, sig_id, doc.file_encryption_key.clone())
 }
 
 // ---------------------------------------------------------------------------
@@ -576,15 +576,25 @@ fn sign_pdf_with_changes(
     date_str:         &str,
     _sub_filter_bytes: &[u8],
     sig_id:           ObjectId,
+    file_key:         Option<Vec<u8>>,
 ) -> Result<Vec<u8>, PdfError> {
     let doc = Document::load_from_bytes(pdf_bytes)?;
 
     // ── Step 5: first pass — write incremental update ────────────────────
+    // If the original PDF is encrypted, the serializer needs the file_encryption_key
+    // to encrypt new objects written in the incremental update.
+    // The key must be provided by the caller (sign_pdf which performed decrypt).
+    let doc_with_key = {
+        let mut d = doc;
+        d.file_encryption_key = file_key;
+        d
+    };
+
     let mut first_pass: Vec<u8> = Vec::with_capacity(pdf_bytes.len() + 8192);
     
     let mut bypass_ids = std::collections::HashSet::new();
     bypass_ids.insert(sig_id);
-    crate::writer::IncrementalWriter::write_update(pdf_bytes, &doc, &changed, bypass_ids, &mut first_pass)
+    crate::writer::IncrementalWriter::write_update(pdf_bytes, &doc_with_key, &changed, bypass_ids, &mut first_pass)
         .map_err(|e| PdfError::Parse { offset: None, context: format!("write pass 1: {e}") })?;
 
     // ── Step 6: locate ByteRange and Contents placeholders ────────────────

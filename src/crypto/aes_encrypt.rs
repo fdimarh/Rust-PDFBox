@@ -8,15 +8,15 @@ use cbc::Encryptor;
 use cipher::{KeyIvInit, BlockEncryptMut};
 use block_padding::Pkcs7;
 
-/// Encrypt data using AES-128 in CBC mode with PKCS#7 padding and random IV.
+/// Encrypt data using AES-128 in CBC mode with PKCS#7 padding.
+/// Returns IV + ciphertext (PDF AES encryption format).
 pub fn aes_cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8]) -> Option<Vec<u8>> {
     if key.len() != 16 || iv.len() != 16 || plaintext.is_empty() {
         return None;
     }
 
-    let cipher = Encryptor::<Aes128>::new(key.into(), iv.into());
+    let cipher = Encryptor::<Aes128>::new_from_slices(key, iv).ok()?;
     let mut buf = plaintext.to_vec();
-    // PKCS#7 padding is applied automatically; buf must have room for padding
     buf.resize(buf.len() + 16, 0);
     match cipher.encrypt_padded_mut::<Pkcs7>(&mut buf, plaintext.len()) {
         Ok(encrypted) => {
@@ -30,13 +30,14 @@ pub fn aes_cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8]) -> Option<Vec<u8
     }
 }
 
-/// Encrypt data using AES-256 in CBC mode with PKCS#7 padding and random IV.
+/// Encrypt data using AES-256 in CBC mode with PKCS#7 padding.
+/// Returns IV + ciphertext (PDF AES encryption format).
 pub fn aes256_cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8]) -> Option<Vec<u8>> {
     if key.len() != 32 || iv.len() != 16 || plaintext.is_empty() {
         return None;
     }
 
-    let cipher = Encryptor::<Aes256>::new(key.into(), iv.into());
+    let cipher = Encryptor::<Aes256>::new_from_slices(key, iv).ok()?;
     let mut buf = plaintext.to_vec();
     buf.resize(buf.len() + 16, 0);
     match cipher.encrypt_padded_mut::<Pkcs7>(&mut buf, plaintext.len()) {

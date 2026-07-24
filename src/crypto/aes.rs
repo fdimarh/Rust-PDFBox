@@ -12,15 +12,11 @@ use block_padding::Pkcs7;
 
 /// Decrypt data using AES-128 in CBC mode with PKCS#7 padding.
 pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
-    // Validate key, IV lengths, and that ciphertext is non-empty and block-aligned
     if key.len() != 16 || iv.len() != 16 || ciphertext.is_empty() || ciphertext.len() % 16 != 0 {
         return None;
     }
 
-    // Create cipher in CBC mode
-    let cipher = Decryptor::<Aes128>::new(key.into(), iv.into());
-
-    // Decrypt (padding removal is handled by the cipher)
+    let cipher = Decryptor::<Aes128>::new_from_slices(key, iv).ok()?;
     let mut plaintext = ciphertext.to_vec();
     match cipher.decrypt_padded_mut::<Pkcs7>(&mut plaintext) {
         Ok(decrypted) => Some(decrypted.to_vec()),
@@ -38,7 +34,7 @@ pub fn aes256_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Ve
         return None;
     }
 
-    let cipher = Decryptor::<Aes256>::new(key.into(), iv.into());
+    let cipher = Decryptor::<Aes256>::new_from_slices(key, iv).ok()?;
     let mut plaintext = ciphertext.to_vec();
     
     match cipher.decrypt_padded_mut::<Pkcs7>(&mut plaintext) {
@@ -97,4 +93,3 @@ mod tests {
         assert!(aes_cbc_decrypt(&key, &iv, ciphertext).is_none());
     }
 }
-

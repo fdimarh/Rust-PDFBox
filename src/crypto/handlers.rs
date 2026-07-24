@@ -58,12 +58,16 @@ pub struct EncryptionDict {
     pub key_length: usize,
     /// /O entry (32 bytes) — owner password verifier.
     pub o_entry: Vec<u8>,
-    /// /U entry (32 bytes) — user password verifier.
+    /// /U entry (32+ bytes) — user password verifier (48 for Rev 5/6).
     pub u_entry: Vec<u8>,
     /// /P entry — permission flags.
     pub permissions: Permissions,
     /// /StmF or /StrF algorithm for Rev 4 (None = RC4; Some("AESV2") = AES-128).
     pub crypt_filter: Option<String>,
+    /// /OE entry — owner encryption key (Rev 5/6, 32 bytes).
+    pub oe_entry: Vec<u8>,
+    /// /UE entry — user encryption key (Rev 5/6, 32 bytes).
+    pub ue_entry: Vec<u8>,
 }
 
 // ---------------------------------------------------------------------------
@@ -186,11 +190,12 @@ impl StandardSecurityHandler {
     ) -> Vec<u8> {
         // Dispatch to Rev 5 / 6 implementations
         if enc.revision >= 6 {
-            if let Some(validation_salt) = enc.u_entry.get(..8) {
-                return crate::crypto::rev56::compute_encryption_key_rev6(password, validation_salt, &enc.u_entry);
-            }
+            return crate::crypto::rev56::recover_encryption_key_r6(
+                password, &enc.u_entry, &enc.ue_entry
+            ).unwrap_or_default();
         } else if enc.revision == 5 {
-            if let Some(validation_salt) = enc.u_entry.get(..8) {
+            if enc.u_entry.len() >= 48 {
+                let validation_salt = &enc.u_entry[32..40];
                 return crate::crypto::rev56::compute_encryption_key_rev5(password, validation_salt);
             }
         }
@@ -227,10 +232,9 @@ impl StandardSecurityHandler {
     /// Returns `true` if the given file key matches the /U entry.
     fn check_user_password(enc: &EncryptionDict, key: &[u8]) -> bool {
         if enc.revision >= 5 {
-            // Rev 5/6 (AES-256): the key was already computed via compute_encryption_key_rev5/6
-            // which uses the validation salt from /U[0..8]. Actual validation happens
-            // during AES-CBC decryption (padding check). Just verify key length.
-            enc.u_entry.len() >= 48 && key.len() == 32
+            // Rev 5/6 (AES-256): password already validated in recover_encryption_key_r6.
+            // If wrong password, it returns None → empty key. Just verify 32-byte key.
+            key.len() == 32
         } else if enc.revision == 2 {
             // Algorithm 4: RC4(key, PAD) must equal /U (32 bytes)
             let computed = Rc4::crypt(key, &PAD);
