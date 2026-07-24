@@ -37,13 +37,14 @@ doc.save_incremental("final_signed_protected.pdf")?;
 - [x] Pastikan tidak ada dependensi `lopdf` yang terbawa. Ubah semuanya agar beroperasi menggunakan struktur `CosObject` milik PDFBox.
 
 ### Phase 2: Kematangan SecurityHandler & Parser
-- [ ] Validasi fungsi `Document::decrypt` di `rust-pdfbox` mampu melakukan dekripsi penuh terhadap AES-128, AES-256, dan RC4.
-- [ ] Pastikan *parser* dapat membaca dan memodifikasi *trailer* dari dokumen yang terenkripsi tanpa kehilangan *Encryption Dictionary* (`/Encrypt`).
+- [x] Validasi fungsi `Document::decrypt` di `rust-pdfbox` mampu melakukan dekripsi penuh terhadap AES-256 (Revision 6) — **SELESAI (Algorithm 2.B K1 pipeline 64x & /UE recovery fixed).**
+- [ ] Lanjutkan validasi AES-128 dan RC4.
+- [x] Pastikan *parser* dapat membaca dan memodifikasi *trailer* dari dokumen yang terenkripsi tanpa kehilangan *Encryption Dictionary* (`/Encrypt`).
 
 ### Phase 3: Pengembangan Incremental Writer
 - [x] Sempurnakan modul `rust-pdfbox/src/writer/incremental.rs`.
-- [ ] *Writer* wajib mampu mengkalkulasi celah byte (ByteRange Gap) secara akurat saat merender revisi dokumen.
-- [x] *Writer* tidak boleh mengenkripsi *field* `/Contents` pada kamus *Signature*, tetapi harus mengenkripsi revisi objek lain sesuai dengan state `SecurityHandler` aktif dokumen tersebut. (Injected via Serializer state).
+- [x] *Writer* wajib mampu mengkalkulasi celah byte (ByteRange Gap) secara akurat saat merender revisi dokumen (Multi-Signature incremental patch solved).
+- [x] *Writer* tidak boleh mengenkripsi *field* `/Contents` pada kamus *Signature*, tetapi harus mengenkripsi revisi objek lain sesuai dengan state `SecurityHandler` aktif dokumen tersebut. (Raw gap bypass solved).
 
 ### Phase 4: Integrasi API dan CLI
 - [ ] Buat API publik `sign_pdf` di `rust-pdfbox` yang menerima `SignOptions` dan otorisasi *password*.

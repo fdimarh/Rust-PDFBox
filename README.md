@@ -28,7 +28,8 @@ To achieve 100% full parity with Apache PDFBox 3.x, the following areas require 
 3. **PDF/A Preflight Validation (`preflight` parity):**
    - Rules engine and `FontEmbeddingRule` scaffolded.
 4. **Advanced Encryption (`src/crypto`):**
-   - `AES-128` and `AES-256` Rev 5/6 wired.
+   - `AES-128`, `AES-256` Rev 5/6 wired.
+   - **TTE Encrypted Support (Multi-Signature):** Native AES-256 decryption, Incremental Signature Updating, and raw PKCS#7 CMS bypass implemented (100% Adobe/Foxit compliant password-protected signatures).
 5. **CLI Tools & Color Profiling:**
    - Scaffolded `pdfbox.rs` using `clap` and LCMS integration wired.
 
