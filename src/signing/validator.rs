@@ -110,8 +110,14 @@ pub struct SignatureValidator;
 
 impl SignatureValidator {
     /// Validate every digital signature found in `pdf_bytes`.
-    pub fn validate(pdf_bytes: &[u8]) -> Result<Vec<ValidationResult>, PdfError> {
-        let doc = Document::load_from_bytes(pdf_bytes)?;
+    ///
+    /// If the PDF is encrypted, pass `password` so string fields (e.g., `/T`)
+    /// are decrypted. Use `None` for unencrypted documents.
+    pub fn validate(pdf_bytes: &[u8], password: Option<&str>) -> Result<Vec<ValidationResult>, PdfError> {
+        let mut doc = Document::load_from_bytes(pdf_bytes)?;
+        if let Some(pw) = password {
+            doc.decrypt(pw)?;
+        }
         let fields = collect_sig_fields(&doc);
         if fields.is_empty() {
             return Err(PdfError::Parse {
@@ -274,8 +280,43 @@ fn validate_one(pdf_bytes: &[u8], doc: &Document, field: SigField) -> Result<Val
     let covers_file = byte_range.len() == 4
         && (byte_range[2] + byte_range[3]) as usize == pdf_bytes.len();
 
-    let cms_bytes: Vec<u8> = sd.get(&CosName::new(b"Contents"))
-        .and_then(|v| v.as_string()).map(|b| b.to_vec()).unwrap_or_default();
+    let cms_bytes: Vec<u8> = if byte_range.len() == 4 {
+        // Read /Contents hex from raw byte gap to avoid decryption corruption.
+        // In encrypted PDFs, the Sig dict is bypassed from encryption during write,
+        // but decrypt() still decrypts ALL hex strings including /Contents.
+        // So we read directly from the raw PDF bytes instead.
+        let gap_start = (byte_range[0] + byte_range[1]) as usize;
+        let gap_end = byte_range[2] as usize;
+        if gap_end > gap_start && gap_end <= pdf_bytes.len() {
+            let gap = &pdf_bytes[gap_start..gap_end];
+            // Find hex between < and > in the gap
+            if let Some(open) = gap.iter().position(|&b| b == b'<') {
+                if let Some(close) = gap[open..].iter().position(|&b| b == b'>') {
+                    let hex_data = &gap[open + 1..open + close];
+                    if !hex_data.is_empty() && hex_data.iter().all(|b| b.is_ascii_hexdigit()) {
+                        // Manual hex decode (no external crate needed)
+                        (0..hex_data.len() / 2)
+                            .map(|i| {
+                                let hi = hex_char_val(hex_data[i * 2]);
+                                let lo = hex_char_val(hex_data[i * 2 + 1]);
+                                (hi << 4) | lo
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
     let all_zeros = cms_bytes.iter().all(|&b| b == 0);
     if cms_bytes.is_empty() { errors.push("Contents entry missing".into()); }
     else if all_zeros { errors.push("Contents is all zeros".into()); }
@@ -1082,6 +1123,16 @@ fn mdp_compliant(level: u8, r: &ValidationResult) -> bool {
             || n.to_lowercase().contains("annot")
             || n.to_lowercase().contains("widget")),
         _ => true,
+    }
+}
+
+/// Convert an ASCII hex character byte to its numeric value (0–15).
+fn hex_char_val(c: u8) -> u8 {
+    match c {
+        b'0'..=b'9' => c - b'0',
+        b'a'..=b'f' => c - b'a' + 10,
+        b'A'..=b'F' => c - b'A' + 10,
+        _ => 0,
     }
 }
 

@@ -111,7 +111,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   ✅ Final PDF opens correctly with password");
 
     // Full cryptographic validation
-    let results = validate_pdf_full(&signed_bytes)?;
+    let results = validate_pdf_full(&signed_bytes, Some("admin123"))?;
     
     println!("\n╔═══════════════════════════════════════════════════════════════╗");
     println!("║  VALIDATION RESULTS                                           ║");

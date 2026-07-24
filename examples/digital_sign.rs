@@ -374,7 +374,7 @@ fn main() {
 
     // ── 8. Verify ──
     println!("  Verifying …");
-    match validate_pdf_full(&signed) {
+    match validate_pdf_full(&signed, None) {
         Ok(results) if results.is_empty() => {
             println!("  ⚠  No signature fields found in output PDF.");
         }

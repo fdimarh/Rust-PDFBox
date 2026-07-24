@@ -820,7 +820,7 @@ fn append_document_timestamp(
 pub fn verify_pdf(pdf_bytes: &[u8]) -> Result<Vec<VerifyResult>, PdfError> {
     use validator::SignatureValidator;
 
-    let val_results = match SignatureValidator::validate(pdf_bytes) {
+    let val_results = match SignatureValidator::validate(pdf_bytes, None) {
         Ok(v) => v,
         // If no signatures found, return empty vec (backward-compatible behaviour)
         Err(PdfError::Parse { ref context, .. }) if context.contains("No digital signature") => {
@@ -890,10 +890,13 @@ pub fn verify_pdf(pdf_bytes: &[u8]) -> Result<Vec<VerifyResult>, PdfError> {
 /// Full-featured validation using `SignatureValidator`.
 /// Returns the complete `ValidationResult` with modification detection,
 /// attack defences, LTV details, and certificate trust info.
-pub fn validate_pdf_full(pdf_bytes: &[u8])
+///
+/// If the PDF is encrypted, provide `password` so string fields (e.g. `/T`)
+/// are decrypted and readable; pass `None` for unencrypted documents.
+pub fn validate_pdf_full(pdf_bytes: &[u8], password: Option<&str>)
     -> Result<Vec<validator::ValidationResult>, PdfError>
 {
-    validator::SignatureValidator::validate(pdf_bytes)
+    validator::SignatureValidator::validate(pdf_bytes, password)
 }
 
 // ---------------------------------------------------------------------------
