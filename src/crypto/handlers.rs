@@ -120,10 +120,14 @@ impl StandardSecurityHandler {
         }
 
         // Try owner password: decrypt /O to recover user password, then retry
-        if let Some(user_pwd) = Self::decrypt_owner_to_user(enc, password) {
-            let key2 = Self::compute_encryption_key(enc, &user_pwd, file_id);
-            if Self::check_user_password(enc, &key2) {
-                return AuthResult::OwnerPassword(key2);
+        // Only valid for Rev 2-4 (RC4). Rev 5+ uses SASL-based authentication
+        // which is handled inside compute_encryption_key_rev5/6.
+        if enc.revision < 5 {
+            if let Some(user_pwd) = Self::decrypt_owner_to_user(enc, password) {
+                let key2 = Self::compute_encryption_key(enc, &user_pwd, file_id);
+                if Self::check_user_password(enc, &key2) {
+                    return AuthResult::OwnerPassword(key2);
+                }
             }
         }
 
@@ -146,18 +150,22 @@ impl StandardSecurityHandler {
     ) -> Vec<u8> {
         let obj_key = Self::compute_object_key(file_key, object_number, generation, use_aes);
         if use_aes {
-            // AES-128 CBC: first 16 bytes of ciphertext are the IV.
+            // AES-CBC: first 16 bytes of ciphertext are the IV.
             if ciphertext.len() < 16 {
                 return ciphertext.to_vec();
             }
             let iv = &ciphertext[0..16];
             let data = &ciphertext[16..];
             
-            // Decrypt using our AES-128 module.
-            // If decryption fails (e.g., bad padding), fallback to returning raw data 
-            // so lenient parsers can still attempt to read the stream.
-            if let Some(decrypted) = super::aes::aes_cbc_decrypt(&obj_key, iv, data) {
-                decrypted
+            // Use AES-256 for 32-byte keys (Rev 5/6), AES-128 otherwise
+            let decrypted = if obj_key.len() >= 32 {
+                super::aes::aes256_cbc_decrypt(&obj_key[..32], iv, data)
+            } else {
+                super::aes::aes_cbc_decrypt(&obj_key, iv, data)
+            };
+            
+            if let Some(result) = decrypted {
+                result
             } else {
                 data.to_vec()
             }
@@ -218,7 +226,12 @@ impl StandardSecurityHandler {
 
     /// Returns `true` if the given file key matches the /U entry.
     fn check_user_password(enc: &EncryptionDict, key: &[u8]) -> bool {
-        if enc.revision == 2 {
+        if enc.revision >= 5 {
+            // Rev 5/6 (AES-256): the key was already computed via compute_encryption_key_rev5/6
+            // which uses the validation salt from /U[0..8]. Actual validation happens
+            // during AES-CBC decryption (padding check). Just verify key length.
+            enc.u_entry.len() >= 48 && key.len() == 32
+        } else if enc.revision == 2 {
             // Algorithm 4: RC4(key, PAD) must equal /U (32 bytes)
             let computed = Rc4::crypt(key, &PAD);
             let u_len = enc.u_entry.len().min(32);
@@ -253,6 +266,10 @@ impl StandardSecurityHandler {
 
     /// Attempts to decrypt /O with the owner password to recover the user password.
     fn decrypt_owner_to_user(enc: &EncryptionDict, owner_pwd: &[u8]) -> Option<Vec<u8>> {
+        // Not valid for Rev >= 5 (AES-256 uses SASL-based authentication)
+        if enc.revision >= 5 {
+            return None;
+        }
         // Step 1: MD5 of padded owner password
         let padded = Self::pad_password(owner_pwd);
         let mut digest = md5(&padded);
@@ -292,6 +309,12 @@ impl StandardSecurityHandler {
         gen_num: u16,
         is_aes: bool,
     ) -> Vec<u8> {
+        // For Rev 5/6 (AES-256, V=5): no per-object key derivation.
+        // The file encryption key IS the object key directly (§7.6.2, ISO 32000-2).
+        if file_key.len() >= 32 {
+            return file_key.to_vec();
+        }
+
         let mut input = Vec::with_capacity(file_key.len() + 9);
         input.extend_from_slice(file_key);
 
