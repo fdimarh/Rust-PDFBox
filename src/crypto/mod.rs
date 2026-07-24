@@ -12,6 +12,8 @@ pub mod aes;
 pub mod md5;
 #[cfg(feature = "crypto")]
 pub mod rev56;
+#[cfg(feature = "crypto")]
+pub mod aes_encrypt;
 
 pub use permissions::Permissions;
 pub use rc4::Rc4;
