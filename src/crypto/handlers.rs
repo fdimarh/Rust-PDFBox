@@ -286,11 +286,11 @@ impl StandardSecurityHandler {
     // Per-object key derivation (§7.6.3.1)
     // -----------------------------------------------------------------------
 
-    fn per_object_key(
+    pub fn compute_object_key(
         file_key: &[u8],
-        object_number: u32,
-        generation: u16,
-        use_aes: bool,
+        obj_num: u32,
+        gen_num: u16,
+        is_aes: bool,
     ) -> Vec<u8> {
         let mut input = Vec::with_capacity(file_key.len() + 9);
         input.extend_from_slice(file_key);
