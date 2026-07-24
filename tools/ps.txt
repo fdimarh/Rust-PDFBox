@@ -1,0 +1,1 @@
+fdimarh          54150  96.0  0.6 34472656 102980 s001  RN    3:19PM   1:20.76 /Users/fdimarh/Documents/Lab/Rustlab/pdf/rust-pdfbox/target/debug/examples/compress_pdf /Users/fdimarh/Downloads/2024sk-kma260_KMA_SK.KP5_XII_2024.pdf /Users/fdimarh/Downloads/compressed rust-pdfbox/out_recommended.pdf --mode recommended

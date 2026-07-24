@@ -1,0 +1,18 @@
+
+=== ORIGINAL ===
+  Total images: 38
+  Total image bytes: 6353361 (6.1 MB)
+  DCTDecode           : 3 images, 2261910 bytes (2.2 MB), avg 5127x8417 px
+  JBIG2Decode         : 35 images, 4091451 bytes (3.9 MB), avg 5167x8441 px
+
+=== ILOVEPDF recommended ===
+  Total images: 38
+  Total image bytes: 889346 (0.8 MB)
+  ?                   : 3 images, 351738 bytes (0.3 MB), avg 1281x2104 px
+  JBIG2Decode         : 35 images, 537608 bytes (0.5 MB), avg 1291x2110 px
+
+=== RUST-PDFBOX recommended ===
+  Total images: 38
+  Total image bytes: 4628360 (4.4 MB)
+  DCTDecode           : 3 images, 536909 bytes (0.5 MB), avg 1281x2104 px
+  JBIG2Decode         : 35 images, 4091451 bytes (3.9 MB), avg 5167x8441 px

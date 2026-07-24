@@ -1,0 +1,4 @@
+jbig2dec = "0.3.1"          # Rust binding to jbig2dec
+nipdf-jbig2dec = "0.4.1"    # Rust binding to jbig2dec, forked for nipdf to support embed jbig2 image
+jbig2dec-sys = "0.19.0"     # jbig2dec ffi binding
+note: to learn more about a package, run `cargo info <name>`

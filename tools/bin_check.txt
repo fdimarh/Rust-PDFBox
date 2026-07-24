@@ -1,0 +1,1 @@
+-rwxr-xr-x@ 1 fdimarh  staff  2407744 Apr  7 16:13 /Users/fdimarh/Documents/Lab/Rustlab/pdf/rust-pdfbox/target/release/examples/compress_pdf

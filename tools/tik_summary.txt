@@ -1,0 +1,4 @@
+/Users/fdimarh/Downloads/Buku                  Publikasi bytes
+/Users/fdimarh/Downloads/compressed           rust-pdfbox/BukuTIK_less.pdf bytes
+/Users/fdimarh/Downloads/compressed           rust-pdfbox/BukuTIK_recommended.pdf bytes
+/Users/fdimarh/Downloads/compressed           rust-pdfbox/BukuTIK_extreme.pdf bytes

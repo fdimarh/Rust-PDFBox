@@ -327,6 +327,7 @@ pub fn sign_pdf(
     pdf_bytes: &[u8],
     cert_chain_pem: &str,
     private_key_pem: &str,
+    unlock_password: Option<&str>,
     opts: &SignOptions,
 ) -> Result<Vec<u8>, PdfError> {
     // Parse certs just for DER encoding needed by the sig dict
@@ -343,7 +344,10 @@ pub fn sign_pdf(
     }
 
     // ── Step 1: parse existing document ──────────────────────────────────
-    let doc = Document::load_from_bytes(pdf_bytes)?;
+    let mut doc = Document::load_from_bytes(pdf_bytes)?;
+    if let Some(pwd) = unlock_password {
+        doc.decrypt(pwd)?;
+    }
     let next_id = next_free_object_id(&doc);
     let sig_id      = ObjectId::new(next_id,     0);
     let widget_id   = ObjectId::new(next_id + 1, 0);
@@ -528,7 +532,7 @@ pub fn sign_pdf(
             changed.insert(catalog_id, updated_catalog);
 
             return sign_pdf_with_changes(pdf_bytes, cert_chain_pem, private_key_pem, opts,
-                changed, &date_str, sub_filter_bytes);
+                changed, &date_str, sub_filter_bytes, sig_id);
         }
     }
 
@@ -556,7 +560,7 @@ pub fn sign_pdf(
     changed.insert(catalog_id, updated_catalog);
 
     sign_pdf_with_changes(pdf_bytes, cert_chain_pem, private_key_pem, opts,
-        changed, &date_str, sub_filter_bytes)
+        changed, &date_str, sub_filter_bytes, sig_id)
 }
 
 // ---------------------------------------------------------------------------
@@ -571,12 +575,16 @@ fn sign_pdf_with_changes(
     changed:          BTreeMap<ObjectId, CosObject>,
     date_str:         &str,
     _sub_filter_bytes: &[u8],
+    sig_id:           ObjectId,
 ) -> Result<Vec<u8>, PdfError> {
     let doc = Document::load_from_bytes(pdf_bytes)?;
 
     // ── Step 5: first pass — write incremental update ────────────────────
     let mut first_pass: Vec<u8> = Vec::with_capacity(pdf_bytes.len() + 8192);
-    crate::writer::IncrementalWriter::write_update(pdf_bytes, &doc, &changed, &mut first_pass)
+    
+    let mut bypass_ids = std::collections::HashSet::new();
+    bypass_ids.insert(sig_id);
+    crate::writer::IncrementalWriter::write_update(pdf_bytes, &doc, &changed, bypass_ids, &mut first_pass)
         .map_err(|e| PdfError::Parse { offset: None, context: format!("write pass 1: {e}") })?;
 
     // ── Step 6: locate ByteRange and Contents placeholders ────────────────
@@ -759,7 +767,10 @@ fn append_document_timestamp(
 
     // First pass: write placeholder
     let mut first_pass: Vec<u8> = Vec::with_capacity(pdf_bytes.len() + 8192);
-    IncrementalWriter::write_update(&pdf_bytes, &doc, &changed, &mut first_pass)
+    
+    let mut bypass_ids = std::collections::HashSet::new();
+    bypass_ids.insert(v_id);
+    IncrementalWriter::write_update(&pdf_bytes, &doc, &changed, bypass_ids, &mut first_pass)
         .map_err(|e| PdfError::Parse { offset: None, context: format!("DTS write: {e}") })?;
 
     // Patch ByteRange — use LAST occurrence (DocTimestamp is at end; existing sigs are earlier)

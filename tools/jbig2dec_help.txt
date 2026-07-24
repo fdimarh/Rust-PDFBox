@@ -1,0 +1,27 @@
+Usage: jbig2dec [options] <file.jbig2>
+   or  jbig2dec [options] <global_stream> <page_stream>
+
+  When invoked with a single file, it attempts to parse it as
+  a normal jbig2 file. Invoked with two files, it treats the
+  first as the global segments, and the second as the segment
+  stream for a particular page. This is useful for examining
+  embedded streams.
+
+  available options:
+    -h --help       this usage summary
+    -q --quiet      suppress diagnostic output
+    -v --verbose    set the verbosity level
+    -d --dump       print the structure of the jbig2 file
+                    rather than explicitly decoding
+    -V --version    program name and version information
+    -m --hash       print a hash of the decoded document
+    -e --embedded   expect embedded bit stream without file header
+    -M <limit>      memory limit expressed in bytes
+    -o <file>
+    --output <file> send decoded output to <file>
+                    Defaults to the the input with a different
+                    extension. Pass '-' for stdout.
+    -t <type>
+    --format <type> force a particular output file format
+                    the only supported option is 'pbm'
+

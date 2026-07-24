@@ -1,0 +1,18 @@
+=== JBIG2 image objects ===
+  obj 213: w=5149 h=8430 bpc=1 len=139662 globals=none
+  obj 215: w=5132 h=8420 bpc=1 len=134499 globals=none
+  obj 217: w=5214 h=8471 bpc=1 len=145191 globals=none
+  obj 219: w=5198 h=8461 bpc=1 len=115285 globals=none
+  obj 221: w=5198 h=8461 bpc=1 len=143587 globals=none
+  ... total JBIG2 objects: 35
+
+=== JBIG2Globals references ===
+  Globals objects: []
+
+=== Testing jbig2dec CLI ===
+  version output: b'jbig2dec 0.20\n'
+  help modes: Usage: jbig2dec [options] <file.jbig2>
+   or  jbig2dec [options] <global_stream> <page_stream>
+
+  When invoked with a single file, it attempts to parse it as
+  a normal jbig2 file. Invoked with two files, it treats the

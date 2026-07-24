@@ -1,0 +1,80 @@
+#![deny(trivial_casts, trivial_numeric_casts, missing_docs)]
+
+//! A reimplementation of the [Zopfli](https://github.com/google/zopfli) compression library in Rust.
+//!
+//! Zopfli is a state of the art DEFLATE compressor that heavily prioritizes compression over speed.
+//! It usually compresses much better than other DEFLATE compressors, generating standard DEFLATE
+//! streams that can be decompressed with any DEFLATE decompressor, at the cost of being
+//! significantly slower.
+//!
+//! # Features
+//!
+//! This crate exposes the following features. You can enable or disable them in your `Cargo.toml`
+//! as needed.
+//!
+//! - `gzip` (enabled by default): enables support for compression in the gzip format.
+//! - `zlib` (enabled by default): enables support for compression in the Zlib format.
+//! - `std` (enabled by default): enables linking against the Rust standard library. When not enabled,
+//!   the crate is built with the `#![no_std]` attribute and can be used in any environment where
+//!   [`alloc`](https://doc.rust-lang.org/alloc/) (i.e., a memory allocator) is available. In addition,
+//!   the crate exposes minimalist versions of the `std` I/O traits it needs to function, allowing users
+//!   to implement them.
+//! - `nightly`: enables code constructs and features specific to the nightly Rust toolchain. Currently,
+//!   this feature improves rustdoc generation and enables the namesake feature on `crc32fast`, but this
+//!   may change in the future. This feature also used to enable `simd-adler32`'s namesake feature, but
+//!   it no longer does as the latest `simd-adler32` release does not build with the latest nightlies
+//!   (as of 2024-05-18) when that feature is enabled.
+
+#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "nightly", feature(doc_cfg))]
+
+// No-op log implementation for no-std targets
+#[cfg(not(feature = "std"))]
+macro_rules! debug {
+    ( $( $_:expr ),* ) => {};
+}
+#[cfg(not(feature = "std"))]
+macro_rules! trace {
+    ( $( $_:expr ),* ) => {};
+}
+#[cfg(not(feature = "std"))]
+macro_rules! log_enabled {
+    ( $( $_:expr ),* ) => {
+        false
+    };
+}
+
+#[cfg_attr(not(feature = "std"), macro_use)]
+extern crate alloc;
+
+pub use deflate::{BlockType, DeflateEncoder};
+#[cfg(feature = "gzip")]
+pub use gzip::GzipEncoder;
+#[cfg(all(test, feature = "std"))]
+use proptest::prelude::*;
+#[cfg(feature = "zlib")]
+pub use zlib::ZlibEncoder;
+
+mod blocksplitter;
+mod cache;
+mod deflate;
+#[cfg(feature = "gzip")]
+mod gzip;
+mod hash;
+#[cfg(any(doc, not(feature = "std")))]
+mod io;
+mod iter;
+mod katajainen;
+mod lz77;
+#[cfg(not(feature = "std"))]
+mod math;
+mod squeeze;
+mod symbols;
+mod tree;
+mod util;
+#[cfg(feature = "zlib")]
+mod zlib;
+
+use core::num::NonZeroU64;
+#[cfg(all(not(doc), feature = "std"))]
+use std::io::{Error, Write};

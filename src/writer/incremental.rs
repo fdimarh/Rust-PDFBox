@@ -75,6 +75,7 @@ impl IncrementalWriter {
         original: &[u8],
         doc: &Document,
         changed: &BTreeMap<ObjectId, CosObject>,
+        bypass_ids: std::collections::HashSet<ObjectId>,
         out: &mut W,
     ) -> io::Result<()> {
         // 1. Write original bytes verbatim.
@@ -100,7 +101,7 @@ impl IncrementalWriter {
         for (id, obj) in changed {
             let mut buf: Vec<u8> = Vec::new();
             {
-                let mut ser = Serializer::new(&mut buf);
+                let mut ser = Serializer::new_encrypted(&mut buf, doc.file_encryption_key.clone(), bypass_ids.clone());
                 ser.write_indirect_object(*id, obj)?;
             }
             object_bytes.insert(*id, buf);

@@ -1,0 +1,63 @@
+   Compiling zopfli v0.8.3
+   Compiling fax_derive v0.2.0
+   Compiling oxipng v9.1.5
+   Compiling fax v0.2.6
+   Compiling rust-pdfbox v0.1.0 (/Users/fdimarh/Documents/Lab/Rustlab/pdf/rust-pdfbox)
+warning: unused import: `DeflateEncoder`
+   --> src/compress/streams.rs:173:33
+    |
+173 |         use zopfli::{BlockType, DeflateEncoder, ZlibEncoder};
+    |                                 ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0308]: mismatched types
+   --> src/compress/streams.rs:178:13
+    |
+177 |         let mut encoder = ZlibEncoder::new(
+    |                           ---------------- arguments to this function are incorrect
+178 |             BlockType::Dynamic,
+    |             ^^^^^^^^^^^^^^^^^^ expected `Options`, found `BlockType`
+    |
+note: associated function defined here
+   --> /Users/fdimarh/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zopfli-0.8.3/src/zlib.rs:18:12
+    |
+ 18 |     pub fn new(options: Options, btype: BlockType, mut sink: W) -> Result<Self, Error> {
+    |            ^^^
+
+error[E0599]: no method named `write_all` found for enum `Result<T, E>` in the current scope
+    --> src/compress/streams.rs:182:17
+     |
+ 182 |         encoder.write_all(data)?;
+     |                 ^^^^^^^^^ method not found in `Result<zopfli::ZlibEncoder<&mut Vec<u8>>, std::io::Error>`
+     |
+note: the method `write_all` exists on the type `zopfli::ZlibEncoder<&mut Vec<u8>>`
+    --> /Users/fdimarh/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/std/src/io/mod.rs:1875:5
+     |
+1875 |     fn write_all(&mut self, mut buf: &[u8]) -> Result<()> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `zopfli::ZlibEncoder<&mut Vec<u8>>` value, propagating a `Result::Err` value to the caller
+     |
+ 182 |         encoder?.write_all(data)?;
+     |                +
+
+error[E0599]: no method named `finish` found for enum `Result<T, E>` in the current scope
+   --> src/compress/streams.rs:183:17
+    |
+183 |         encoder.finish()?;
+    |                 ^^^^^^ method not found in `Result<zopfli::ZlibEncoder<&mut Vec<u8>>, std::io::Error>`
+    |
+note: the method `finish` exists on the type `zopfli::ZlibEncoder<&mut Vec<u8>>`
+   --> /Users/fdimarh/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zopfli-0.8.3/src/zlib.rs:58:5
+    |
+ 58 |     pub fn finish(mut self) -> Result<W, Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `zopfli::ZlibEncoder<&mut Vec<u8>>` value, propagating a `Result::Err` value to the caller
+    |
+183 |         encoder?.finish()?;
+    |                +
+
+Some errors have detailed explanations: E0308, E0599.
+For more information about an error, try `rustc --explain E0308`.
+warning: `rust-pdfbox` (lib) generated 1 warning
+error: could not compile `rust-pdfbox` (lib) due to 3 previous errors; 1 warning emitted

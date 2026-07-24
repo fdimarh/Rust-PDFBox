@@ -1,0 +1,4 @@
+JBIG2 object IDs: [213, 215, 217, 219, 221, 223, 225, 227, 229, 231]...
+Page count: 0
+
+--- Resources of first page ---

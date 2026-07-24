@@ -1,0 +1,28 @@
+strict parse: parse error at byte 11494053: unknown xref stream entry type 219 — retrying lenient…
+Loading /Users/fdimarh/Downloads/Buku Publikasi Peta Okupasi Bidang TIK - PON TIK.pdf... ok (11515980 bytes, lenient)
+Compressing (mode=less) ...
+Saving /Users/fdimarh/Downloads/compressed rust-pdfbox/BukuTIK_v3_less.pdf... ok
+
+── Compression report ──────────────────────────────────────────
+  Input size           :   16226741 bytes
+  Output size          :   15922583 bytes
+  Reduction            :       1.9%
+
+  Streams recompressed :    666
+  Images resampled     :      0
+  Images PNG optimized :      0
+  Images →CCITT G4     :      0
+  Images CMYK→sRGB     :      0
+  Images →gray         :      0
+  Fonts subsetted      :      0
+  Fonts removed        :      0
+  Objects deduped      :    183
+  Objects removed      :      1
+  Errors skipped       :      0
+
+  Saved (streams)      :     219671 bytes
+  Saved (images)       :          0 bytes
+  Saved (fonts)        :          0 bytes
+  Saved (dedup)        :      69695 bytes
+  Saved (metadata)     :       3334 bytes
+────────────────────────────────────────────────────────────────

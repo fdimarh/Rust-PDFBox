@@ -1,0 +1,5 @@
+/Users/fdimarh/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/tests/check.rs
+/Users/fdimarh/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/examples/fax2tiff.rs
+/Users/fdimarh/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/examples/check.rs
+/Users/fdimarh/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/examples/fax2pbm.rs
+/Users/fdimarh/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/examples/pbm2fax.rs

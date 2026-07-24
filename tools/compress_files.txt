@@ -1,0 +1,9 @@
+src/compress/cleanup.rs
+src/compress/color.rs
+src/compress/dedup.rs
+src/compress/font_subset.rs
+src/compress/images.rs
+src/compress/linearize.rs
+src/compress/mod.rs
+src/compress/streams.rs
+src/compress/version.rs

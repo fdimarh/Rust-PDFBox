@@ -1,0 +1,9 @@
+Object 213 found at offset 974993
+Dict: b'\r213 0 obj\r<</BitsPerComponent 1/ColorSpace/DeviceGray/Filter/JBIG2Decode/Height 8430/Length 139662/Subtype/Image/Type/XObject/Width 5149>>stream\r\n\x00\x00\x00\x000\x00\x01\x00\x00\x00\x13\x00\x00\x14\x1d\x00\x00 \xee\x00\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x01&\x00\x01\x00\x02!e\x00\x00\x14\x1d\x00\x00 \xee\x00\x00\x00\x00'
+Length: 139662
+Extracted 139662 bytes of JBIG2 data
+No file header, prepending...
+jbig2dec stdout: b''
+jbig2dec stderr: b'jbig2dec FATAL ERROR page has no image, cannot be completed\njbig2dec WARNING unable to complete page\n'
+jbig2dec return code: 1
+No output PNG generated

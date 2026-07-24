@@ -1,0 +1,7 @@
+/usr/local/bin/jbig2dec
+jbig2dec
+hayro-jbig2 = "0.2.0"       # A memory-safe, pure-Rust JBIG2 decoder.
+justbig2 = "0.2.0"          # Pure Rust JBIG2 image decoder with no_std support
+jbig2enc = "0.1.1"          # Rust reimplementation of jbig2enc, a JBIG2 encoder for bi-level images
+jbig2enc-rust = "0.5.0"     # JBIG2 encoder implementation in Rust with PDF fragment support
+nipdf-jbig2dec = "0.4.1"    # Rust binding to jbig2dec, forked for nipdf to support embed jbig2 image

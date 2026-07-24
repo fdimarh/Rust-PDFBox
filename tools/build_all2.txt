@@ -1,0 +1,2 @@
+   Compiling rust-pdfbox v0.1.0 (/Users/fdimarh/Documents/Lab/Rustlab/pdf/rust-pdfbox)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.81s

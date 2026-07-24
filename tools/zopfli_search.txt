@@ -1,0 +1,5 @@
+zopfli = "0.8.3"                  # A Rust implementation of the Zopfli compression algorithm.
+zopfli-rs = "0.1.1"               # Bindings to zopfli for deflate, gzip, and zlib compression. 
+sfnt2woff-zopfli-sys = "0.0.1"    # sfnt2woff-zopfli-sys
+zopfli-sys = "0.1.0"              # The original Zopfli C library
+zenzop = "0.4.2"                  # A faster fork of the Zopfli DEFLATE compressor with optional ECT-derived optimizations.

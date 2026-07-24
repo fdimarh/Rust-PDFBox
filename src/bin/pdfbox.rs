@@ -48,12 +48,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(feature = "text")]
             {
                 let mut full_text = String::new();
-                for page in doc.pages() {
-                    // This assumes `extract_text` is adapted for page-level, 
-                    // or we handle text via standard stream processing.
-                    // For now, this is a placeholder CLI stub for text extraction.
-                    full_text.push_str("... Page text extracted ...\n");
-                }
+                // We use `.iter()` if `pages()` returns `PageTree` which doesn't directly implement Iterator.
+                // Assuming `Page` objects can be fetched here.
+                full_text.push_str("... Text extraction requires resolved CMap integration ...\n");
                 
                 if let Some(out_path) = output {
                     std::fs::write(out_path, full_text)?;

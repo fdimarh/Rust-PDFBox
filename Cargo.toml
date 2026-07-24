@@ -71,7 +71,7 @@ chrono    = { version = "0.4", default-features = false, features = ["std", "clo
 
 # CMS / PKCS#7 builder — same crate as rust_pdf_signing to produce
 # identical CMS blobs that Adobe/Foxit accept.
-cryptographic-message-syntax = "0.28.0"
+cryptographic-message-syntax = { version = "0.28.0", default-features = false, features = ["http"] }
 x509-certificate = "0.25.0"
 bcder = "0.7.6"
 
@@ -110,7 +110,7 @@ ttf-parser       = { version = "0.25", optional = true }   # TrueType/OTF glyph 
 owned_ttf_parser = { version = "0.25", optional = true }   # owned wrapper (no lifetime coupling)
 
 # LTV / revocation / DSS support (mirrors rust_pdf_signing)
-reqwest    = { version = "0.12", features = ["blocking"] }
+reqwest    = { version = "0.12", features = ["blocking", "rustls-tls"] }
 x509-parser = "0.18"
 rasn-ocsp  = "0.28"
 rasn-pkix  = "0.28"

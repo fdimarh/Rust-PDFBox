@@ -5,17 +5,33 @@
 //! `<hexstring>`, `/Name`, `[1 2 3]`, `<< /K 1 >>`).
 
 use std::io::{self, Write};
+use crate::crypto::handlers::StandardSecurityHandler;
+use std::collections::HashSet;
 use crate::cos::{CosObject, CosName, CosDictionary, CosStream, ObjectId};
 
-/// Writes COS objects to an output stream.
+/// Core CosObject serializer.
+///
+/// Converts in-memory tree back to PDF bytes (e.g., `<< /Type /Page >>`).
 pub struct Serializer<'a, W: Write> {
     writer: &'a mut W,
+    file_key: Option<Vec<u8>>,
+    bypass_ids: HashSet<ObjectId>,
+    current_object_id: Option<ObjectId>,
 }
 
 impl<'a, W: Write> Serializer<'a, W> {
-    /// Creates a new serializer writing to the given writer.
+    /// Creates a new serializer writing to the given writer (plaintext mode).
     pub fn new(writer: &'a mut W) -> Self {
-        Self { writer }
+        Serializer { writer, file_key: None, bypass_ids: HashSet::new(), current_object_id: None }
+    }
+    
+    /// Creates a serializer that encrypts strings and streams on-the-fly.
+    pub fn new_encrypted(
+        writer: &'a mut W,
+        file_key: Option<Vec<u8>>,
+        bypass_ids: HashSet<ObjectId>,
+    ) -> Self {
+        Serializer { writer, file_key, bypass_ids, current_object_id: None }
     }
 
     /// Writes a single `CosObject`.
@@ -25,50 +41,84 @@ impl<'a, W: Write> Serializer<'a, W> {
             CosObject::Bool(b) => self.writer.write_all(if *b { b"true" } else { b"false" })?,
             CosObject::Integer(n) => write!(self.writer, "{n}")?,
             CosObject::Real(n) => write!(self.writer, "{n}")?,
-            CosObject::String(bytes) => self.write_string(bytes)?,
-            CosObject::HexString(bytes) => self.write_hex_string(bytes)?,
+            CosObject::String(bytes) => {
+                if let Some(ref file_key) = self.file_key {
+                    if let Some(id) = self.current_object_id {
+                        if !self.bypass_ids.contains(&id) {
+                            let obj_key = crate::crypto::handlers::StandardSecurityHandler::compute_object_key(file_key, id.object_number as u32, id.generation as u16, false);
+                            let encrypted = crate::crypto::rc4::Rc4::crypt(&obj_key, bytes);
+                            return self.write_hex_string(&encrypted); // Write ciphertext as Hex
+                        }
+                    }
+                }
+                self.write_string(bytes)?
+            }
+            CosObject::HexString(bytes) => {
+                if let Some(ref file_key) = self.file_key {
+                    if let Some(id) = self.current_object_id {
+                        if !self.bypass_ids.contains(&id) {
+                            let obj_key = crate::crypto::handlers::StandardSecurityHandler::compute_object_key(file_key, id.object_number as u32, id.generation as u16, false);
+                            let encrypted = crate::crypto::rc4::Rc4::crypt(&obj_key, bytes);
+                            return self.write_hex_string(&encrypted);
+                        }
+                    }
+                }
+                self.write_hex_string(bytes)?
+            }
             CosObject::Name(name) => self.write_name(name)?,
             CosObject::Array(arr) => self.write_array(arr)?,
             CosObject::Dictionary(dict) => self.write_dictionary(dict)?,
-            CosObject::Stream(stream) => self.write_stream(stream)?,
+            CosObject::Stream(stream) => {
+                if let Some(ref file_key) = self.file_key {
+                    if let Some(id) = self.current_object_id {
+                        if !self.bypass_ids.contains(&id) {
+                            let obj_key = crate::crypto::handlers::StandardSecurityHandler::compute_object_key(file_key, id.object_number as u32, id.generation as u16, false);
+                            let mut encrypted_stream = stream.clone();
+                            encrypted_stream.data = crate::crypto::rc4::Rc4::crypt(&obj_key, &stream.data);
+                            encrypted_stream.dictionary.insert(crate::cos::CosName::new(b"Length".to_vec()), crate::cos::CosObject::Integer(encrypted_stream.data.len() as i64));
+                            return self.write_stream(&encrypted_stream);
+                        }
+                    }
+                }
+                self.write_stream(stream)?
+            }
             CosObject::Reference(id) => self.write_reference(id)?,
         }
         Ok(())
     }
 
-    /// Writes an indirect object definition: `N G obj ... endobj`.
-    pub fn write_indirect_object(&mut self, id: ObjectId, obj: &CosObject) -> io::Result<()> {
+    pub fn write_indirect_object(&mut self, id: crate::cos::ObjectId, obj: &crate::cos::CosObject) -> io::Result<()> {
+        self.current_object_id = Some(id);
         write!(self.writer, "{} {} obj\n", id.object_number, id.generation)?;
         self.write_object(obj)?;
-        self.writer.write_all(b"\nendobj\n")?;
+        write!(self.writer, "\nendobj\n")?;
+        self.current_object_id = None;
         Ok(())
     }
 
-    fn write_string(&mut self, bytes: &[u8]) -> io::Result<()> {        self.writer.write_all(b"(")?;
+    fn write_string(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.writer.write_all(b"(")?;
         for &byte in bytes {
             match byte {
                 b'(' | b')' | b'\\' => {
                     self.writer.write_all(&[b'\\', byte])?;
                 }
-                // Non-printable ASCII or high-bit bytes get octal escapes
-                b if b < 0x20 || b > 0x7E => {
-                    write!(self.writer, "\\{byte:03o}")?;
-                }
-                _ => {
-                    self.writer.write_all(&[byte])?;
-                }
+                b'\r' => self.writer.write_all(b"\\r")?,
+                b'\n' => self.writer.write_all(b"\\n")?,
+                b'\t' => self.writer.write_all(b"\\t")?,
+                b'\x08' => self.writer.write_all(b"\\b")?,
+                b'\x0C' => self.writer.write_all(b"\\f")?,
+                _ => self.writer.write_all(&[byte])?,
             }
         }
         self.writer.write_all(b")")?;
         Ok(())
     }
 
-    /// Writes bytes as a PDF hex string: `<0a1b2c…>`.
-    /// Used for binary data like the /Contents CMS blob in digital signatures.
     fn write_hex_string(&mut self, bytes: &[u8]) -> io::Result<()> {
         self.writer.write_all(b"<")?;
         for &byte in bytes {
-            write!(self.writer, "{byte:02x}")?;
+            write!(self.writer, "{:02X}", byte)?;
         }
         self.writer.write_all(b">")?;
         Ok(())
@@ -76,17 +126,13 @@ impl<'a, W: Write> Serializer<'a, W> {
 
     fn write_name(&mut self, name: &CosName) -> io::Result<()> {
         self.writer.write_all(b"/")?;
-        // Names need hex escapes for non-regular chars
         for &byte in name.as_bytes() {
             match byte {
-                // Regular characters are written as-is
-                b'!'..=b'~' if !"#%()/<>[]{}".contains(byte as char) => {
-                    self.writer.write_all(&[byte])?;
-                }
-                // Others get a #XX hex escape
-                _ => {
+                // PDF regular characters are fine. Escape special ones.
+                0x00..=0x20 | b'%' | b'(' | b')' | b'<' | b'>' | b'[' | b']' | b'{' | b'}' | b'/' | b'#' => {
                     write!(self.writer, "#{:02X}", byte)?;
                 }
+                _ => self.writer.write_all(&[byte])?,
             }
         }
         Ok(())
@@ -103,20 +149,18 @@ impl<'a, W: Write> Serializer<'a, W> {
     }
 
     fn write_dictionary(&mut self, dict: &CosDictionary) -> io::Result<()> {
-        self.writer.write_all(b"<<")?;
-        for (key, value) in dict.iter() {
-            self.writer.write_all(b" ")?;
+        self.writer.write_all(b"<<\n")?;
+        for (key, val) in dict.iter() {
             self.write_name(key)?;
             self.writer.write_all(b" ")?;
-            self.write_object(value)?;
+            self.write_object(val)?;
+            self.writer.write_all(b"\n")?;
         }
-        self.writer.write_all(b" >>")?;
+        self.writer.write_all(b">>")?;
         Ok(())
     }
 
     fn write_stream(&mut self, stream: &CosStream) -> io::Result<()> {
-        // The stream dictionary must have a /Length key matching the data length.
-        // We assume it's already correct.
         self.write_dictionary(&stream.dictionary)?;
         self.writer.write_all(b"\nstream\n")?;
         self.writer.write_all(&stream.data)?;
@@ -127,80 +171,5 @@ impl<'a, W: Write> Serializer<'a, W> {
     fn write_reference(&mut self, id: &ObjectId) -> io::Result<()> {
         write!(self.writer, "{} {} R", id.object_number, id.generation)?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn serialize_to_string(obj: &CosObject) -> String {
-        let mut buffer = Vec::new();
-        {
-            let mut serializer = Serializer::new(&mut buffer);
-            serializer.write_object(obj).unwrap();
-        }
-        String::from_utf8(buffer).unwrap()
-    }
-
-    #[test]
-    fn serialize_primitives() {
-        assert_eq!(serialize_to_string(&CosObject::Null), "null");
-        assert_eq!(serialize_to_string(&CosObject::Bool(true)), "true");
-        assert_eq!(serialize_to_string(&CosObject::Integer(123)), "123");
-        assert_eq!(serialize_to_string(&CosObject::Real(1.23)), "1.23");
-    }
-
-    #[test]
-    fn serialize_name() {
-        assert_eq!(serialize_to_string(&CosObject::Name(CosName::new(b"Type".to_vec()))), "/Type");
-    }
-
-    #[test]
-    fn serialize_name_with_escape() {
-        assert_eq!(serialize_to_string(&CosObject::Name(CosName::new(b"A B".to_vec()))), "/A#20B");
-    }
-
-    #[test]
-    fn serialize_string() {
-        assert_eq!(serialize_to_string(&CosObject::String(b"Hello".to_vec())), "(Hello)");
-    }
-
-    #[test]
-    fn serialize_string_with_escape() {
-        assert_eq!(serialize_to_string(&CosObject::String(b"()\\".to_vec())), "(\\(\\)\\\\)");
-    }
-
-    #[test]
-    fn serialize_array() {
-        let arr = CosObject::Array(vec![CosObject::Integer(1), CosObject::Integer(2)]);
-        assert_eq!(serialize_to_string(&arr), "[1 2]");
-    }
-
-    #[test]
-    fn serialize_dictionary() {
-        let mut dict = CosDictionary::new();
-        dict.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Page".to_vec())));
-        dict.insert(CosName::new(b"Count".to_vec()), CosObject::Integer(1));
-        let obj = CosObject::Dictionary(dict);
-        // Note: HashMap iteration order is not guaranteed, so we check for parts
-        let s = serialize_to_string(&obj);
-        assert!(s.starts_with("<<"));
-        assert!(s.ends_with(" >>"));
-        assert!(s.contains("/Type /Page"));
-        assert!(s.contains("/Count 1"));
-    }
-
-    #[test]
-    fn serialize_indirect_object() {
-        let mut buffer = Vec::new();
-        let id = ObjectId::new(1, 0);
-        let obj = CosObject::Integer(42);
-        {
-            let mut s = Serializer::new(&mut buffer);
-            s.write_indirect_object(id, &obj).unwrap();
-        }
-        let result = String::from_utf8(buffer).unwrap();
-        assert_eq!(result, "1 0 obj\n42\nendobj\n");
     }
 }

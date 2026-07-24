@@ -1,0 +1,27 @@
+strict parse: parse error at byte 6485672: unknown xref stream entry type 173 — retrying lenient…
+Loading /Users/fdimarh/Downloads/2024sk-kma260_KMA_SK.KP5_XII_2024.pdf... ok (6486636 bytes, lenient)
+Compressing (mode=less) ...
+Saving /Users/fdimarh/Downloads/compressed rust-pdfbox/out_less.pdf... ok
+
+── Compression report ──────────────────────────────────────────
+  Input size           :    6507533 bytes
+  Output size          :    6496295 bytes
+  Reduction            :       0.2%
+
+  Streams recompressed :     42
+  Images resampled     :      0
+  Images PNG optimized :      0
+  Images CMYK→sRGB     :      0
+  Images →gray         :      0
+  Fonts subsetted      :      0
+  Fonts removed        :      0
+  Objects deduped      :     50
+  Objects removed      :      1
+  Errors skipped       :      0
+
+  Saved (streams)      :       2215 bytes
+  Saved (images)       :          0 bytes
+  Saved (fonts)        :          0 bytes
+  Saved (dedup)        :       6400 bytes
+  Saved (metadata)     :       3245 bytes
+────────────────────────────────────────────────────────────────

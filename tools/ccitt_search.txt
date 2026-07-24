@@ -1,0 +1,10 @@
+hayro-ccitt = "0.3.0"                     # A decoder for group 3 and group 4 CCITT images.
+ccitt-t4-t6 = "0.1.0"                     # Implementation of ITU-T T.4 & T.6 (CCITTFaxDecode)
+fax = "0.2.6"                             # Decoder and Encoder for CCITT Group 3 and 4 bi-level image encodings used by fax mach…
+ai-fax = "0.2.6"                          # A no_std fork of fax
+dpdk-cyclic-redundancy-check = "0.1.1"    # A wrapper around DPDK's Cyclic Redundancy Check (CRC) functionality
+fax = "0.2.6"           # Decoder and Encoder for CCITT Group 3 and 4 bi-level image encodings used by fax machines TIFF and PDF.
+icogen = "1.2.0"        # Quickly convert image files into Windows .ico files
+icon-pie = "0.0.0"      # A simple command-line tool for generating application icons.
+icon_baker = "0.0.0"    # A simple solution for encoding common icon file formats.
+iconwriter = "2.0.1"    # A simple solution for encoding common icon file formats.

@@ -1,0 +1,10 @@
+   Compiling adler32 v1.2.0
+   Compiling jbig2dec-sys v0.19.0
+   Compiling byteorder v1.5.0
+   Compiling bitflags v1.3.2
+   Compiling miniz_oxide v0.3.7
+   Compiling deflate v0.8.6
+   Compiling png v0.16.8
+   Compiling nipdf-jbig2dec v0.4.1
+   Compiling rust-pdfbox v0.1.0 (/Users/fdimarh/Documents/Lab/Rustlab/pdf/rust-pdfbox)
+    Finished `release` profile [optimized] target(s) in 1m 39s

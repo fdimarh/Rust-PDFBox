@@ -578,7 +578,7 @@ pub fn append_dss_dictionary(
 
     // Write incremental update
     let mut out = Vec::with_capacity(pdf_bytes.len() + 32768);
-    IncrementalWriter::write_update(&pdf_bytes, &doc, &changed, &mut out)
+    IncrementalWriter::write_update(&pdf_bytes, &doc, &changed, std::collections::HashSet::new(), &mut out)
         .map_err(|e| PdfError::Parse { offset: None, context: format!("DSS write: {e}") })?;
 
     Ok(out)

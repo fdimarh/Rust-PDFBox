@@ -1,0 +1,19 @@
+   Compiling rust-pdfbox v0.1.0 (/Users/fdimarh/Documents/Lab/Rustlab/pdf/rust-pdfbox)
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+   --> src/compress/version.rs:228:22
+    |
+228 |     let compressed = deflate_best(&full).map_err(|e| crate::PdfError::Compress {
+    |                      ^^^^^^^^^^^^------- argument #2 of type `bool` is missing
+    |
+note: function defined here
+   --> src/compress/streams.rs:170:15
+    |
+170 | pub(crate) fn deflate_best(data: &[u8], use_zopfli: bool) -> Result<Vec<u8>, std::io::Error> {
+    |               ^^^^^^^^^^^^              ----------------
+help: provide the argument
+    |
+228 |     let compressed = deflate_best(&full, /* bool */).map_err(|e| crate::PdfError::Compress {
+    |                                        ++++++++++++
+
+For more information about this error, try `rustc --explain E0061`.
+error: could not compile `rust-pdfbox` (lib) due to 1 previous error

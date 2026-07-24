@@ -559,11 +559,12 @@ pub struct Document {
     pub xref: XRefTable,
     /// All eagerly loaded indirect objects.
     pub objects: ObjectStore,
-    /// Shared source bytes — `Arc<[u8]>` so callers can hold a reference
-    /// without copying. `None` when the document was constructed without
-    /// retaining the raw buffer (e.g. after a write round-trip).
-    source_bytes: Option<Arc<[u8]>>,
-    /// On-demand stream decoder cache — populated lazily on first decode.
+    /// Retains the original PDF source bytes for operations that need them
+    /// (e.g. searching, hashing, parsing raw streams). `None` when constructed
+    /// purely in memory.
+    pub source_bytes: Option<Arc<[u8]>>,
+    /// Active encryption key if the document is unlocked/protected.
+    pub file_encryption_key: Option<Vec<u8>>,
     stream_cache: Arc<Mutex<StreamCache>>,
 }
 
@@ -575,6 +576,7 @@ impl Document {
             xref: XRefTable::new(),
             objects: ObjectStore::new(),
             source_bytes: None,
+            file_encryption_key: None,
             stream_cache: Arc::new(Mutex::new(StreamCache::new())),
         }
     }
@@ -599,6 +601,114 @@ impl Document {
     /// 2. Discover `startxref` offset.
     /// 3. Parse all xref sections (table or stream), following `Prev` chains.
     /// 4. Eagerly load all in-use objects from the xref table into the object store.
+    /// Decrypts the document in memory using the provided password.
+    /// Traverses all loaded objects and decrypts Strings/Streams on-the-fly.
+    /// Stores computed file key for subsequent encrypted incremental writes.
+    pub fn decrypt(&mut self, password: &str) -> Result<(), PdfError> {
+        use crate::crypto::{EncryptionDict, StandardSecurityHandler, AuthResult};
+
+        // Get /Encrypt object reference from trailer
+        let encrypt_ref = match self.trailer().get(&crate::cos::CosName::new(b"Encrypt".to_vec())) {
+            Some(obj) => obj.clone(),
+            None => return Ok(()), // Not encrypted
+        };
+
+        // Resolve /Encrypt dictionary
+        let encrypt_dict = match &encrypt_ref {
+            crate::cos::CosObject::Dictionary(d) => d.clone(),
+            crate::cos::CosObject::Reference(id) => {
+                match self.objects.get(id) {
+                    Some(crate::cos::CosObject::Dictionary(d)) => d.clone(),
+                    _ => return Err(PdfError::Parse { offset: None, context: "Encrypt entry is not a dictionary".into() }),
+                }
+            }
+            _ => return Err(PdfError::Parse { offset: None, context: "Encrypt entry is not a dictionary".into() }),
+        };
+
+        // Get document /ID
+        let id_arr = match self.trailer().get(&crate::cos::CosName::new(b"ID".to_vec())) {
+            Some(crate::cos::CosObject::Array(arr)) if !arr.is_empty() => arr.clone(),
+            _ => return Err(PdfError::Parse { offset: None, context: "Missing /ID in trailer".into() }),
+        };
+        let document_id = match &id_arr[0] {
+            crate::cos::CosObject::String(b) | crate::cos::CosObject::HexString(b) => b.clone(),
+            _ => return Err(PdfError::Parse { offset: None, context: "Invalid /ID format".into() }),
+        };
+
+        // Build EncryptionDict from parsed dict manually
+        let get_int = |key: &[u8], default: i64| -> i64 {
+            encrypt_dict.get(&crate::cos::CosName::new(key.to_vec()))
+                .and_then(|o| if let crate::cos::CosObject::Integer(n) = o { Some(*n) } else { None })
+                .unwrap_or(default)
+        };
+        let get_bytes = |key: &[u8]| -> Vec<u8> {
+            encrypt_dict.get(&crate::cos::CosName::new(key.to_vec()))
+                .and_then(|o| match o {
+                    crate::cos::CosObject::String(b) | crate::cos::CosObject::HexString(b) => Some(b.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default()
+        };
+        let revision = get_int(b"R", 2) as u8;
+        let key_length = (get_int(b"Length", 40) / 8) as usize;
+        let permissions = crate::crypto::Permissions::from_bits_p(get_int(b"P", -4) as i32);
+        let crypt_filter = encrypt_dict.get(&crate::cos::CosName::new(b"StmF".to_vec()))
+            .and_then(|o| if let crate::cos::CosObject::Name(n) = o { Some(String::from_utf8_lossy(n.as_bytes()).to_string()) } else { None });
+        let enc_dict = EncryptionDict {
+            revision,
+            key_length,
+            o_entry: get_bytes(b"O"),
+            u_entry: get_bytes(b"U"),
+            permissions,
+            crypt_filter,
+        };
+
+        // Authenticate
+        let result = StandardSecurityHandler::authenticate(&enc_dict, password.as_bytes(), &document_id);
+        let file_key = match result {
+            AuthResult::UserPassword(k) | AuthResult::OwnerPassword(k) => k,
+            AuthResult::Failed => return Err(PdfError::Parse { offset: None, context: format!("Password authentication failed") }),
+        };
+
+        self.file_encryption_key = Some(file_key.clone());
+
+        // Traverse and decrypt all objects
+        let ids: Vec<_> = self.objects.keys().cloned().collect();
+        for id in ids {
+            let use_aes = enc_dict.crypt_filter.as_deref().map(|f| f.contains("AES")).unwrap_or(false) || enc_dict.revision >= 4;
+            if let Some(obj) = self.objects.get_mut(&id) {
+                Self::decrypt_obj_recursive(obj, &file_key, id.object_number as u32, id.generation as u16, use_aes);
+            }
+        }
+        Ok(())
+    }
+
+    fn decrypt_obj_recursive(obj: &mut crate::cos::CosObject, file_key: &[u8], obj_num: u32, gen_num: u16, use_aes: bool) {
+        use crate::crypto::StandardSecurityHandler;
+        match obj {
+            crate::cos::CosObject::String(b) | crate::cos::CosObject::HexString(b) => {
+                *b = StandardSecurityHandler::decrypt_object(file_key, obj_num, gen_num, b, use_aes);
+            }
+            crate::cos::CosObject::Array(arr) => {
+                for item in arr.iter_mut() { Self::decrypt_obj_recursive(item, file_key, obj_num, gen_num, use_aes); }
+            }
+            crate::cos::CosObject::Dictionary(dict) => {
+                let keys: Vec<_> = dict.keys().cloned().collect();
+                for k in keys {
+                    if let Some(v) = dict.get_mut(&k) { Self::decrypt_obj_recursive(v, file_key, obj_num, gen_num, use_aes); }
+                }
+            }
+            crate::cos::CosObject::Stream(s) => {
+                s.data = StandardSecurityHandler::decrypt_object(file_key, obj_num, gen_num, &s.data, use_aes);
+                let keys: Vec<_> = s.dictionary.keys().cloned().collect();
+                for k in keys {
+                    if let Some(v) = s.dictionary.get_mut(&k) { Self::decrypt_obj_recursive(v, file_key, obj_num, gen_num, use_aes); }
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub fn load_from_bytes(bytes: &[u8]) -> PdfResult<Self> {
         // Step 1 — header check.
         if !looks_like_pdf_header(bytes) {
@@ -690,7 +800,7 @@ impl Document {
             source_len: bytes.len(),
             xref,
             objects,
-            source_bytes: Some(Arc::from(bytes)),
+            source_bytes: Some(Arc::from(bytes)), file_encryption_key: None,
             stream_cache: Arc::new(Mutex::new(StreamCache::new())),
         })
     }
@@ -999,7 +1109,7 @@ impl Document {
             source_len: bytes.len(),
             xref,
             objects,
-            source_bytes: Some(Arc::from(bytes)),
+            source_bytes: Some(Arc::from(bytes)), file_encryption_key: None,
             stream_cache: Arc::new(Mutex::new(StreamCache::new())),
         };
         (doc, report)
@@ -1030,7 +1140,7 @@ impl Document {
         changed: &std::collections::BTreeMap<PdfObjectId, cos::CosObject>,
         out: &mut W,
     ) -> std_io::Result<()> {
-        writer::IncrementalWriter::write_update(original, self, changed, out)
+        writer::IncrementalWriter::write_update(original, self, changed, std::collections::HashSet::new(), out)
     }
 
     // ── Compression API (Bonus 11) ────────────────────────────────────────────

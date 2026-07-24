@@ -144,7 +144,7 @@ impl StandardSecurityHandler {
         ciphertext: &[u8],
         use_aes: bool,
     ) -> Vec<u8> {
-        let obj_key = Self::per_object_key(file_key, object_number, generation, use_aes);
+        let obj_key = Self::compute_object_key(file_key, object_number, generation, use_aes);
         if use_aes {
             // AES-128 CBC: first 16 bytes of ciphertext are the IV.
             if ciphertext.len() < 16 {
@@ -294,17 +294,18 @@ impl StandardSecurityHandler {
     ) -> Vec<u8> {
         let mut input = Vec::with_capacity(file_key.len() + 9);
         input.extend_from_slice(file_key);
-        // Append low 3 bytes of object number (little-endian)
-        input.push((object_number & 0xFF) as u8);
-        input.push(((object_number >> 8) & 0xFF) as u8);
-        input.push(((object_number >> 16) & 0xFF) as u8);
-        // Append low 2 bytes of generation (little-endian)
-        input.push((generation & 0xFF) as u8);
-        input.push(((generation >> 8) & 0xFF) as u8);
-        if use_aes {
-            // AES salt bytes
+
+        input.push((obj_num & 0xFF) as u8);
+        input.push(((obj_num >> 8) & 0xFF) as u8);
+        input.push(((obj_num >> 16) & 0xFF) as u8);
+
+        input.push((gen_num & 0xFF) as u8);
+        input.push(((gen_num >> 8) & 0xFF) as u8);
+        if is_aes {
             input.extend_from_slice(b"sAlT");
         }
+        
+        // Return MD5 hash up to (len+5) max 16 bytes
         let digest = md5(&input);
         let len = (file_key.len() + 5).min(16);
         digest[..len].to_vec()

@@ -1,0 +1,6 @@
+   Compiling zopfli v0.8.3
+   Compiling fax_derive v0.2.0
+   Compiling oxipng v9.1.5
+   Compiling fax v0.2.6
+   Compiling rust-pdfbox v0.1.0 (/Users/fdimarh/Documents/Lab/Rustlab/pdf/rust-pdfbox)
+    Finished `release` profile [optimized] target(s) in 1m 14s

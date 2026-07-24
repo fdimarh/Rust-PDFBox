@@ -1,0 +1,5 @@
+JBIG2 stream: 139662 bytes, 5149x8430
+jbig2dec exit: 0
+stderr: b''
+PBM output: 5428933 bytes (5.2 MB)
+PBM header: b'P4\n' b'5149 8430\n'
