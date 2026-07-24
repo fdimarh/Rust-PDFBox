@@ -359,7 +359,7 @@ fn main() {
 
     // ── 6. Sign ──
     println!("  Signing …");
-    let signed = sign_pdf(&pdf_bytes, &cert_pem, &key_pem, &opts)
+    let signed = sign_pdf(&pdf_bytes, &cert_pem, &key_pem, None, &opts)
         .unwrap_or_else(|e| {
             eprintln!("Signing failed: {e}"); process::exit(1);
         });
