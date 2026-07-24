@@ -239,6 +239,8 @@ fn collect_sig_fields(doc: &Document) -> Vec<SigField> {
 
         out.push(SigField { field_name: name, sig_dict_id: sig_id, is_doc_ts: is_ts });
     }
+    // Reverse so earliest signature comes first
+    out.reverse();
     out
 }
 

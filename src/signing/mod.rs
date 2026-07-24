@@ -599,7 +599,7 @@ fn sign_pdf_with_changes(
 
     // ── Step 6: locate ByteRange and Contents placeholders ────────────────
     let (br_offset, contents_offset, contents_hex_len) =
-        find_sig_placeholders(&first_pass, &opts.field_name)?;
+        find_last_sig_placeholders(&first_pass)?;
 
     let range0_end:   i64 = contents_offset as i64;
     let range1_start: i64 = (contents_offset + contents_hex_len) as i64;
