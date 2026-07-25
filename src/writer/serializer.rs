@@ -161,12 +161,6 @@ impl<'a, W: Write> Serializer<'a, W> {
                                 CosName::new(b"Length".to_vec()),
                                 CosObject::Integer(enc_stream.data.len() as i64),
                             );
-                            if self.encryption_mode != EncryptionMode::Rc4 && self.encryption_mode != EncryptionMode::None {
-                                enc_stream.dictionary.insert(
-                                    CosName::new(b"Filter".to_vec()),
-                                    CosObject::Name(CosName::new(b"Crypt".to_vec())),
-                                );
-                            }
                             return self.write_stream(&enc_stream);
                         }
                     }

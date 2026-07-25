@@ -1,37 +1,41 @@
-# Rust PDFBox (Port of Apache PDFBox)
+# rust-pdfbox
 
-## Project Status: MATURE (85% Complete)
+This is a partial Rust port of Apache PDFBox, focused on providing specific PDF manipulation capabilities. It is not a full-featured PDF library but is designed to support specific use cases, such as digital signing and encryption.
 
-This project is a massive, highly-functional Rust port of the Java Apache PDFBox 3.x library. 
-It currently contains **87 source files** and over **27,500 lines of code** with deep ISO 32000-1 (PDF) specification compliance.
+## Features
 
-Unlike many "abandoned" ports, this project is substantially complete for most day-to-day PDF manipulation tasks, offering features that even the original Java version lacks natively (such as an 8-pass PDF compressor).
+- **PDF Parsing:** Low-level support for parsing PDF documents, including objects, streams, and cross-reference tables.
+- **Incremental Writing:** Support for creating incremental updates to existing PDFs.
+- **Encryption and Decryption:**
+    - Decrypts password-protected PDFs (RC4, AES-128, AES-256).
+    - **New:** Encrypts unencrypted PDFs using `Document::protect()` with AES-256 (Revision 6) encryption.
+- **Digital Signatures:** Provides hooks for creating digital signature placeholders and embedding CMS signatures.
 
-### ✅ What Works (Parity Achieved)
-- **COS & Parsing (`src/cos`, `src/parser`)**: Strict and Lenient (malformed) parsing, ObjStm, XRef streams.
-- **PDModel & Content (`src/pdmodel`, `src/content`)**: Full page tree and content stream tokenizer.
-- **Fonts (`src/font`)**: TrueType, Type0/CID, CMap, and Encodings (Parity with Java `fontbox`).
-- **Text & Image Extraction (`src/text`, `src/image_extract`)**: Parity with `PDFTextStripper`.
-- **Forms (`src/forms`)**: Full AcroForm (Read/Write/Flatten) and XFA hybrid support.
-- **Digital Signatures (`src/signing`)**: Advanced PKCS#7 / PAdES (B-B/T/LT/LTA), LTV, Document Timestamps.
-- **Page Ops (`src/pageops`)**: Merge, Split, Rotate, Extract, Overlay, Watermark.
-- **Bonus: Compression (`src/compress`)**: Advanced 8-pass compression pipeline.
+## Usage
 
-### 🚧 What is Missing (The Remaining 15%)
-To achieve 100% full parity with Apache PDFBox 3.x, the following areas require implementation:
+### Encrypting a PDF
 
-1. **Rendering (`PDFRenderer` parity):** 
-   - Scaffolded using `tiny-skia` and `ab_glyph`.
-   - `src/render/` scaffolded with `tiny-skia`.
-2. **Advanced Stream Filters (`src/io`):**
-   - `CCITTFaxDecode` (TIFF G3/G4), `DCTDecode`, and `JPXDecode` are pass-through stubs.
-3. **PDF/A Preflight Validation (`preflight` parity):**
-   - Rules engine and `FontEmbeddingRule` scaffolded.
-4. **Advanced Encryption (`src/crypto`):**
-   - `AES-128`, `AES-256` Rev 5/6 wired.
-   - **TTE Encrypted Support (Multi-Signature):** Native AES-256 decryption, Incremental Signature Updating, and raw PKCS#7 CMS bypass implemented (100% Adobe/Foxit compliant password-protected signatures).
-5. **CLI Tools & Color Profiling:**
-   - Scaffolded `pdfbox.rs` using `clap` and LCMS integration wired.
+To encrypt a PDF, you can use the `Document::protect()` method. This will set up the necessary encryption dictionary and key, which will be used when the document is saved.
 
-## Documentation
-- `FULL_PDFBOX_PARITY_PLAN.md` has been updated to reflect the exact gaps.
+```rust,ignore
+use rust_pdfbox::Document;
+use rust_pdfbox::protection::StandardProtectionPolicy;
+use rust_pdfbox::crypto::Permissions;
+
+// Load an unencrypted PDF
+let mut doc = Document::load("unencrypted.pdf")?;
+
+// Create a protection policy
+let policy = StandardProtectionPolicy::new(
+    "owner-password",
+    "user-password",
+    Permissions::all_allowed(),
+);
+
+// Apply the protection policy
+doc.protect(&policy)?;
+
+// Save the encrypted document
+let mut file = std::fs::File::create("encrypted.pdf")?;
+doc.save_encrypted(&mut file)?;
+```

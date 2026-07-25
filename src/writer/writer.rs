@@ -5,20 +5,27 @@
 //! support incremental updates.
 
 use std::io::{self, Write, Seek, SeekFrom};
-use std::collections::BTreeMap;
-use crate::cos::{CosObject, CosName, ObjectId};
+use std::collections::{BTreeMap, HashSet};
+use crate::cos::{CosObject, CosName, ObjectId, CosDictionary};
 use crate::Document;
 use super::serializer::Serializer;
 
 /// Writes a `Document` to an output stream.
 pub struct Writer<W: Write> {
     writer: W,
+    file_key: Option<Vec<u8>>,
+    bypass_ids: HashSet<ObjectId>,
 }
 
 impl<W: Write + Seek> Writer<W> {
     /// Creates a new writer for the given output stream.
     pub fn new(writer: W) -> Self {
-        Self { writer }
+        Self { writer, file_key: None, bypass_ids: HashSet::new() }
+    }
+
+    /// Creates a writer that encrypts strings and streams on-the-fly.
+    pub fn new_encrypted(writer: W, file_key: Option<Vec<u8>>, bypass_ids: HashSet<ObjectId>) -> Self {
+        Self { writer, file_key, bypass_ids }
     }
 
     /// Writes the entire `Document` to the output stream.
@@ -36,8 +43,13 @@ impl<W: Write + Seek> Writer<W> {
         for (id, obj) in sorted_ids {
             let offset = self.writer.seek(SeekFrom::Current(0))?;
             object_offsets.insert(*id, offset);
-            let mut serializer = Serializer::new(&mut self.writer);
-            serializer.write_indirect_object(*id, obj)?;
+            if self.file_key.is_some() {
+                let mut serializer = Serializer::new_encrypted(&mut self.writer, self.file_key.clone(), self.bypass_ids.clone());
+                serializer.write_indirect_object(*id, obj)?;
+            } else {
+                let mut serializer = Serializer::new(&mut self.writer);
+                serializer.write_indirect_object(*id, obj)?;
+            }
         }
 
         // 3. Write the new xref table
@@ -58,16 +70,15 @@ impl<W: Write + Seek> Writer<W> {
         write!(self.writer, "0 {}\n", max_id + 1)?;
 
         // Object 0 is always the free list head
-        self.writer.write_all(b"0000000000 65535 f \r\n")?;
+        self.writer.write_all(b"0000000000 65535 f \n")?;
 
         for i in 1..=max_id {
             let found = offsets.keys().find(|id| id.object_number == i);
             if let Some(id) = found {
                 let offset = offsets[id];
-                write!(self.writer, "{:010} {:05} n \r\n", offset, id.generation)?;
+                write!(self.writer, "{:010} {:05} n \n", offset, id.generation)?;
             } else {
-                // This object ID is unused in the document
-                self.writer.write_all(b"0000000000 65535 f \r\n")?;
+                self.writer.write_all(b"0000000000 65535 f \n")?;
             }
         }
         Ok(())

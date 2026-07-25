@@ -138,6 +138,118 @@ impl StandardSecurityHandler {
         AuthResult::Failed
     }
 
+    pub fn prepare_for_encryption(
+        policy: &crate::protection::StandardProtectionPolicy,
+        _file_id: &[crate::cos::CosObject],
+    ) -> Result<(crate::cos::CosObject, Vec<u8>), crate::parser::ParseError> {
+        use rand::RngCore;
+        use crate::cos::{CosDictionary, CosObject, CosName};
+        
+        let revision = 6;
+        let key_length_bits = 256;
+        let key_length_bytes = key_length_bits / 8;
+        // For Rev 6, /P is always -4
+        let perms_flags: i32 = -4;
+        let mut file_key = vec![0; key_length_bytes];
+        rand::thread_rng().fill_bytes(&mut file_key);
+        let owner_pass = policy.owner_password.as_bytes();
+        let user_pass = policy.user_password.as_deref().unwrap_or("").as_bytes();
+        let (o_entry, u_entry, oe_entry, ue_entry) = Self::compute_encryption_keys_r6(
+            owner_pass,
+            user_pass,
+            &file_key,
+        );
+        let mut enc_dict = CosDictionary::new();
+        enc_dict.set(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(b"Standard".to_vec())));
+        enc_dict.set(CosName::new(b"V".to_vec()), CosObject::Integer(5));
+        enc_dict.set(CosName::new(b"Length".to_vec()), CosObject::Integer(256));
+        enc_dict.set(CosName::new(b"R".to_vec()), CosObject::Integer(revision as i64));
+        enc_dict.set(CosName::new(b"O".to_vec()), CosObject::HexString(o_entry));
+        enc_dict.set(CosName::new(b"U".to_vec()), CosObject::HexString(u_entry));
+        enc_dict.set(CosName::new(b"OE".to_vec()), CosObject::HexString(oe_entry));
+        enc_dict.set(CosName::new(b"UE".to_vec()), CosObject::HexString(ue_entry));
+        enc_dict.set(CosName::new(b"P".to_vec()), CosObject::Integer(perms_flags as i64));
+        // /Perms: AES-256-CBC with zero IV, no IV prepend, no padding (16 bytes input)
+        let perms_clear = Self::compute_perms_v5_clear(perms_flags);
+        let zero_iv = [0u8; 16];
+        let perms_cipher = crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&file_key, &zero_iv, &perms_clear);
+        let perms_value = perms_cipher[..16.min(perms_cipher.len())].to_vec();
+        enc_dict.set(CosName::new(b"Perms".to_vec()), CosObject::HexString(perms_value));
+        let mut std_cf = CosDictionary::new();
+        std_cf.set(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"CryptFilter".to_vec())));
+        std_cf.set(CosName::new(b"CFM".to_vec()), CosObject::Name(CosName::new(b"AESV3".to_vec())));
+        std_cf.set(CosName::new(b"AuthEvent".to_vec()), CosObject::Name(CosName::new(b"DocOpen".to_vec())));
+        std_cf.set(CosName::new(b"Length".to_vec()), CosObject::Integer(key_length_bytes as i64));
+        let mut cf = CosDictionary::new();
+        cf.set(CosName::new(b"StdCF".to_vec()), CosObject::Dictionary(std_cf));
+        enc_dict.set(CosName::new(b"CF".to_vec()), CosObject::Dictionary(cf));
+        enc_dict.set(CosName::new(b"StmF".to_vec()), CosObject::Name(CosName::new(b"StdCF".to_vec())));
+        enc_dict.set(CosName::new(b"StrF".to_vec()), CosObject::Name(CosName::new(b"StdCF".to_vec())));
+        Ok((CosObject::Dictionary(enc_dict), file_key))
+    }
+
+    fn compute_perms_v5_clear(p: i32) -> [u8; 16] {
+        let mut out = [0u8; 16];
+        // Bytes 0-3: P value (little-endian)
+        out[..4].copy_from_slice(&(p as u32).to_le_bytes());
+        // Bytes 4-7: 0xFFFFFFFF
+        out[4..8].copy_from_slice(&0xFFFFFFFFu32.to_le_bytes());
+        // Bytes 8-11: "Tadb"
+        out[8..12].copy_from_slice(b"Tadb");
+        // Bytes 12-15: random
+        use rand::RngCore;
+        rand::thread_rng().fill_bytes(&mut out[12..16]);
+        out
+    }
+
+    fn compute_encryption_keys_r6(
+        owner_pass: &[u8],
+        user_pass: &[u8],
+        file_key: &[u8],
+    ) -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
+        use rand::Rng;
+        use crate::crypto::rev56::hash_v5;
+        let mut rng = rand::thread_rng();
+
+        // === User Password (Algorithm 8) ===
+        let mut user_validation_salt = [0u8; 8];
+        rng.fill(&mut user_validation_salt);
+        let mut user_key_salt = [0u8; 8];
+        rng.fill(&mut user_key_salt);
+
+        // U = hash_v5(user_pass, validation_salt, "") + validation_salt + key_salt
+        let u_hash = hash_v5(user_pass, &user_validation_salt, &[], 6);
+        let mut u_entry = u_hash[..32].to_vec();
+        u_entry.extend_from_slice(&user_validation_salt);
+        u_entry.extend_from_slice(&user_key_salt);
+
+        // UE: intermediate_key = hash_v5(user_pass, key_salt, ""), encrypt file_key with zero IV
+        let ue_key = hash_v5(user_pass, &user_key_salt, &[], 6);
+        let zero_iv = [0u8; 16];
+        let ue_cipher = crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&ue_key, &zero_iv, file_key);
+        let ue_entry = ue_cipher[..32.min(ue_cipher.len())].to_vec();
+
+        // === Owner Password (Algorithm 9) ===
+        let mut owner_validation_salt = [0u8; 8];
+        rng.fill(&mut owner_validation_salt);
+        let mut owner_key_salt = [0u8; 8];
+        rng.fill(&mut owner_key_salt);
+
+        // O = hash_v5(owner_pass, validation_salt, U) + validation_salt + key_salt
+        // U here is the FULL 48-byte user password entry
+        let o_hash = hash_v5(owner_pass, &owner_validation_salt, &u_entry, 6);
+        let mut o_entry = o_hash[..32].to_vec();
+        o_entry.extend_from_slice(&owner_validation_salt);
+        o_entry.extend_from_slice(&owner_key_salt);
+
+        // OE: intermediate_key = hash_v5(owner_pass, key_salt, U), encrypt file_key with zero IV
+        let oe_key = hash_v5(owner_pass, &owner_key_salt, &u_entry, 6);
+        let oe_cipher = crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&oe_key, &zero_iv, file_key);
+        let oe_entry = oe_cipher[..32.min(oe_cipher.len())].to_vec();
+
+        (o_entry, u_entry, oe_entry, ue_entry)
+    }
+
     /// Decrypts `ciphertext` using the file encryption key and object ID.
     ///
     /// For streams and strings, each object gets a per-object key derived by
@@ -190,9 +302,19 @@ impl StandardSecurityHandler {
     ) -> Vec<u8> {
         // Dispatch to Rev 5 / 6 implementations
         if enc.revision >= 6 {
-            return crate::crypto::rev56::recover_encryption_key_r6(
+            // Try user password first
+            if let Some(key) = crate::crypto::rev56::recover_encryption_key_r6(
                 password, &enc.u_entry, &enc.ue_entry
-            ).unwrap_or_default();
+            ) {
+                return key;
+            }
+            // Try owner password
+            if let Some(key) = crate::crypto::rev56::recover_encryption_key_r6_owner(
+                password, &enc.o_entry, &enc.u_entry, &enc.oe_entry
+            ) {
+                return key;
+            }
+            return Vec::new();
         } else if enc.revision == 5 {
             if enc.u_entry.len() >= 48 {
                 let validation_salt = &enc.u_entry[32..40];

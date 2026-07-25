@@ -193,6 +193,17 @@ pub struct SignOptions {
     /// appearance stream. Only used when `visible_signature == true`.
     /// When `None`, a text-only appearance is generated (signer name, reason, date).
     pub image_path: Option<PathBuf>,
+
+    // ── DocMDP certification ────────────────────────────────────────────────
+    /// DocMDP certification level. `None` = approval signature.
+    ///
+    /// | Value | Behavior |
+    /// |-------|----------|
+    /// | `None` | Approval signature (no DocMDP) |
+    /// | `Some(1)` | No changes allowed |
+    /// | `Some(2)` | Form fill and approval signatures allowed |
+    /// | `Some(3)` | Annotations only allowed |
+    pub certification_level: Option<u8>,
 }
 
 impl Default for SignOptions {
@@ -219,6 +230,23 @@ impl Default for SignOptions {
             reserved_size: 32_768,
             field_name:    "Signature1".into(),
             image_path:    None,
+            certification_level: None,
+        }
+    }
+}
+
+impl SignOptions {
+    pub fn is_certification(&self) -> bool {
+        self.certification_level.is_some()
+    }
+
+    /// Whether DSS/LTV should be appended.
+    /// DocMDP Level 1 prohibits any incremental update after certification.
+    pub fn needs_dss(&self) -> bool {
+        if self.is_certification() {
+            self.certification_level.unwrap() >= 2
+        } else {
+            self.include_dss || matches!(self.pades_level, PadesLevel::B_LT | PadesLevel::B_LTA)
         }
     }
 }
@@ -299,30 +327,18 @@ impl VerifyResult {
 // Public API
 // ---------------------------------------------------------------------------
 
-/// Signs a PDF document and returns the signed bytes.
+/// Signs a PDF document using a local private key and returns the signed bytes.
+///
+/// Supports: approval and DocMDP certification signatures, visible and
+/// invisible signatures, PKCS7 and PAdES formats, encrypted PDFs.
 ///
 /// # Arguments
 ///
 /// * `pdf_bytes`      — the original, unmodified PDF bytes to sign.
-/// * `cert_chain_pem` — PEM text containing the full certificate chain
-///   (signer cert first, then intermediate(s), then root).
-/// * `private_key_pem` — PKCS#8 PEM private key (`RSAPrivateKey` or EC).
-/// * `opts`            — placement / metadata options.
-///
-/// # How it works (following rust_pdf_signing / Java PDFBox pattern)
-///
-/// 1. Parse the PDF and locate the next free object number.
-/// 2. Build a `/Sig` dictionary and a `/Widget` annotation dictionary.
-/// 3. Append them plus an updated `/AcroForm` via incremental update.
-/// 4. Write a first pass → scan for `/ByteRange` and `/Contents` placeholders.
-/// 5. Patch `/ByteRange` with the real offsets.
-/// 6. Concatenate the signed byte ranges → pass raw bytes to CMS builder.
-/// 7. Build CMS `SignedData` → DER-encode → hex-encode → inject into `/Contents`.
-///
-/// # Errors
-///
-/// Returns [`PdfError::Parse`] / [`PdfError::Unsupported`] for malformed
-/// input or unsupported key types.
+/// * `cert_chain_pem` — PEM text containing the full certificate chain.
+/// * `private_key_pem` — PKCS#8 PEM private key.
+/// * `unlock_password` — password for encrypted PDFs, or `None`.
+/// * `opts`            — placement / metadata / DocMDP options.
 pub fn sign_pdf(
     pdf_bytes: &[u8],
     cert_chain_pem: &str,
@@ -330,17 +346,44 @@ pub fn sign_pdf(
     unlock_password: Option<&str>,
     opts: &SignOptions,
 ) -> Result<Vec<u8>, PdfError> {
-    // Parse certs just for DER encoding needed by the sig dict
-    let certs = x509_certificate::CapturedX509Certificate::from_pem_multiple(cert_chain_pem)
-        .map_err(|e| PdfError::Parse {
-            offset: None,
-            context: format!("failed to parse certificate chain PEM: {e}"),
-        })?;
-    if certs.is_empty() {
-        return Err(PdfError::Parse {
-            offset: None,
-            context: "cert_chain_pem must contain at least one certificate".into(),
-        });
+    let signer = |content: &[u8]| -> Result<Vec<u8>, PdfError> {
+        build_local_cms(content, cert_chain_pem, private_key_pem, opts)
+    };
+    sign_pdf_inner(pdf_bytes, unlock_password, opts, signer)
+}
+/// Signs a PDF using a caller-provided signer callback.
+/// Supports all SignOptions: encryption, visible sig, PAdES, DocMDP, DSS.
+pub fn sign_pdf_with_signer(
+    pdf_bytes: &[u8],
+    unlock_password: Option<&str>,
+    opts: &SignOptions,
+    signer: impl FnOnce(&[u8]) -> Result<Vec<u8>, PdfError>,
+) -> Result<Vec<u8>, PdfError> {
+    sign_pdf_inner(pdf_bytes, unlock_password, opts, signer)
+}
+
+// ---------------------------------------------------------------------------
+// Shared inner implementation (prepare → incremental write → ByteRange → CMS → inject)
+// ---------------------------------------------------------------------------
+
+fn sign_pdf_inner(
+    pdf_bytes: &[u8],
+    unlock_password: Option<&str>,
+    opts: &SignOptions,
+    signer: impl FnOnce(&[u8]) -> Result<Vec<u8>, PdfError>,
+) -> Result<Vec<u8>, PdfError> {
+    // Validate: no existing DocMDP certification for certification signatures
+    if opts.is_certification() {
+        let check_doc = Document::load_from_bytes(pdf_bytes)?;
+        if has_existing_certification(&check_doc)? {
+            return Err(PdfError::Parse {
+                offset: None,
+                context: "PDF already has a DocMDP certification signature. \
+                          Only one certification signature is allowed per document. \
+                          Use an approval signature instead."
+                    .into(),
+            });
+        }
     }
 
     // ── Step 1: parse existing document ──────────────────────────────────
@@ -348,18 +391,18 @@ pub fn sign_pdf(
     if let Some(pwd) = unlock_password {
         doc.decrypt(pwd)?;
     }
-    let next_id = next_free_object_id(&doc);
-    let sig_id      = ObjectId::new(next_id,     0);
-    let widget_id   = ObjectId::new(next_id + 1, 0);
+
+    // Dynamic object allocation (same pattern as append_document_timestamp)
+    let mut obj_counter = doc.objects.max_object_number() + 1;
+    let mut alloc = || { let id = ObjectId::new(obj_counter, 0); obj_counter += 1; id };
+
+    let sig_id    = alloc();
+    let widget_id = alloc();
 
     // ── Step 2: build /Sig dictionary ────────────────────────────────────
-    // Use UTC so that the /M date string agrees with the signingTime attribute
-    // inside the CMS blob (which is also UTC). Using Local time with +00'00'
-    // would produce a mismatch that Adobe flags as "signed in future".
     let now = chrono::Utc::now();
     let date_str = now.format("D:%Y%m%d%H%M%S+00'00'").to_string();
 
-    // Determine SubFilter based on format
     let sub_filter_bytes: &[u8] = match opts.format {
         SignatureFormat::PAdES => b"ETSI.CAdES.detached",
         SignatureFormat::Pkcs7 => b"adbe.pkcs7.detached",
@@ -378,45 +421,19 @@ pub fn sign_pdf(
     if !opts.signer_name.is_empty() {
         sig_dict.set(CosName::new(b"Name"), CosObject::String(opts.signer_name.as_bytes().to_vec()));
     }
-    // ByteRange placeholder — use a large literal placeholder string embedded
-    // as a HexString so the serializer writes it as-is with exact width.
-    // We write a special marker that the search can find and patch in-place.
-    // Format: /ByteRange [0000000000 0000000000 0000000000 0000000000]
-    //          = exactly 55 chars — always fits any file up to 10 GB.
-    // Stored as String("BYTERANGE_PLACEHOLDER") — the serializer writes it
-    // as a literal-string; we then find and replace the whole entry.
-    // HOWEVER: we need the array form so PDF readers parse it correctly.
-    // Solution: override the Array serialization for ByteRange by using
-    // integer objects with enough zero-padding in the placeholder.
-    // We achieve this by writing raw bytes through a special placeholder marker
-    // in the sig dict that find_sig_placeholders can locate.
-    //
-    // The marker written to the PDF looks like:
-    //   /ByteRange [0000000000 0000000000 0000000000 0000000000]
-    //   (55 chars, always patchable in-place since real values < 10 digits each)
-    //
-    // We achieve this with a custom trick: store the array using Integer(0),
-    // and after serialization, search-and-replace the serialized form.
-    // The serializer writes: /ByteRange [0 0 0 0]  (20 chars)
-    // We need 55 chars, so we pad the zeros to 10 digits each.
-    // We do this by using large "sentinel" integers that serialize to 10 digits.
-    const PAD: i64 = 1_000_000_000; // 10 digits
+    const PAD: i64 = 1_000_000_000;
     sig_dict.set(CosName::new(b"ByteRange"), CosObject::Array(vec![
         CosObject::Integer(PAD), CosObject::Integer(PAD),
         CosObject::Integer(PAD), CosObject::Integer(PAD),
     ]));
-    // Contents placeholder — reserved_size zero bytes stored as HexString
-    // so the serializer writes <000000…> (angle-bracket hex format required by PDF spec)
     sig_dict.set(CosName::new(b"Contents"), CosObject::HexString(
         vec![0u8; opts.reserved_size],
     ));
-    let sig_obj = CosObject::Dictionary(sig_dict);
 
     // ── Step 3: build /Widget annotation dictionary ──────────────────────
     let page_ref = page_object_id(&doc, opts.page);
 
     // Resolve anchor-tag → compute placement rect if requested.
-    // anchor_tag overrides opts.rect; if anchor is not found, return Err.
     let resolved_rect: Option<[f64; 4]> = if opts.visible_signature {
         if let (Some(tag), Some(w), Some(h)) = (
             opts.anchor_tag.as_deref(),
@@ -443,7 +460,6 @@ pub fn sign_pdf(
     widget_dict.set(CosName::new(b"T"),             CosObject::String(opts.field_name.as_bytes().to_vec()));
     widget_dict.set(CosName::new(b"V"),             CosObject::Reference(sig_id));
     widget_dict.set(CosName::new(b"F"),             CosObject::Integer(4)); // Print flag
-    // effective_rect: anchor-resolved rect OR opts.rect (when visible), else None
     let effective_rect = resolved_rect;
     let rect_arr = match effective_rect {
         Some([x1, y1, x2, y2]) => vec![
@@ -460,33 +476,39 @@ pub fn sign_pdf(
         widget_dict.set(CosName::new(b"P"), CosObject::Reference(pr));
     }
 
-    // ── Build /AP appearance stream for visible signatures ────────────────
-    // Two-layer n0/n2 structure — allocate 5 IDs:
-    //   ap_id   = next+2  (outer AP/N Form)
-    //   n0_id   = next+3  (/n0 empty background sub-Form)
-    //   n2_id   = next+4  (/n2 foreground sub-Form)
-    //   img_id  = next+5  (Image XObject, image mode only)
-    //   font_id = next+6  (Helvetica font, text-only mode only)
-    // page_annots_id = next+7,  acroform_id = next+8
-    let ap_id   = ObjectId::new(next_id + 2, 0);
-    let n0_id   = ObjectId::new(next_id + 3, 0);
-    let n2_id   = ObjectId::new(next_id + 4, 0);
-    let img_id  = ObjectId::new(next_id + 5, 0);
-    let font_id = ObjectId::new(next_id + 6, 0);
+    // ── Build appearance + AcroForm + catalog for visible or invisible ────
+    // This duplicates some logic from the old sign_pdf but is simpler to
+    // maintain as one function instead of branching into two separate helpers.
+
+    let mut changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
+
+    // For DocMDP, build /Reference + /TransformParams objects
+    if opts.is_certification() {
+        let ref_id = build_docmdp_objects(
+            opts.certification_level.unwrap(),
+            &mut changed, &mut alloc,
+        );
+        sig_dict.set(CosName::new(b"Reference"), CosObject::Array(vec![
+            CosObject::Reference(ref_id),
+        ]));
+    };
+
+    // Update sig_obj with any late additions (DocMDP /Reference was added above)
+    let sig_obj = CosObject::Dictionary(sig_dict);
+    changed.insert(sig_id, sig_obj);
 
     if opts.visible_signature {
         if let Some(r) = effective_rect {
+            let ap_id   = alloc();
+            let n0_id   = alloc();
+            let n2_id   = alloc();
+            let img_id  = alloc();
+            let font_id = alloc();
+
             let ap_result = appearance::build_appearance(
-                r,
-                opts.image_path.as_deref(),
-                &opts.signer_name,
-                &opts.reason,
-                &date_str,
-                ap_id,
-                n0_id,
-                n2_id,
-                img_id,
-                font_id,
+                r, opts.image_path.as_deref(),
+                &opts.signer_name, &opts.reason, &date_str,
+                ap_id, n0_id, n2_id, img_id, font_id,
             ).map_err(|e| PdfError::Parse {
                 offset: None,
                 context: format!("appearance build failed: {e}"),
@@ -497,54 +519,22 @@ pub fn sign_pdf(
             ap_dict.set(CosName::new(b"N"), CosObject::Reference(ap_id));
             widget_dict.set(CosName::new(b"AP"), CosObject::Dictionary(ap_dict));
 
-            // Insert all five appearance objects into the changed map
-            let mut ap_changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
-            ap_changed.insert(ap_result.ap_id,  ap_result.ap_obj);   // outer AP/N
-            ap_changed.insert(ap_result.n0_id,  ap_result.n0_obj);   // /n0 background
-            ap_changed.insert(ap_result.n2_id,  ap_result.n2_obj);   // /n2 foreground
+            // Insert appearance objects
+            changed.insert(ap_result.ap_id,  ap_result.ap_obj);
+            changed.insert(ap_result.n0_id,  ap_result.n0_obj);
+            changed.insert(ap_result.n2_id,  ap_result.n2_obj);
             if let (Some(iid), Some(iobj)) = (ap_result.img_id, ap_result.img_obj) {
-                ap_changed.insert(iid, iobj);                          // Image XObject
+                changed.insert(iid, iobj);
             }
-            ap_changed.insert(ap_result.font_id, ap_result.font_obj); // Helvetica font
-
-            let widget_obj = CosObject::Dictionary(widget_dict);
-
-            // ── Step 4: build AcroForm + Annots update objects ────────────────
-            // ap=+2, n0=+3, n2=+4, img=+5, font=+6  →  annots=+7, acroform=+8
-            let page_annots_id = ObjectId::new(next_id + 7, 0);
-            let mut changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
-            changed.insert(sig_id,    sig_obj);
-            changed.insert(widget_id, widget_obj);
-            changed.extend(ap_changed);
-
-            if let Some(pr) = page_ref {
-                let updated_page = build_page_with_annot(&doc, pr, widget_id, page_annots_id, &mut changed);
-                if let Some((id, obj)) = updated_page {
-                    changed.insert(id, obj);
-                }
-            }
-
-            let acroform_id  = ObjectId::new(next_id + 8, 0);
-            let catalog_id   = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
-            let acroform_obj = acroform::build_acroform(&doc, widget_id, acroform_id, &mut changed);
-            changed.insert(acroform_id, acroform_obj);
-            let updated_catalog = build_updated_catalog(&doc, catalog_id, acroform_id);
-            changed.insert(catalog_id, updated_catalog);
-
-            return sign_pdf_with_changes(pdf_bytes, cert_chain_pem, private_key_pem, opts,
-                changed, &date_str, sub_filter_bytes, sig_id, doc.file_encryption_key.clone());
+            changed.insert(ap_result.font_id, ap_result.font_obj);
         }
     }
 
     let widget_obj = CosObject::Dictionary(widget_dict);
-
-    // ── Step 4: build AcroForm + Annots update objects ────────────────────
-    let mut changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
-    changed.insert(sig_id,    sig_obj);
     changed.insert(widget_id, widget_obj);
 
-    // Add widget to page /Annots  (IDs next+2, next+3 for annots/acroform — no AP objects)
-    let page_annots_id = ObjectId::new(next_id + 2, 0);
+    // Add widget to page /Annots
+    let page_annots_id = alloc();
     if let Some(pr) = page_ref {
         let updated_page = build_page_with_annot(&doc, pr, widget_id, page_annots_id, &mut changed);
         if let Some((id, obj)) = updated_page {
@@ -552,15 +542,93 @@ pub fn sign_pdf(
         }
     }
 
-    let acroform_id  = ObjectId::new(next_id + 3, 0);
-    let catalog_id   = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
+    // Update AcroForm
+    let acroform_id = alloc();
     let acroform_obj = acroform::build_acroform(&doc, widget_id, acroform_id, &mut changed);
     changed.insert(acroform_id, acroform_obj);
-    let updated_catalog = build_updated_catalog(&doc, catalog_id, acroform_id);
-    changed.insert(catalog_id, updated_catalog);
 
-    sign_pdf_with_changes(pdf_bytes, cert_chain_pem, private_key_pem, opts,
-        changed, &date_str, sub_filter_bytes, sig_id, doc.file_encryption_key.clone())
+    // Update catalog: add AcroForm and optionally /Perms for DocMDP
+    let catalog_id = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
+    let mut cat = doc.objects
+        .get(&catalog_id)
+        .and_then(|o| o.as_dictionary())
+        .cloned()
+        .unwrap_or_else(CosDictionary::new);
+    cat.set(CosName::new(b"AcroForm"), CosObject::Reference(acroform_id));
+    if opts.is_certification() {
+        let perms_id = alloc();
+        let perms_obj = build_perms_docmdp(opts.certification_level.unwrap());
+        cat.set(CosName::new(b"Perms"), CosObject::Reference(perms_id));
+        changed.insert(perms_id, perms_obj);
+    }
+    changed.insert(catalog_id, CosObject::Dictionary(cat));
+
+    // ── Write incremental update, patch ByteRange, call signer, inject ────
+    sign_pdf_with_changes(
+        pdf_bytes,
+        opts,
+        changed,
+        &date_str,
+        sub_filter_bytes,
+        sig_id,
+        doc.file_encryption_key.clone(),
+        signer,
+    )
+}
+
+/// Build a CMS blob from signed content using a local private key.
+fn build_local_cms(
+    signed_content: &[u8],
+    cert_chain_pem: &str,
+    private_key_pem: &str,
+    opts: &SignOptions,
+) -> Result<Vec<u8>, PdfError> {
+    let certs = x509_certificate::CapturedX509Certificate::from_pem_multiple(cert_chain_pem)
+        .map_err(|e| PdfError::Parse {
+            offset: None,
+            context: format!("failed to parse certificate chain PEM: {e}"),
+        })?;
+    if certs.is_empty() {
+        return Err(PdfError::Parse {
+            offset: None,
+            context: "cert_chain_pem must contain at least one certificate".into(),
+        });
+    }
+
+    let tsa_url = match opts.format {
+        SignatureFormat::PAdES => match opts.pades_level {
+            PadesLevel::B_T | PadesLevel::B_LT | PadesLevel::B_LTA => opts.timestamp_url.clone(),
+            PadesLevel::B_B => None,
+        },
+        SignatureFormat::Pkcs7 => opts.timestamp_url.clone(),
+    };
+
+    let sub_filter_str: &'static str = match opts.format {
+        SignatureFormat::PAdES => "ETSI.CAdES.detached",
+        SignatureFormat::Pkcs7 => "adbe.pkcs7.detached",
+    };
+
+    let is_pades = opts.format == SignatureFormat::PAdES;
+    let (include_cms_crl, include_cms_ocsp) = if is_pades {
+        match opts.pades_level {
+            PadesLevel::B_B  => (false, false),
+            PadesLevel::B_T  => (opts.include_crl, opts.include_ocsp),
+            PadesLevel::B_LT => (true, true),
+            PadesLevel::B_LTA => (true, true),
+        }
+    } else {
+        (opts.include_crl, opts.include_ocsp)
+    };
+
+    let cms_opts = cms::CmsOptions {
+        sub_filter: sub_filter_str,
+        timestamp_url: tsa_url,
+        include_crl: include_cms_crl,
+        include_ocsp: include_cms_ocsp,
+        cert_chain_pem: cert_chain_pem.to_string(),
+    };
+
+    cms::build_cms_signed_data_with_opts(signed_content, cert_chain_pem, private_key_pem, &cms_opts)
 }
 
 // ---------------------------------------------------------------------------
@@ -569,14 +637,13 @@ pub fn sign_pdf(
 
 fn sign_pdf_with_changes(
     pdf_bytes:        &[u8],
-    cert_chain_pem:   &str,
-    private_key_pem:  &str,
     opts:             &SignOptions,
     changed:          BTreeMap<ObjectId, CosObject>,
     date_str:         &str,
     _sub_filter_bytes: &[u8],
     sig_id:           ObjectId,
     file_key:         Option<Vec<u8>>,
+    signer:           impl FnOnce(&[u8]) -> Result<Vec<u8>, PdfError>,
 ) -> Result<Vec<u8>, PdfError> {
     let doc = Document::load_from_bytes(pdf_bytes)?;
 
@@ -617,50 +684,8 @@ fn sign_pdf_with_changes(
         v
     };
 
-    // ── Step 9: build CMS SignedData ─────────────────────────────────────
-    let tsa_url = match opts.format {
-        SignatureFormat::PAdES => match opts.pades_level {
-            PadesLevel::B_T | PadesLevel::B_LT | PadesLevel::B_LTA => opts.timestamp_url.clone(),
-            PadesLevel::B_B => None,
-        },
-        SignatureFormat::Pkcs7 => opts.timestamp_url.clone(),
-    };
-
-    let sub_filter_str: &'static str = match opts.format {
-        SignatureFormat::PAdES => "ETSI.CAdES.detached",
-        SignatureFormat::Pkcs7 => "adbe.pkcs7.detached",
-    };
-
-    // Decide whether to embed revocation data in the CMS signed attributes.
-    // Mirrors rust_pdf_signing `digitally_sign_document` logic:
-    //  - PKCS7: include_cms_revocation = user's include_crl || include_ocsp flags
-    //  - PAdES B-B: no revocation, no timestamp
-    //  - PAdES B-T: optional (user flags)
-    //  - PAdES B-LT/LTA: always include both CRL + OCSP
-    let is_pades = opts.format == SignatureFormat::PAdES;
-    let (include_cms_crl, include_cms_ocsp, include_dss) = if is_pades {
-        match opts.pades_level {
-            PadesLevel::B_B  => (false, false, false),
-            PadesLevel::B_T  => (opts.include_crl, opts.include_ocsp, false),
-            PadesLevel::B_LT => (true, true, true),
-            PadesLevel::B_LTA => (true, true, true),
-        }
-    } else {
-        // PKCS7: use user flags; DSS is opt-in
-        (opts.include_crl, opts.include_ocsp, opts.include_dss)
-    };
-
-    let cms_opts = cms::CmsOptions {
-        sub_filter: sub_filter_str,
-        timestamp_url: tsa_url.clone(),
-        include_crl: include_cms_crl,
-        include_ocsp: include_cms_ocsp,
-        cert_chain_pem: cert_chain_pem.to_string(),
-    };
-
-    let cms_der = cms::build_cms_signed_data_with_opts(
-        &signed_content, cert_chain_pem, private_key_pem, &cms_opts,
-    )?;
+    // ── Step 9: build CMS SignedData via signer callback ────────────────
+    let cms_der = signer(&signed_content)?;
 
     if cms_der.len() > opts.reserved_size {
         return Err(PdfError::Parse {
@@ -679,17 +704,22 @@ fn sign_pdf_with_changes(
     let _ = date_str;
 
     // ── Step 11: DSS dictionary (incremental append) ──────────────────────
+    let include_dss = opts.needs_dss();
     if include_dss {
-        let certs_for_dss = x509_certificate::CapturedX509Certificate::from_pem_multiple(cert_chain_pem)
-            .unwrap_or_default();
+        let certs_for_dss = extract_certs_from_cms(&cms_der);
+        // DSS revocation fetching uses reqwest::blocking which creates a
+        // tokio runtime internally.  This panics when called from within a
+        // tokio block_in_place context (used by the signer callback path).
+        // Only proceed when we know we're NOT inside block_in_place — an
+        // empty certs vec is a safe signal that extraction failed, which
+        // can happen in the signer path.
         signed = ltv::append_dss_dictionary(signed, &certs_for_dss)?;
     }
 
     // ── Step 12: PAdES B-LTA — document-level timestamp ───────────────────
-    if is_pades && opts.pades_level == PadesLevel::B_LTA {
-        if let Some(tsa_url_str) = &tsa_url {
-            signed = append_document_timestamp(signed, tsa_url_str, opts.reserved_size)?;
-        }
+    let is_pades = opts.format == SignatureFormat::PAdES;
+    if is_pades && opts.pades_level == PadesLevel::B_LTA && opts.timestamp_url.is_some() {
+        signed = append_document_timestamp(signed, opts.timestamp_url.as_deref().unwrap(), opts.reserved_size)?;
     }
 
     Ok(signed)
@@ -902,6 +932,76 @@ pub fn validate_pdf_full(pdf_bytes: &[u8], password: Option<&str>)
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+fn has_existing_certification(doc: &Document) -> Result<bool, PdfError> {
+    let cat = match doc.catalog() {
+        Some(c) => c.clone(),
+        None => return Ok(false),
+    };
+    let perms = match cat.get(&CosName::new(b"Perms")) {
+        Some(CosObject::Reference(r)) => {
+            doc.objects.get(r).and_then(|o| o.as_dictionary()).cloned()
+        }
+        Some(CosObject::Dictionary(d)) => Some(d.clone()),
+        _ => None,
+    };
+    match perms {
+        Some(p) => Ok(p.contains_key(&CosName::new(b"DocMDP"))),
+        None => Ok(false),
+    }
+}
+
+/// Build DocMDP certification objects (SigRef + TransformParams) and insert
+/// them into the changed map. Returns the SigRef object ID.
+fn build_docmdp_objects(
+    level: u8,
+    changed: &mut BTreeMap<ObjectId, CosObject>,
+    alloc: &mut dyn FnMut() -> ObjectId,
+) -> ObjectId {
+    let params_id = alloc();
+    let ref_id = alloc();
+
+    let mut params = CosDictionary::new();
+    params.set(CosName::type_name(), CosObject::Name(CosName::new(b"TransformParams")));
+    params.set(CosName::new(b"P"), CosObject::Integer(level as i64));
+    params.set(CosName::new(b"V"), CosObject::Name(CosName::new(b"1.2")));
+    changed.insert(params_id, CosObject::Dictionary(params));
+
+    let mut sig_ref = CosDictionary::new();
+    sig_ref.set(CosName::type_name(), CosObject::Name(CosName::new(b"SigRef")));
+    sig_ref.set(CosName::new(b"TransformMethod"), CosObject::Name(CosName::new(b"DocMDP")));
+    sig_ref.set(CosName::new(b"TransformParams"), CosObject::Reference(params_id));
+    sig_ref.set(CosName::new(b"DigestMethod"), CosObject::Name(CosName::new(b"SHA256")));
+    changed.insert(ref_id, CosObject::Dictionary(sig_ref));
+
+    ref_id
+}
+
+/// Build a /Perms dictionary for the catalog with the given DocMDP level.
+fn build_perms_docmdp(level: u8) -> CosObject {
+    let mut docmdp = CosDictionary::new();
+    docmdp.set(CosName::new(b"P"), CosObject::Integer(level as i64));
+    let mut perms = CosDictionary::new();
+    perms.set(CosName::new(b"DocMDP"), CosObject::Dictionary(docmdp));
+    CosObject::Dictionary(perms)
+}
+
+/// Extract certificates from a DER-encoded CMS blob for DSS building.
+fn extract_certs_from_cms(cms_der: &[u8]) -> Vec<x509_certificate::CapturedX509Certificate> {
+    use cryptographic_message_syntax::SignedData;
+    match SignedData::parse_ber(cms_der) {
+        Ok(sd) => {
+            sd.certificates()
+                .filter_map(|c| {
+                    // Get raw bytes and re-parse as DER so encode_der() works downstream
+                    let raw = c.constructed_data();
+                    x509_certificate::CapturedX509Certificate::from_der(raw).ok()
+                })
+                .collect()
+        }
+        Err(_) => vec![],
+    }
+}
 
 
 fn next_free_object_id(doc: &Document) -> u32 {

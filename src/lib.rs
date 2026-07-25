@@ -41,6 +41,7 @@ pub mod signing;
 pub mod text;
 pub mod writer;
 pub mod preflight;
+pub mod protection;
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -148,6 +149,7 @@ pub type PdfResult<T> = Result<T, PdfError>;
 
 #[cfg(feature = "crypto")]
 pub use crypto::{AuthResult, EncryptionDict, Permissions, StandardSecurityHandler};
+pub use protection::StandardProtectionPolicy;
 
 #[cfg(feature = "text")]
 pub use font::{
@@ -335,15 +337,39 @@ fn skip_spaces(bytes: &[u8]) -> &[u8] {
 /// If `obj` is a `CosObject::Stream` with empty `.data` (parser placeholder),
 /// locate the `stream` keyword in `slice` and read the actual bytes using
 /// the `/Length` entry from the stream's dictionary.
-fn backfill_stream_data(obj: CosObject, slice: &[u8]) -> CosObject {
+fn backfill_stream_data(obj: CosObject, slice: &[u8], full_bytes: &[u8]) -> CosObject {
     let CosObject::Stream(mut stream) = obj else { return obj; };
     if !stream.data.is_empty() { return CosObject::Stream(stream); }
 
-    // Get declared length
-    let length = stream.dictionary
-        .get(&CosName::new(b"Length".to_vec()))
-        .and_then(|v: &CosObject| v.as_integer())
-        .unwrap_or(0) as usize;
+    // Get declared length — may be an indirect reference
+    let length_obj = stream.dictionary
+        .get(&CosName::new(b"Length".to_vec()));
+    let length = match length_obj {
+        Some(CosObject::Integer(n)) => *n as usize,
+        Some(CosObject::Reference(id)) => {
+            // Try to find the referenced object in full_bytes
+            // Search for "obj_num 0 obj" pattern
+            let search = format!("{} 0 obj", id.object_number);
+            if let Some(pos) = full_bytes.windows(search.len()).position(|w| w == search.as_bytes()) {
+                let after_obj = &full_bytes[pos + search.len()..];
+                if let Some(endobj_pos) = after_obj.windows(b"endobj".len()).position(|w| w == b"endobj") {
+                    let obj_content = &after_obj[..endobj_pos];
+                    // The length might be an integer or hex string
+                    let trimmed = std::str::from_utf8(obj_content).unwrap_or("").trim();
+                    if let Ok(n) = trimmed.parse::<i64>() {
+                        n as usize
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        }
+        _ => 0,
+    };
     if length == 0 { return CosObject::Stream(stream); }
 
     // Find "stream" keyword in slice
@@ -735,9 +761,7 @@ impl Document {
                 let mut parser = Parser::new(slice);
                 match parser.parse_indirect_object() {
                     Ok(Some((_parsed_id, obj))) => {
-                        // If the object is a stream with empty data (parser placeholder),
-                        // backfill the actual bytes from the raw slice.
-                        let obj = backfill_stream_data(obj, slice);
+                        let obj = backfill_stream_data(obj, slice, bytes);
                         objects.insert(id.clone(), obj);
                     }
                     Ok(None) => {}
@@ -850,7 +874,7 @@ impl Document {
                 let slice = &raw[offset..];
                 let mut p = Parser::new(slice);
                 if let Ok(Some((_pid, obj))) = p.parse_indirect_object() {
-                    let obj = backfill_stream_data(obj, slice);
+                    let obj = backfill_stream_data(obj, slice, &raw);
                     self.objects.insert(*id, obj);
                 }
             }
@@ -909,6 +933,11 @@ impl Document {
     /// Returns the trailer dictionary from the merged xref.
     pub fn trailer(&self) -> &CosDictionary {
         &self.xref.trailer
+    }
+
+    /// Returns a mutable reference to the trailer dictionary from the merged xref.
+    pub fn trailer_mut(&mut self) -> &mut CosDictionary {
+        &mut self.xref.trailer
     }
 
     /// Returns the catalog object reference from the trailer, if present.
@@ -1026,7 +1055,7 @@ impl Document {
                 let mut p = Parser::new(slice);
                 match p.parse_indirect_object() {
                     Ok(Some((_pid, obj))) => {
-                        let obj = backfill_stream_data(obj, slice);
+                        let obj = backfill_stream_data(obj, slice, bytes);
                         objects.insert(id.clone(), obj);
                     }
                     Ok(None) => { skipped += 1; }
@@ -1126,7 +1155,15 @@ impl Document {
 
     /// Saves the document to a mutable writer using a full-rewrite save.
     pub fn save_to<W: std::io::Write + std::io::Seek>(&self, writer: &mut W) -> std_io::Result<()> {
-        let mut doc_writer = writer::Writer::new(writer);
+        let mut bypass = std::collections::HashSet::new();
+        if let Some(enc_id) = self.xref.trailer.get(&CosName::new(b"Encrypt".to_vec())).and_then(|v| v.as_reference()) {
+            bypass.insert(enc_id);
+        }
+        let mut doc_writer = writer::Writer::new_encrypted(
+            writer,
+            self.file_encryption_key.clone(),
+            bypass,
+        );
         doc_writer.write_document(self)
     }
 
@@ -1243,6 +1280,80 @@ impl Document {
     /// next save (e.g. `set_version(1, 4)` for PDF 1.4).
     pub fn set_version(&mut self, major: u8, minor: u8) {
         self.xref.pdf_version = Some((major, minor));
+    }
+
+    pub fn is_encrypted(&self) -> bool {
+        self.trailer().get(&CosName::new(b"Encrypt".to_vec())).is_some()
+    }
+    
+    pub fn was_encrypted(&self) -> bool {
+        self.file_encryption_key.is_some()
+    }
+
+    pub fn add_object(&mut self, object: CosObject) -> ObjectId {
+        let new_id = ObjectId {
+            object_number: self.objects.max_object_number() + 1,
+            generation: 0,
+        };
+        self.objects.insert(new_id, object);
+        new_id
+    }
+
+    #[cfg(feature = "crypto")]
+    pub fn protect(&mut self, policy: &StandardProtectionPolicy) -> Result<(), PdfError> {
+        if self.is_encrypted() || self.was_encrypted() {
+            return Err(PdfError::Parse {
+                offset: None,
+                context: "Document is already encrypted. Cannot apply new protection policy.".into(),
+            });
+        }
+        
+        use rand::RngCore;
+        let mut new_id2 = [0u8; 16];
+        rand::thread_rng().fill_bytes(&mut new_id2);
+        
+        let id_obj = match self.trailer().get(&CosName::new(b"ID".to_vec())).cloned() {
+            Some(CosObject::Array(arr)) if !arr.is_empty() => {
+                let id1 = arr[0].clone();
+                CosObject::Array(vec![
+                    id1,
+                    CosObject::HexString(new_id2.to_vec()),
+                ])
+            },
+            _ => {
+                let mut id1 = [0u8; 16];
+                rand::thread_rng().fill_bytes(&mut id1);
+                CosObject::Array(vec![
+                    CosObject::HexString(id1.to_vec()),
+                    CosObject::HexString(new_id2.to_vec()),
+                ])
+            }
+        };
+        self.trailer_mut().set(CosName::new(b"ID".to_vec()), id_obj.clone());
+
+        // Add /Extensions /ADBE mark for V=5/R=6 encryption (PDF 2.0 extension level 8)
+        if let Some(cat_id) = self.catalog_ref() {
+            if let Some(cat) = self.objects.get_mut(&cat_id) {
+                if let Some(dict) = cat.as_dictionary_mut() {
+                    if !dict.contains_key(&CosName::new(b"Extensions".to_vec())) {
+                        let mut adbe = CosDictionary::new();
+                        adbe.set(CosName::new(b"BaseVersion".to_vec()), CosObject::Name(CosName::new(b"1.7".to_vec())));
+                        adbe.set(CosName::new(b"ExtensionLevel".to_vec()), CosObject::Integer(8));
+                        let mut extensions = CosDictionary::new();
+                        extensions.set(CosName::new(b"ADBE".to_vec()), CosObject::Dictionary(adbe));
+                        dict.set(CosName::new(b"Extensions".to_vec()), CosObject::Dictionary(extensions));
+                    }
+                }
+            }
+        }
+
+        let (encrypt_dict_obj, file_key) =
+            StandardSecurityHandler::prepare_for_encryption(policy, &id_obj.as_array().unwrap()).map_err(|e| PdfError::Parse { offset: None, context: format!("encryption setup failed") })?;
+
+        let encrypt_obj_id = self.add_object(encrypt_dict_obj);
+        self.trailer_mut().set(CosName::new(b"Encrypt".to_vec()), CosObject::Reference(encrypt_obj_id));
+        self.file_encryption_key = Some(file_key);
+        Ok(())
     }
 
     /// Returns an iterator over the `ObjectId`s of all page dictionaries in

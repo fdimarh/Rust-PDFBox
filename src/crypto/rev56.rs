@@ -124,6 +124,32 @@ pub fn recover_encryption_key_r6(
     Some(file_key)
 }
 
+pub fn recover_encryption_key_r6_owner(
+    password: &[u8],
+    o_entry: &[u8],
+    u_entry: &[u8],
+    oe_entry: &[u8],
+) -> Option<Vec<u8>> {
+    if o_entry.len() < 48 || oe_entry.len() < 32 {
+        return None;
+    }
+
+    let validation_salt = &o_entry[32..40];
+    let key_salt = &o_entry[40..48];
+
+    // O = hash_v5(password, validation_salt, U) (udata = full U entry)
+    let expected_o = hash_v5(password, validation_salt, u_entry, 6);
+    if expected_o[..32] != o_entry[..32] {
+        return None;
+    }
+
+    let intermediate_key = hash_v5(password, key_salt, u_entry, 6);
+
+    let zero_iv = [0u8; 16];
+    let file_key = aes256_cbc_decrypt_no_pad(&intermediate_key[..32], &zero_iv, &oe_entry[..32]);
+    Some(file_key)
+}
+
 /// AES-256-CBC decrypt with no padding.
 fn aes256_cbc_decrypt_no_pad(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Vec<u8> {
     let cipher = Aes256Dec::new_from_slice(key).expect("AES-256 key");

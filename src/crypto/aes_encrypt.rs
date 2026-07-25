@@ -51,6 +51,40 @@ pub fn aes256_cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8]) -> Option<Vec
     }
 }
 
+/// AES-256-CBC encrypt with PKCS7 padding, returning only the ciphertext (no IV).
+/// Used for computing /UE and /OE entries in Rev 6 encryption.
+pub fn aes256_cbc_encrypt_noiv(key: &[u8], iv: &[u8; 16], plaintext: &[u8]) -> Vec<u8> {
+    use aes::Aes256Enc;
+    use cipher::{BlockEncrypt, KeyInit};
+    use digest::generic_array::GenericArray;
+
+    let cipher = Aes256Enc::new_from_slice(key).expect("AES-256 key");
+
+    // PKCS7 pad to next 16-byte boundary
+    let block_count = (plaintext.len() + 15) / 16;
+    let total = block_count * 16;
+    let pad_byte = (total - plaintext.len()) as u8;
+    let mut padded = plaintext.to_vec();
+    padded.resize(total, pad_byte);
+
+    let mut result = Vec::with_capacity(total);
+    let mut prev = *iv;
+
+    for chunk in padded.chunks(16) {
+        let mut block = [0u8; 16];
+        block.copy_from_slice(chunk);
+        for j in 0..16 {
+            block[j] ^= prev[j];
+        }
+        let mut ga = GenericArray::from(block);
+        cipher.encrypt_block(&mut ga);
+        let encrypted = ga.as_slice();
+        result.extend_from_slice(encrypted);
+        prev.copy_from_slice(encrypted);
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
