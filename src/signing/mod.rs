@@ -1144,6 +1144,7 @@ fn extract_certs_from_cms(cms_der: &[u8]) -> Vec<x509_certificate::CapturedX509C
     }
 }
 
+
 #[allow(dead_code)]
 fn next_free_object_id(doc: &Document) -> u32 {
     doc.objects.max_object_number() + 1
@@ -1208,9 +1209,10 @@ fn build_page_with_annot(
 }
 
 #[allow(dead_code)]
-fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: ObjectId) -> CosObject {
-    let mut cat = doc
-        .objects
+fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: ObjectId)
+    -> CosObject
+{
+    let mut cat = doc.objects
         .get(&catalog_id)
         .and_then(|o| o.as_dictionary())
         .cloned()
@@ -1224,7 +1226,9 @@ fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: Obje
 ///
 /// Returns `(byte_range_offset, contents_angle_open_offset, total_hex_field_len)`
 #[allow(dead_code)]
-fn find_sig_placeholders(buf: &[u8], _field_name: &str) -> Result<(usize, usize, usize), PdfError> {
+fn find_sig_placeholders(buf: &[u8], _field_name: &str)
+    -> Result<(usize, usize, usize), PdfError>
+{
     // Locate /ByteRange [1000000000 — the sentinel padded placeholder
     let br_needle = b"/ByteRange [1000000000";
     let br_off = buf

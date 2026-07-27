@@ -4,6 +4,10 @@
 //! from scratch, creating a new body, xref table, and trailer. It does not
 //! support incremental updates.
 
+use std::io::{self, Write, Seek, SeekFrom};
+use std::collections::{BTreeMap, HashSet};
+use crate::cos::{CosObject, CosName, ObjectId};
+use crate::Document;
 use super::serializer::Serializer;
 use crate::Document;
 use crate::cos::{CosName, CosObject, ObjectId};

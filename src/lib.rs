@@ -1498,11 +1498,7 @@ impl Document {
         }
 
         let (encrypt_dict_obj, file_key) =
-            StandardSecurityHandler::prepare_for_encryption(policy, &id_obj.as_array().unwrap())
-                .map_err(|e| PdfError::Parse {
-                    offset: None,
-                    context: format!("encryption setup failed"),
-                })?;
+            StandardSecurityHandler::prepare_for_encryption(policy, &id_obj.as_array().unwrap()).map_err(|_e| PdfError::Parse { offset: None, context: format!("encryption setup failed") })?;
 
         let encrypt_obj_id = self.add_object(encrypt_dict_obj);
         self.trailer_mut().set(
