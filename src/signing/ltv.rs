@@ -145,6 +145,7 @@ pub fn get_ocsp_crl_url(cert: &CapturedX509Certificate) -> (Option<String>, Opti
 // OCSP request builder
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "network")]
 fn create_ocsp_request(cert: &x509_parser::certificate::X509Certificate) -> Result<Vec<u8>, PdfError> {
     use rasn::ber::encode;
     use rasn::types::ObjectIdentifier;

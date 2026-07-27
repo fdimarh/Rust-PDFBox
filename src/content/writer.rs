@@ -734,6 +734,7 @@ impl<'a> ContentStreamWriter<'a> {
         )
     }
 
+    #[cfg(feature = "image-support")]
     pub fn register_image_xobject_png(
         &mut self,
         name_hint: Option<&str>,

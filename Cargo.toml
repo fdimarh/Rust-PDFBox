@@ -8,7 +8,7 @@ crate-type = ["rlib", "cdylib", "staticlib"]
 
 [features]
 default = ["text", "crypto", "layout", "forms", "pageops", "outline", "network", "image-support"]
-network = ["dep:reqwest", "cryptographic-message-syntax/http"]
+network = ["dep:reqwest"]
 image-support = ["dep:image"]
 cli = ["dep:clap"]
 ## Text extraction and font handling
@@ -78,7 +78,7 @@ chrono    = { version = "0.4", default-features = false, features = ["std", "clo
 
 # CMS / PKCS#7 builder — same crate as rust_pdf_signing to produce
 # identical CMS blobs that Adobe/Foxit accept.
-cryptographic-message-syntax = { version = "0.28.0", default-features = false }
+cryptographic-message-syntax = { version = "0.28.0" }
 x509-certificate = "0.25.0"
 bcder = "0.7.6"
 
