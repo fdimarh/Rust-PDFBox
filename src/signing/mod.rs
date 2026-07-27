@@ -49,6 +49,7 @@
 //! | `acro_form::add_sig_field`             | [`acroform::add_sig_field`]         |
 
 pub mod acroform;
+#[cfg(feature = "image-support")]
 pub mod appearance;
 pub mod asn1;
 pub mod cms;
@@ -543,6 +544,7 @@ fn sign_pdf_inner(
     changed.insert(sig_id, sig_obj);
 
     if opts.visible_signature {
+        #[cfg(feature = "image-support")]
         if let Some(r) = effective_rect {
             let ap_id = alloc();
             let n0_id = alloc();
@@ -580,6 +582,11 @@ fn sign_pdf_inner(
                 changed.insert(iid, iobj);
             }
             changed.insert(ap_result.font_id, ap_result.font_obj);
+        }
+        #[cfg(not(feature = "image-support"))]
+        {
+            let _ = effective_rect;
+            eprintln!("[pdfbox] warning: visible_signature requires the 'image-support' feature; falling back to invisible signature");
         }
     }
 

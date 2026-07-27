@@ -3,8 +3,14 @@ name = "rust-pdfbox"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["rlib", "cdylib", "staticlib"]
+
 [features]
-default = ["text", "crypto", "layout", "forms", "pageops", "outline", "annotations", "image-extract", "metadata", "compress"]
+default = ["text", "crypto", "layout", "forms", "pageops", "outline", "network", "image-support"]
+network = ["dep:reqwest", "cryptographic-message-syntax/http"]
+image-support = ["dep:image"]
+cli = ["dep:clap"]
 ## Text extraction and font handling
 text = []
 ## Document outline (bookmarks)
@@ -20,7 +26,7 @@ annotations = []
 ## Page Manipulation
 pageops = []
 ## Image extraction (Phase 17 baseline)
-image-extract = ["dep:lcms2"]
+image-extract = ["image-support"]
 ## Metadata & document properties (Phase 22)
 metadata = ["dep:quick-xml"]
 ## Core compression: stream recompression (flate2) + object deduplication (rustc-hash) + cleanup + version + linearize
@@ -28,7 +34,7 @@ compress = ["dep:flate2", "dep:rustc-hash"]
 ## Zopfli DEFLATE: replace zlib level-9 with Zopfli for 3–8% better stream compression (slower)
 compress-zopfli = ["compress", "dep:zopfli"]
 ## Image resampling: pure-Rust JPEG encode/decode + lossless PNG optimizer
-compress-images = ["compress", "dep:jpeg-encoder", "dep:zune-jpeg", "dep:oxipng"]
+compress-images = ["compress", "image-support", "dep:jpeg-encoder", "dep:zune-jpeg", "dep:oxipng"]
 ## JBIG2 decode: decode JBIG2-compressed 1-bit images via libjbig2dec FFI (C library)
 ## Also enables CCITT Group 4 re-encoding of 1-bit images via the `fax` crate (lossless, smaller)
 compress-jbig2 = ["compress-images", "dep:nipdf-jbig2dec", "dep:fax"]
@@ -41,12 +47,13 @@ compress-fonts = ["compress", "dep:subsetter", "dep:ttf-parser", "dep:owned_ttf_
 ## Full ilovepdf-grade: all passes (requires C toolchain for mozjpeg + lcms2 + jbig2dec)
 compress-full = ["compress-mozjpeg", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts"]
 ## All features enabled
-full = ["text", "crypto", "layout", "compress", "compress-images", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts"]
+full = ["text", "crypto", "layout", "compress", "compress-images", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts", "image-support", "network"]
 quick-xml = ["dep:quick-xml"]
 
 [[bin]]
 name = "rust-pdfbox"
 path = "src/bin/pdfbox.rs"
+required-features = ["cli"]
 
 [dependencies]
 # RustCrypto ecosystem for cryptographic operations
@@ -71,11 +78,11 @@ chrono    = { version = "0.4", default-features = false, features = ["std", "clo
 
 # CMS / PKCS#7 builder — same crate as rust_pdf_signing to produce
 # identical CMS blobs that Adobe/Foxit accept.
-cryptographic-message-syntax = { version = "0.28.0", default-features = false, features = ["http"] }
+cryptographic-message-syntax = { version = "0.28.0", default-features = false }
 x509-certificate = "0.25.0"
 bcder = "0.7.6"
 
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff"], optional = true }
 png = "0.17"
 
 # ── Compression (Bonus 11) ──────────────────────────────────────────────────
@@ -110,7 +117,7 @@ ttf-parser       = { version = "0.25", optional = true }   # TrueType/OTF glyph 
 owned_ttf_parser = { version = "0.25", optional = true }   # owned wrapper (no lifetime coupling)
 
 # LTV / revocation / DSS support (mirrors rust_pdf_signing)
-reqwest    = { version = "0.12", features = ["blocking", "rustls-tls"] }
+reqwest    = { version = "0.12", features = ["blocking", "rustls-tls"], optional = true }
 x509-parser = "0.18"
 rasn-ocsp  = "0.28"
 rasn-pkix  = "0.28"
@@ -118,7 +125,7 @@ rasn       = "0.28"
 quick-xml = { version = "0.39.2", features = ["serialize"], optional = true }
 tiny-skia = "0.12.0"
 kurbo = "0.13.1"
-clap = { version = "4.6.3", features = ["derive"] }
+clap = { version = "4.6.3", features = ["derive"], optional = true }
 ab_glyph = "0.2.32"
 jpeg-decoder = "0.3.2"
 weezl = "0.2.1"

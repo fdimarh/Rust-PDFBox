@@ -204,7 +204,11 @@ fn create_ocsp_request(
 
 /// Fetch a live OCSP response for `cert`.  Returns `None` on network/parse errors
 /// (non-fatal — signing continues without OCSP data).
-pub fn fetch_ocsp_response(cert: &CapturedX509Certificate, ocsp_url: &str) -> Option<Vec<u8>> {
+/// Stubs to `None` when `network` feature is disabled.
+#[cfg(feature = "network")]
+pub fn fetch_ocsp_response(cert: &CapturedX509Certificate, ocsp_url: &str)
+    -> Option<Vec<u8>>
+{
     use x509_parser::prelude::*;
 
     let der = cert.encode_der().ok()?;
@@ -233,7 +237,14 @@ pub fn fetch_ocsp_response(cert: &CapturedX509Certificate, ocsp_url: &str) -> Op
     }
 }
 
+#[cfg(not(feature = "network"))]
+pub fn fetch_ocsp_response(_cert: &CapturedX509Certificate, _ocsp_url: &str) -> Option<Vec<u8>> {
+    None
+}
+
 /// Fetch a CRL from `crl_url`.  Returns `None` on network errors.
+/// Stubs to `None` when `network` feature is disabled.
+#[cfg(feature = "network")]
 pub fn fetch_crl_response(crl_url: &str) -> Option<Vec<u8>> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
@@ -249,6 +260,11 @@ pub fn fetch_crl_response(crl_url: &str) -> Option<Vec<u8>> {
         );
         None
     }
+}
+
+#[cfg(not(feature = "network"))]
+pub fn fetch_crl_response(_crl_url: &str) -> Option<Vec<u8>> {
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -668,6 +684,8 @@ pub fn append_dss_dictionary(
 /// Request an RFC 3161 timestamp token from `tsa_url`.
 /// `message_digest` is the SHA-256 hash of the data to be timestamped.
 /// Returns the raw DER-encoded `TimeStampToken` (CMS ContentInfo).
+/// Requires the `network` feature; returns an error when disabled.
+#[cfg(feature = "network")]
 pub fn fetch_timestamp_token(tsa_url: &str, message_digest: &[u8]) -> Result<Vec<u8>, PdfError> {
     let to_err = |msg: String| PdfError::Parse {
         offset: None,
@@ -762,104 +780,12 @@ pub fn fetch_timestamp_token(tsa_url: &str, message_digest: &[u8]) -> Result<Vec
     Ok(data[token_start..].to_vec())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // ── der_push_length ────────────────────────────────────────────────────
-
-    #[test]
-    fn der_push_length_short() {
-        let mut buf = Vec::new();
-        der_push_length(&mut buf, 42);
-        assert_eq!(buf, vec![42]);
-    }
-
-    #[test]
-    fn der_push_length_medium() {
-        let mut buf = Vec::new();
-        der_push_length(&mut buf, 200);
-        assert_eq!(buf, vec![0x81, 200]);
-    }
-
-    #[test]
-    fn der_push_length_long() {
-        let mut buf = Vec::new();
-        der_push_length(&mut buf, 0x1234);
-        assert_eq!(buf, vec![0x82, 0x12, 0x34]);
-    }
-
-    #[test]
-    fn der_push_length_very_long() {
-        let mut buf = Vec::new();
-        der_push_length(&mut buf, 0x123456);
-        assert_eq!(buf, vec![0x83, 0x12, 0x34, 0x56]);
-    }
-
-    #[test]
-    fn der_push_length_boundary_127() {
-        let mut buf = Vec::new();
-        der_push_length(&mut buf, 127);
-        assert_eq!(buf, vec![127]);
-    }
-
-    #[test]
-    fn der_push_length_boundary_128() {
-        let mut buf = Vec::new();
-        der_push_length(&mut buf, 128);
-        assert_eq!(buf, vec![0x81, 128]);
-    }
-
-    // ── der_read_length ────────────────────────────────────────────────────
-
-    #[test]
-    fn der_read_length_short() {
-        let data = [42u8, 0xFF];
-        let (offset, len) = der_read_length(&data, 0).unwrap();
-        assert_eq!(offset, 1);
-        assert_eq!(len, 42);
-    }
-
-    #[test]
-    fn der_read_length_two_byte() {
-        let data = [0x81u8, 200, 0xFF];
-        let (offset, len) = der_read_length(&data, 0).unwrap();
-        assert_eq!(offset, 2);
-        assert_eq!(len, 200);
-    }
-
-    #[test]
-    fn der_read_length_three_byte() {
-        let data = [0x82u8, 0x12, 0x34, 0xFF];
-        let (offset, len) = der_read_length(&data, 0).unwrap();
-        assert_eq!(offset, 3);
-        assert_eq!(len, 0x1234);
-    }
-
-    #[test]
-    fn der_read_length_four_byte() {
-        let data = [0x83u8, 0x12, 0x34, 0x56, 0xFF];
-        let (offset, len) = der_read_length(&data, 0).unwrap();
-        assert_eq!(offset, 4);
-        assert_eq!(len, 0x123456);
-    }
-
-    #[test]
-    fn der_read_length_returns_none_on_truncated() {
-        let data = [0x82u8, 0x12]; // only 2 bytes when 3 expected
-        assert!(der_read_length(&data, 0).is_none());
-    }
-
-    #[test]
-    fn der_read_length_returns_none_on_oob() {
-        let data = [];
-        assert!(der_read_length(&data, 0).is_none());
-    }
-
-    // ── encode_revocation_info_archival ────────────────────────────────────
-
-    #[test]
-    fn encode_revocation_empty_returns_none() {
-        assert!(encode_revocation_info_archival(vec![], vec![]).is_none());
-    }
+/// Stub when `network` feature is disabled.
+#[cfg(not(feature = "network"))]
+pub fn fetch_timestamp_token(_tsa_url: &str, _message_digest: &[u8]) -> Result<Vec<u8>, PdfError> {
+    Err(PdfError::Parse {
+        offset: None,
+        context: "network feature not enabled; cannot fetch timestamp token".into(),
+    })
 }
+

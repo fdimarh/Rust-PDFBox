@@ -35,8 +35,7 @@ pub mod outline;
 pub mod pageops;
 pub mod parser;
 pub mod pdmodel;
-pub mod preflight;
-pub mod protection;
+#[cfg(feature = "image-support")]
 pub mod render;
 pub mod signing;
 #[cfg(feature = "text")]
