@@ -35,6 +35,7 @@ pub mod io;
 pub mod metadata;
 pub mod parser;
 pub mod pdmodel;
+#[cfg(feature = "image-support")]
 pub mod render;
 pub mod signing;
 #[cfg(feature = "text")]

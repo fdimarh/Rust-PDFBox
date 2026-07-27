@@ -187,6 +187,8 @@ fn create_ocsp_request(cert: &x509_parser::certificate::X509Certificate) -> Resu
 
 /// Fetch a live OCSP response for `cert`.  Returns `None` on network/parse errors
 /// (non-fatal — signing continues without OCSP data).
+/// Stubs to `None` when `network` feature is disabled.
+#[cfg(feature = "network")]
 pub fn fetch_ocsp_response(cert: &CapturedX509Certificate, ocsp_url: &str)
     -> Option<Vec<u8>>
 {
@@ -213,7 +215,14 @@ pub fn fetch_ocsp_response(cert: &CapturedX509Certificate, ocsp_url: &str)
     }
 }
 
+#[cfg(not(feature = "network"))]
+pub fn fetch_ocsp_response(_cert: &CapturedX509Certificate, _ocsp_url: &str) -> Option<Vec<u8>> {
+    None
+}
+
 /// Fetch a CRL from `crl_url`.  Returns `None` on network errors.
+/// Stubs to `None` when `network` feature is disabled.
+#[cfg(feature = "network")]
 pub fn fetch_crl_response(crl_url: &str) -> Option<Vec<u8>> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
@@ -225,6 +234,11 @@ pub fn fetch_crl_response(crl_url: &str) -> Option<Vec<u8>> {
         eprintln!("[ltv] CRL request to {crl_url} failed: HTTP {}", resp.status());
         None
     }
+}
+
+#[cfg(not(feature = "network"))]
+pub fn fetch_crl_response(_crl_url: &str) -> Option<Vec<u8>> {
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -591,6 +605,8 @@ pub fn append_dss_dictionary(
 /// Request an RFC 3161 timestamp token from `tsa_url`.
 /// `message_digest` is the SHA-256 hash of the data to be timestamped.
 /// Returns the raw DER-encoded `TimeStampToken` (CMS ContentInfo).
+/// Requires the `network` feature; returns an error when disabled.
+#[cfg(feature = "network")]
 pub fn fetch_timestamp_token(tsa_url: &str, message_digest: &[u8]) -> Result<Vec<u8>, PdfError> {
     let to_err = |msg: String| PdfError::Parse { offset: None, context: msg };
 
@@ -680,5 +696,14 @@ pub fn fetch_timestamp_token(tsa_url: &str, message_digest: &[u8]) -> Result<Vec
     }
 
     Ok(data[token_start..].to_vec())
+}
+
+/// Stub when `network` feature is disabled.
+#[cfg(not(feature = "network"))]
+pub fn fetch_timestamp_token(_tsa_url: &str, _message_digest: &[u8]) -> Result<Vec<u8>, PdfError> {
+    Err(PdfError::Parse {
+        offset: None,
+        context: "network feature not enabled; cannot fetch timestamp token".into(),
+    })
 }
 
