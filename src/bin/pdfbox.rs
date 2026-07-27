@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match &cli.command {
         Commands::ExtractText { input, output } => {
             println!("Loading document: {}", input.display());
-            let doc = Document::load(input)?;
+            let _doc = Document::load(input)?;
             
             // This assumes `text` feature is enabled.
             #[cfg(feature = "text")]
@@ -61,21 +61,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             #[cfg(not(feature = "text"))]
             {
+                let _ = &output;
                 println!("Error: 'text' feature not compiled in rust-pdfbox.");
             }
         }
         Commands::ExtractImages { input, output_dir } => {
             println!("Loading document: {}", input.display());
-            #[allow(unused_variables)]
+            #[allow(unused_mut, unused_variables)]
             let mut doc = Document::load(input)?;
-            
+
             #[cfg(feature = "image-extract")]
             {
                 std::fs::create_dir_all(output_dir)?;
-                
                 let images = rust_pdfbox::image_extract::export::export_images(&mut doc)?;
                 println!("Found {} images.", images.len());
-                
                 for (idx, img) in images.iter().enumerate() {
                     let out_path = output_dir.join(format!("image_{:04}.png", idx + 1));
                     img.image.save(&out_path)?;
@@ -84,6 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             #[cfg(not(feature = "image-extract"))]
             {
+                let _ = &output_dir;
                 println!("Error: 'image-extract' feature not compiled in rust-pdfbox.");
             }
         }

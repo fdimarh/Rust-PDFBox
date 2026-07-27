@@ -69,7 +69,7 @@ impl<'a, W: Write> Serializer<'a, W> {
     }
 
     /// Encrypt data for this object using the proper algorithm.
-    fn encrypt_data(&self, obj_key: &[u8], data: &[u8], is_string: bool) -> Vec<u8> {
+    fn encrypt_data(&self, obj_key: &[u8], data: &[u8], _is_string: bool) -> Vec<u8> {
         match self.encryption_mode {
             EncryptionMode::None => data.to_vec(),
             EncryptionMode::Rc4 => {
@@ -79,7 +79,7 @@ impl<'a, W: Write> Serializer<'a, W> {
                 use rand::Rng;
                 let mut iv = [0u8; 16];
                 rand::thread_rng().fill(&mut iv);
-                if let Some(mut enc) = crate::crypto::aes_encrypt::aes_cbc_encrypt(&obj_key[..16.min(obj_key.len())], &iv, data) {
+                if let Some(enc) = crate::crypto::aes_encrypt::aes_cbc_encrypt(&obj_key[..16.min(obj_key.len())], &iv, data) {
                     enc
                 } else {
                     data.to_vec()
@@ -90,7 +90,7 @@ impl<'a, W: Write> Serializer<'a, W> {
                 use rand::Rng;
                 let mut iv = [0u8; 16];
                 rand::thread_rng().fill(&mut iv);
-                if let Some(mut enc) = crate::crypto::aes_encrypt::aes256_cbc_encrypt(
+                if let Some(enc) = crate::crypto::aes_encrypt::aes256_cbc_encrypt(
                     &obj_key[..32.min(obj_key.len())], &iv, data
                 ) {
                     enc  // aes256_cbc_encrypt already returns IV + ciphertext
