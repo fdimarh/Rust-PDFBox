@@ -326,6 +326,7 @@ fn main() {
         reserved_size: args.reserved_size,
         field_name:    args.field_name.clone(),
         image_path:    args.image_path.clone(),
+        certification_level: None,
     };
 
     // ── 5. Print summary ──

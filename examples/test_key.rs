@@ -2,6 +2,7 @@
 //! Uses only deps already available in rust-pdfbox.
 
 use sha2::{Digest, Sha256, Sha384, Sha512};
+use rand::Rng;
 
 fn main() {
     let u_entry_hex_full = "a3c7058bc5e93fcd9119925facd687151f87ffd80deef556c30e451d5868aa5211edeabdb166277f086472d5642824f8";

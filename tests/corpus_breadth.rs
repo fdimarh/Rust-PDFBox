@@ -462,6 +462,8 @@ fn encrypted_standard_handler_key_derivation_deterministic() {
         u_entry: vec![0u8; 32],
         permissions: Permissions::all_allowed(),
         crypt_filter: None,
+        oe_entry: vec![],
+        ue_entry: vec![],
     };
     let fid = b"testfileid000000";
     let k1 = StandardSecurityHandler::compute_encryption_key(&enc, b"pass", fid);

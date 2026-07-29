@@ -95,7 +95,7 @@ fn sign_pdf_produces_larger_output() {
     let (certs, key_pem) = load_test_credentials();
     let opts = SignOptions::default();
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts)
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts)
         .expect("sign_pdf should succeed");
 
     assert!(signed.len() > pdf.len(),
@@ -109,7 +109,7 @@ fn signed_pdf_is_parseable() {
     let (certs, key_pem) = load_test_credentials();
     let opts = SignOptions::default();
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
     let doc = Document::load_from_bytes(&signed)
         .expect("signed PDF should be parseable by Document::load_from_bytes");
 
@@ -125,7 +125,7 @@ fn signed_pdf_has_acroform_in_catalog() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
     let doc = Document::load_from_bytes(&signed).expect("parse signed PDF");
 
     let catalog = doc.catalog().expect("catalog must exist");
@@ -139,7 +139,7 @@ fn verify_finds_one_signature() {
     let (certs, key_pem) = load_test_credentials();
     let opts = SignOptions::default();
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
     let results = verify_pdf(&signed).expect("verify_pdf should not error");
 
     assert_eq!(results.len(), 1,
@@ -156,7 +156,7 @@ fn verify_digest_is_valid() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
     let results = verify_pdf(&signed).expect("verify_pdf");
 
     assert!(!results.is_empty(), "must have at least one result");
@@ -181,7 +181,7 @@ fn verify_reason_is_preserved() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
     let results = verify_pdf(&signed).expect("verify_pdf");
 
     assert!(!results.is_empty());
@@ -202,7 +202,7 @@ fn byte_range_covers_whole_file() {
     let (certs, key_pem) = load_test_credentials();
     let opts = SignOptions::default();
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
     let results = verify_pdf(&signed).expect("verify_pdf");
 
     assert!(!results.is_empty());
@@ -236,7 +236,7 @@ fn sign_real_sample_pdf_with_assets() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts)
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts)
         .expect("sign anchor sample PDF should succeed");
 
     assert!(signed.len() > pdf.len());
@@ -258,7 +258,7 @@ fn sign_with_visible_rect() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign with visible rect");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign with visible rect");
     assert!(signed.len() > pdf.len());
 
     let results = verify_pdf(&signed).expect("verify");
@@ -291,7 +291,7 @@ fn sign_page_two_does_not_panic() {
     let opts = SignOptions { page: 2, ..Default::default() };
 
     // Should not panic / error — result validates correctly
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign page 2");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign page 2");
     let results = verify_pdf(&signed).expect("verify page 2");
     assert!(!results.is_empty());
     assert!(results[0].digest_valid);
@@ -302,7 +302,7 @@ fn sign_rejects_empty_cert_chain() {
     let pdf = minimal_pdf();
     let opts = SignOptions::default();
     // Pass an empty PEM string — no certificates
-    let err = sign_pdf(&pdf, "", "-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n", &opts);
+    let err = sign_pdf(&pdf, "", "[REDACTED PRIVATE KEY]\n", None, &opts);
     assert!(err.is_err(), "empty cert chain should be rejected");
 }
 
@@ -320,8 +320,8 @@ fn validate_pdf_full_returns_all_checks() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
-    let results = validate_pdf_full(&signed).expect("validate_pdf_full should succeed");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
+    let results = validate_pdf_full(&signed, None).expect("validate_pdf_full should succeed");
 
     assert_eq!(results.len(), 1, "expected exactly 1 validation result");
     let r = &results[0];
@@ -364,8 +364,8 @@ fn validate_pdf_full_no_unauthorized_mods_on_signed_pdf() {
     let (certs, key_pem) = load_test_credentials();
     let opts = SignOptions::default();
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
-    let results = validate_pdf_full(&signed).expect("validate_pdf_full");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
+    let results = validate_pdf_full(&signed, None).expect("validate_pdf_full");
 
     assert!(!results.is_empty());
     let r = &results[0];
@@ -382,8 +382,8 @@ fn validate_pdf_full_cert_chain_warnings_for_self_signed() {
     let (certs, key_pem) = load_test_credentials();
     let opts = SignOptions::default();
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign_pdf");
-    let results = validate_pdf_full(&signed).expect("validate_pdf_full");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign_pdf");
+    let results = validate_pdf_full(&signed, None).expect("validate_pdf_full");
 
     assert!(!results.is_empty());
     let r = &results[0];
@@ -398,7 +398,7 @@ fn validate_pdf_full_cert_chain_warnings_for_self_signed() {
 #[test]
 fn validate_pdf_full_unsigned_returns_error() {
     let pdf = minimal_pdf();
-    let result = validate_pdf_full(&pdf);
+    let result = validate_pdf_full(&pdf, None);
     assert!(result.is_err(),
         "unsigned PDF should return an Err, not an empty vec");
 }
@@ -552,7 +552,7 @@ fn sign_pdf_with_anchor_tag_overlay_produces_valid_signature() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts)
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts)
         .expect("sign_pdf with anchor_tag Overlay should succeed");
 
     assert!(signed.len() > pdf.len(), "signed PDF must be larger");
@@ -581,7 +581,7 @@ fn sign_pdf_with_anchor_tag_infront_produces_valid_signature() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts)
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts)
         .expect("sign_pdf with anchor_tag InFront should succeed");
 
     assert!(signed.len() > pdf.len(), "signed PDF must be larger");
@@ -609,7 +609,7 @@ fn sign_pdf_anchor_tag_not_found_returns_error() {
         ..Default::default()
     };
 
-    let result = sign_pdf(&pdf, &certs, &key_pem, &opts);
+    let result = sign_pdf(&pdf, &certs, &key_pem, None, &opts);
     assert!(
         result.is_err(),
         "sign_pdf with a missing anchor tag should return Err"
@@ -640,7 +640,7 @@ fn sign_pdf_anchor_overrides_rect() {
     };
 
     // Should succeed (anchor finds tag, ignores explicit rect)
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts_anchor)
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts_anchor)
         .expect("sign_pdf anchor override should succeed");
 
     let doc = Document::load_from_bytes(&signed).expect("parse");
@@ -718,8 +718,8 @@ fn sign_pdf_anchor_validates_full() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign");
-    let results = validate_pdf_full(&signed).expect("validate_pdf_full");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign");
+    let results = validate_pdf_full(&signed, None).expect("validate_pdf_full");
 
     assert_eq!(results.len(), 1);
     let r = &results[0];
@@ -856,7 +856,7 @@ fn diag_byterange_alignment() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&pdf, &certs, &key_pem, &opts).expect("sign");
+    let signed = sign_pdf(&pdf, &certs, &key_pem, None, &opts).expect("sign");
     let buf = &signed;
 
     // ── Find /ByteRange ────────────────────────────────────────────────────
@@ -997,7 +997,7 @@ fn anchor_image_sign_demo_writes_valid_pdf() {
         ..Default::default()
     };
 
-    let signed = sign_pdf(&sample_pdf, &cert_pem, &key_pem, &opts)
+    let signed = sign_pdf(&sample_pdf, &cert_pem, &key_pem, None, &opts)
         .expect("sign_pdf with anchor+image should succeed");
 
     assert!(
@@ -1033,7 +1033,7 @@ fn anchor_image_sign_demo_writes_valid_pdf() {
         "no verification errors expected; got: {:?}", r.errors);
 
     // ── 6. Full structural validation ─────────────────────────────────────
-    let full = validate_pdf_full(&signed).expect("validate_pdf_full");
+    let full = validate_pdf_full(&signed, None).expect("validate_pdf_full");
     assert_eq!(full.len(), 1);
     let fr = &full[0];
     assert!(fr.digest_match,           "full: digest must match");
