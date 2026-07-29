@@ -960,6 +960,81 @@ pub fn replace_show_text(ops: &mut [ContentOperator], index: usize, old: &str, n
 }
 
 // ---------------------------------------------------------------------------
+// Image / XObject helpers
+// ---------------------------------------------------------------------------
+
+/// Find indices of all `InvokeXObject` operators that reference a given resource name.
+pub fn find_xobject_operators(ops: &[ContentOperator], name: &str) -> Vec<usize> {
+    ops.iter()
+        .enumerate()
+        .filter(|(_, op)| matches!(op, ContentOperator::InvokeXObject(n) if n.as_str() == Some(name)))
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// Replace all `InvokeXObject` references from `old_name` to `new_name`.
+/// Returns the number of operators changed.
+pub fn rename_xobject_operator(ops: &mut [ContentOperator], old_name: &str, new_name: &str) -> usize {
+    let mut count = 0;
+    for op in ops.iter_mut() {
+        if let ContentOperator::InvokeXObject(n) = op {
+            if n.as_str() == Some(old_name) {
+                *n = CosName::new(new_name.as_bytes().to_vec());
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+/// Replace inline image `ID` data at the operator index.
+/// The index must point to an `InlineImageData` operator; its raw bytes
+/// are replaced with `new_data`.  Returns `false` if the index is out of
+/// bounds or not an inline image.
+pub fn replace_inline_image_data(
+    ops: &mut [ContentOperator],
+    index: usize,
+    new_data: &[u8],
+) -> bool {
+    if let Some(ContentOperator::InlineImageData(data)) = ops.get_mut(index) {
+        *data = new_data.to_vec();
+        true
+    } else {
+        false
+    }
+}
+
+/// Find inline image regions.  Each region is a `(begin_index, data_index, end_index)`
+/// tuple covering `BI … ID … EI`.
+pub fn find_inline_images(ops: &[ContentOperator]) -> Vec<(usize, usize, usize)> {
+    let mut regions = Vec::new();
+    let mut i = 0;
+    while i < ops.len() {
+        if ops[i] == ContentOperator::BeginInlineImage {
+            let bi = i;
+            i += 1;
+            // advance past content stream inline-image dictionary entries
+            // (they are Unknown operators between BI and ID)
+            let mut data_idx = None;
+            while i < ops.len() && ops[i] != ContentOperator::EndInlineImage {
+                if matches!(ops[i], ContentOperator::InlineImageData(_)) {
+                    data_idx = Some(i);
+                }
+                i += 1;
+            }
+            if let Some(di) = data_idx {
+                regions.push((bi, di, i)); // i points to EI
+            }
+            if i < ops.len() {
+                i += 1; // skip EI
+            }
+        } else {
+            i += 1;
+        }
+    }
+    regions
+}
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1100,6 +1175,73 @@ mod tests {
     fn test_invoke_xobject() {
         let ops = parses_to(b"/Im1 Do");
         assert_eq!(ops[0], ContentOperator::InvokeXObject(CosName::new(b"Im1".to_vec())));
+    }
+
+    #[test]
+    fn test_find_xobject_operators() {
+        let ops = parses_to(b"/Im1 Do /Im2 Do /Im1 Do");
+        let found = find_xobject_operators(&ops, "Im1");
+        assert_eq!(found, vec![0, 2]);
+        assert!(find_xobject_operators(&ops, "Im3").is_empty());
+    }
+
+    #[test]
+    fn test_rename_xobject_operator() {
+        let mut ops = parses_to(b"/Im1 Do /Im2 Do /Im1 Do");
+        let count = rename_xobject_operator(&mut ops, "Im1", "ImX");
+        assert_eq!(count, 2);
+        assert_eq!(
+            ops[0],
+            ContentOperator::InvokeXObject(CosName::new(b"ImX".to_vec()))
+        );
+        assert_eq!(
+            ops[2],
+            ContentOperator::InvokeXObject(CosName::new(b"ImX".to_vec()))
+        );
+        // unchanged
+        assert_eq!(
+            ops[1],
+            ContentOperator::InvokeXObject(CosName::new(b"Im2".to_vec()))
+        );
+    }
+
+    #[test]
+    fn test_replace_inline_image_data() {
+        let mut ops = vec![
+            ContentOperator::BeginInlineImage,
+            ContentOperator::InlineImageData(b"JPEG-data".to_vec()),
+            ContentOperator::EndInlineImage,
+        ];
+        let img_idx = 1;
+        let ok = replace_inline_image_data(&mut ops, img_idx, b"new-data");
+        assert!(ok);
+        if let ContentOperator::InlineImageData(d) = &ops[img_idx] {
+            assert_eq!(d, b"new-data");
+        } else {
+            panic!("expected InlineImageData");
+        }
+    }
+
+    #[test]
+    fn test_find_inline_images() {
+        // Build ops manually with two inline images
+        let ops = vec![
+            ContentOperator::BeginInlineImage,
+            ContentOperator::InlineImageData(b"img1".to_vec()),
+            ContentOperator::EndInlineImage,
+            ContentOperator::SaveState,
+            ContentOperator::RestoreState,
+            ContentOperator::BeginInlineImage,
+            ContentOperator::InlineImageData(b"img2".to_vec()),
+            ContentOperator::EndInlineImage,
+        ];
+        let regions = find_inline_images(&ops);
+        assert_eq!(regions.len(), 2);
+        for (bi, id, ei) in &regions {
+            assert_eq!(ops[*bi], ContentOperator::BeginInlineImage);
+            assert!(matches!(ops[*id], ContentOperator::InlineImageData(_)));
+            assert_eq!(ops[*ei], ContentOperator::EndInlineImage);
+        }
     }
 
     // ── colour operators ──────────────────────────────────────────────────
