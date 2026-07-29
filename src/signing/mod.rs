@@ -52,6 +52,7 @@ pub mod acroform;
 pub mod appearance;
 pub mod asn1;
 pub mod cms;
+pub mod cms_signer;
 pub mod ltv;
 pub mod validator;
 
