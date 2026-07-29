@@ -5,6 +5,8 @@ use super::ValidationError;
 /// Trait for individual PDF/A validation rules.
 pub trait PreflightRule {
     fn validate(&self, doc: &Document) -> Vec<ValidationError>;
+    /// Unique identifier for this rule (e.g. "1.0").
+    fn id(&self) -> &'static str { "" }
 }
 
 // ── 1.0 Encryption Rule ────────────────────────────────────────────────
@@ -21,6 +23,7 @@ impl PreflightRule for NoEncryptionRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "1.0" }
 }
 
 // ── 2.0 LZW Filter Rule ────────────────────────────────────────────────
@@ -54,6 +57,7 @@ impl PreflightRule for NoLzwFilterRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "2.0" }
 }
 
 // ── 3.0 ASCII85 / ASCIIHex Filter Rule ─────────────────────────────────
@@ -87,6 +91,7 @@ impl PreflightRule for NoDeprecatedFiltersRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "3.0" }
 }
 
 // ── 4.0 JavaScript Rule ────────────────────────────────────────────────
@@ -120,6 +125,7 @@ impl PreflightRule for NoJavaScriptRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "4.0" }
 }
 
 // ── 5.0 OPI Rule ───────────────────────────────────────────────────────
@@ -144,7 +150,6 @@ impl PreflightRule for NoOpiRule {
                     }
                 }
             }
-            // Also check XObject dictionaries inside streams
             if let CosObject::Stream(stream) = obj {
                 let dict = &stream.dictionary;
                 for key in &opi_keys {
@@ -159,6 +164,7 @@ impl PreflightRule for NoOpiRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "5.0" }
 }
 
 // ── 6.0 Metadata Rule ─────────────────────────────────────────────────
@@ -169,7 +175,6 @@ impl PreflightRule for MetadataRule {
     fn validate(&self, doc: &Document) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
-        // Check catalog for /Metadata
         let catalog = match doc.catalog() {
             Some(c) => c,
             None => {
@@ -188,7 +193,6 @@ impl PreflightRule for MetadataRule {
             });
         }
 
-        // Check that it's actually a stream (not just any entry)
         if let Some(md_obj) = catalog.get(&CosName::new(b"Metadata".to_vec())) {
             let resolved = doc.objects.resolve(md_obj);
             match resolved {
@@ -204,6 +208,7 @@ impl PreflightRule for MetadataRule {
 
         errors
     }
+    fn id(&self) -> &'static str { "6.0" }
 }
 
 // ── 7.0 Font Rule ──────────────────────────────────────────────────────
@@ -212,31 +217,23 @@ impl PreflightRule for MetadataRule {
 pub struct FontEmbeddingRule;
 impl PreflightRule for FontEmbeddingRule {
     fn validate(&self, doc: &Document) -> Vec<ValidationError> {
-        use crate::cos::CosName;
         let mut errors = Vec::new();
 
         for (id, obj) in doc.objects.iter() {
             if let CosObject::Dictionary(dict) = obj {
-                // Look for font descriptors
                 let type_name = dict.get(&CosName::type_name())
                     .and_then(|o| o.as_name())
                     .map(|n| n.as_bytes());
 
-                let subtype = dict.get(&CosName::new(b"Subtype".to_vec()))
-                    .and_then(|o| o.as_name())
-                    .map(|n| n.as_bytes());
-
-                // Font descriptors that may lack /FontFile or /FontFile2 or /FontFile3
                 if type_name == Some(b"FontDescriptor") {
                     let has_fontfile = dict.contains_key(&CosName::new(b"FontFile".to_vec()))
                         || dict.contains_key(&CosName::new(b"FontFile2".to_vec()))
                         || dict.contains_key(&CosName::new(b"FontFile3".to_vec()));
 
                     if !has_fontfile {
-                        // Only flag non- symbolic fonts (type3 and CID are exempt)
                         let is_symbolic = dict.get(&CosName::new(b"Flags".to_vec()))
                             .and_then(|o| o.as_integer())
-                            .map(|f| (f & 4) != 0) // Symbolic flag = bit 2
+                            .map(|f| (f & 4) != 0)
                             .unwrap_or(false);
 
                         if !is_symbolic {
@@ -251,6 +248,7 @@ impl PreflightRule for FontEmbeddingRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "7.0" }
 }
 
 // ── 8.0 Transparency Rule ───────────────────────────────────────────────
@@ -265,7 +263,7 @@ impl PreflightRule for NoTransparencyRule {
             CosName::new(b"SMaskInData".to_vec()),
             CosName::new(b"ca".to_vec()),
             CosName::new(b"CA".to_vec()),
-            CosName::new(b"BM".to_vec()),    // blend mode
+            CosName::new(b"BM".to_vec()),
         ];
 
         for (id, obj) in doc.objects.iter() {
@@ -298,6 +296,7 @@ impl PreflightRule for NoTransparencyRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "8.0" }
 }
 
 // ── 9.0 Annotation Rule ────────────────────────────────────────────────
@@ -319,7 +318,6 @@ impl PreflightRule for AnnotationRule {
 
                 if is_annot {
                     let flags = dict.get(&f_key).and_then(|o| o.as_integer()).unwrap_or(0);
-                    // bit 3 = 4 = print flag
                     if (flags & 4) == 0 {
                         errors.push(ValidationError {
                             rule_id: "9.0",
@@ -331,6 +329,7 @@ impl PreflightRule for AnnotationRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "9.0" }
 }
 
 // ── 10.0 Output Intent Rule ────────────────────────────────────────────
@@ -348,7 +347,6 @@ impl PreflightRule for OutputIntentRule {
         let output_intents = catalog.get(&CosName::new(b"OutputIntents".to_vec()));
         match output_intents {
             Some(CosObject::Array(arr)) if !arr.is_empty() => {
-                // Check each output intent has /DestOutputProfile
                 for (i, intent) in arr.iter().enumerate() {
                     if let Some(d) = intent.as_dictionary() {
                         if !d.contains_key(&CosName::new(b"DestOutputProfile".to_vec())) {
@@ -376,6 +374,7 @@ impl PreflightRule for OutputIntentRule {
 
         errors
     }
+    fn id(&self) -> &'static str { "10.0" }
 }
 
 // ── 11.0 Action Rule ───────────────────────────────────────────────────
@@ -403,6 +402,7 @@ impl PreflightRule for NoLaunchActionsRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "11.0" }
 }
 
 // ── 12.0 Color Space Rule ──────────────────────────────────────────────
@@ -411,7 +411,6 @@ impl PreflightRule for NoLaunchActionsRule {
 pub struct ColorSpaceRule;
 impl PreflightRule for ColorSpaceRule {
     fn validate(&self, doc: &Document) -> Vec<ValidationError> {
-        // Check /ColorSpace entries in resource dictionaries
         let mut errors = Vec::new();
         let cs_key = CosName::new(b"ColorSpace".to_vec());
 
@@ -421,7 +420,6 @@ impl PreflightRule for ColorSpaceRule {
                     self.check_cs(cs, id, &mut errors);
                 }
             }
-            // Also check in stream dicts (e.g. inline image color spaces)
             if let CosObject::Stream(stream) = obj {
                 if let Some(cs) = stream.dictionary.get(&cs_key) {
                     self.check_cs(cs, id, &mut errors);
@@ -430,6 +428,7 @@ impl PreflightRule for ColorSpaceRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "12.0" }
 }
 
 impl ColorSpaceRule {
@@ -439,11 +438,6 @@ impl ColorSpaceRule {
             CosObject::Array(arr) => arr.iter().filter_map(|o| o.as_name().map(|n| n.as_bytes())).collect(),
             _ => return,
         };
-        let forbidden: &[&[u8]] = &[b"Indexed", b"CalRGB", b"CalGray", b"Lab", b"ICCBased"];
-        // Actually ICCBased is OK — only check for CalRGB / CalGray / Lab without proper profile
-        // For PDF/A-1b: DeviceGray, DeviceRGB, DeviceCMYK, and ICCBased are OK.
-        // CalRGB, CalGray, Lab are NOT allowed as top-level color spaces.
-        // Indexed is OK only if base is OK.
         for name in &names {
             if *name == b"CalRGB" || *name == b"CalGray" || *name == b"Lab" {
                 errors.push(ValidationError {
@@ -463,7 +457,7 @@ pub struct PageRule;
 impl PreflightRule for PageRule {
     fn validate(&self, doc: &Document) -> Vec<ValidationError> {
         let mut errors = Vec::new();
-        let aa_key = CosName::new(b"AA".to_vec());  // additional actions
+        let aa_key = CosName::new(b"AA".to_vec());
         let open_action = CosName::new(b"OpenAction".to_vec());
 
         let catalog = match doc.catalog() {
@@ -471,7 +465,6 @@ impl PreflightRule for PageRule {
             None => return errors,
         };
 
-        // Check catalog OpenAction
         if catalog.contains_key(&open_action) {
             errors.push(ValidationError {
                 rule_id: "13.0",
@@ -479,7 +472,6 @@ impl PreflightRule for PageRule {
             });
         }
 
-        // Check page additional actions
         for (id, obj) in doc.objects.iter() {
             if let CosObject::Dictionary(dict) = obj {
                 let is_page = dict.get(&CosName::type_name())
@@ -496,6 +488,7 @@ impl PreflightRule for PageRule {
         }
         errors
     }
+    fn id(&self) -> &'static str { "13.0" }
 }
 
 // ── 14.0 Embedded File Rule ────────────────────────────────────────────
@@ -507,4 +500,12 @@ impl PreflightRule for EmbeddedFileRule {
         // Placeholder: complex spec — check for EF / embedded files
         Vec::new()
     }
+    fn id(&self) -> &'static str { "14.0" }
 }
+
+// =======================================================================
+// Tests
+// =======================================================================
+#[cfg(test)]
+#[path = "rules_tests.rs"]
+mod tests;
