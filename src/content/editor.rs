@@ -13,9 +13,7 @@
 //! - All public types implement `Send` (no `Rc` / `RefCell`).
 //! - The editor is usable as a state machine: load → edit page(s) → save.
 
-use crate::content::edit::{
-    parse_content_operators, serialise_content_stream, ContentOperator,
-};
+use crate::content::edit::{parse_content_operators, serialise_content_stream, ContentOperator};
 use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
 use crate::io::decode_stream;
 use crate::{Document, PdfError, PdfResult};
@@ -28,11 +26,7 @@ pub struct PdfEditor {
 // ── helpers ────────────────────────────────────────────────────────────
 
 /// Walk pages tree and collect page ObjectIds.
-fn collect_page_ids(
-    node_ref: ObjectId,
-    store: &crate::ObjectStore,
-    pages: &mut Vec<ObjectId>,
-) {
+fn collect_page_ids(node_ref: ObjectId, store: &crate::ObjectStore, pages: &mut Vec<ObjectId>) {
     let Some(node) = store.get(&node_ref) else {
         return;
     };
@@ -122,10 +116,7 @@ impl PdfEditor {
     // ── Content stream access ────────────────────────────────────────────
 
     /// Parse and return the typed content operators for the given page.
-    pub fn get_content_operators(
-        &self,
-        page_index: usize,
-    ) -> PdfResult<Vec<ContentOperator>> {
+    pub fn get_content_operators(&self, page_index: usize) -> PdfResult<Vec<ContentOperator>> {
         let raw = self.page_raw_content_bytes(page_index)?;
         parse_content_operators(&raw).map_err(|e| PdfError::Parse {
             offset: None,
@@ -156,17 +147,15 @@ impl PdfEditor {
                         ContentOperator::ShowText(s) => std::str::from_utf8(s)
                             .ok()
                             .map_or(false, |t| t.contains(needle)),
-                        ContentOperator::ShowTextPositioned(items) => items
-                            .iter()
-                            .any(|item| {
-                                if let crate::content::edit::TjItem::Text(s) = item {
-                                    std::str::from_utf8(s)
-                                        .ok()
-                                        .map_or(false, |t| t.contains(needle))
-                                } else {
-                                    false
-                                }
-                            }),
+                        ContentOperator::ShowTextPositioned(items) => items.iter().any(|item| {
+                            if let crate::content::edit::TjItem::Text(s) = item {
+                                std::str::from_utf8(s)
+                                    .ok()
+                                    .map_or(false, |t| t.contains(needle))
+                            } else {
+                                false
+                            }
+                        }),
                         _ => false,
                     };
                     if found {
@@ -208,8 +197,7 @@ impl PdfEditor {
         new_name: &str,
     ) -> PdfResult<usize> {
         let mut ops = self.get_content_operators(page_index)?;
-        let count =
-            crate::content::edit::rename_xobject_operator(&mut ops, old_name, new_name);
+        let count = crate::content::edit::rename_xobject_operator(&mut ops, old_name, new_name);
         if count > 0 {
             self.set_content_operators(page_index, &ops)?;
         }
@@ -262,13 +250,9 @@ impl PdfEditor {
                 })?;
 
             let name_key = CosName::new(resource_name.as_bytes().to_vec());
-            let entry = xobject_dict.get(&name_key).ok_or_else(|| {
-                PdfError::Parse {
-                    offset: None,
-                    context: format!(
-                        "page {page_index} has no XObject named '{resource_name}'"
-                    ),
-                }
+            let entry = xobject_dict.get(&name_key).ok_or_else(|| PdfError::Parse {
+                offset: None,
+                context: format!("page {page_index} has no XObject named '{resource_name}'"),
             })?;
 
             match entry {
@@ -294,9 +278,7 @@ impl PdfEditor {
                     .get_mut(&rid)
                     .ok_or_else(|| PdfError::Parse {
                         offset: None,
-                        context: format!(
-                            "reference {rid} not found for XObject '{resource_name}'"
-                        ),
+                        context: format!("reference {rid} not found for XObject '{resource_name}'"),
                     })?;
                 match obj {
                     CosObject::Stream(s) => s,
@@ -313,9 +295,7 @@ impl PdfEditor {
             None => {
                 return Err(PdfError::Parse {
                     offset: None,
-                    context: format!(
-                        "XObject '{resource_name}' is inline; not yet supported"
-                    ),
+                    context: format!("XObject '{resource_name}' is inline; not yet supported"),
                 });
             }
         };
@@ -342,9 +322,7 @@ impl PdfEditor {
         );
         d.insert(
             CosName::new(b"ColorSpace".to_vec()),
-            CosObject::Name(CosName::new(
-                new_color_space.as_bytes().to_vec(),
-            )),
+            CosObject::Name(CosName::new(new_color_space.as_bytes().to_vec())),
         );
         d.insert(
             CosName::new(b"BitsPerComponent".to_vec()),
@@ -368,8 +346,7 @@ impl PdfEditor {
     /// Serialize the document to a byte vector.
     pub fn save_to_bytes(&self) -> std::io::Result<Vec<u8>> {
         let mut buf = Vec::new();
-        self.doc
-            .save_to(&mut std::io::Cursor::new(&mut buf))?;
+        self.doc.save_to(&mut std::io::Cursor::new(&mut buf))?;
         Ok(buf)
     }
 
@@ -403,9 +380,7 @@ impl PdfEditor {
 
         if let Some(stream) = resolved.and_then(|o| o.as_stream()) {
             let raw = &stream.data;
-            let filter = stream
-                .dictionary
-                .get(&CosName::new(b"Filter".to_vec()));
+            let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec()));
             decode_stream(raw, filter).map_err(|e| PdfError::Parse {
                 offset: None,
                 context: format!("page {page_index} content decode: {e}"),
@@ -420,14 +395,10 @@ impl PdfEditor {
                     continue;
                 };
                 let raw = &stream.data;
-                let filter = stream
-                    .dictionary
-                    .get(&CosName::new(b"Filter".to_vec()));
-                let decoded = decode_stream(raw, filter).map_err(|e| {
-                    PdfError::Parse {
-                        offset: None,
-                        context: format!("page {page_index} content decode: {e}"),
-                    }
+                let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec()));
+                let decoded = decode_stream(raw, filter).map_err(|e| PdfError::Parse {
+                    offset: None,
+                    context: format!("page {page_index} content decode: {e}"),
                 })?;
                 combined.extend_from_slice(&decoded);
             }
@@ -435,9 +406,7 @@ impl PdfEditor {
         } else {
             Err(PdfError::Parse {
                 offset: None,
-                context: format!(
-                    "page {page_index} /Contents is neither stream nor array"
-                ),
+                context: format!("page {page_index} /Contents is neither stream nor array"),
             })
         }
     }
@@ -472,5 +441,147 @@ impl PdfEditor {
             })?;
         page_dict.insert(CosName::contents(), CosObject::Reference(stream_id));
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::CosName;
+
+    fn minimal_pdf_bytes() -> Vec<u8> {
+        let mut pdf = b"%PDF-1.4\n".to_vec();
+
+        let obj1_offset = pdf.len();
+        pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+        let obj2_offset = pdf.len();
+        pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+
+        let content = b"BT ET";
+        let obj3_offset = pdf.len();
+        pdf.extend_from_slice(
+            b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /XObject << /Im1 4 0 R >> >> >>\nendobj\n",
+        );
+
+        let obj4_offset = pdf.len();
+        pdf.extend_from_slice(b"4 0 obj\n<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Length 1 >>\nstream\n\xff\nendstream\nendobj\n");
+
+        let obj5_offset = pdf.len();
+        pdf.extend_from_slice(
+            format!("5 0 obj\n<< /Length {} >>\nstream\n", content.len()).as_bytes(),
+        );
+        pdf.extend_from_slice(content);
+        pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+        let xref_offset = pdf.len();
+        pdf.extend_from_slice(b"xref\n0 6\n");
+        pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj1_offset).as_bytes());
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj2_offset).as_bytes());
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj3_offset).as_bytes());
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj4_offset).as_bytes());
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", obj5_offset).as_bytes());
+
+        pdf.extend_from_slice(b"trailer\n<< /Size 6 /Root 1 0 R >>\n");
+        pdf.extend_from_slice(format!("startxref\n{}\n%%EOF\n", xref_offset).as_bytes());
+        pdf
+    }
+
+    #[test]
+    fn test_editor_page_count() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        assert_eq!(editor.page_count(), 1);
+    }
+
+    #[test]
+    fn test_editor_replace_image_xobject() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+
+        let new_data = vec![0x80u8; 1]; // 1x1 128 gray
+        editor
+            .replace_image_xobject(0, "Im1", &new_data, 1, 1, "DeviceGray", 8, None)
+            .unwrap();
+
+        // Verify the image stream was updated
+        let page_id = editor.page_id(0).unwrap();
+        let page_dict = editor
+            .document()
+            .objects
+            .get(&page_id)
+            .and_then(|o| o.as_dictionary())
+            .unwrap();
+        let xobj = page_dict
+            .get(&CosName::new(b"Resources".to_vec()))
+            .and_then(|r| r.as_dictionary())
+            .and_then(|r| r.get(&CosName::new(b"XObject".to_vec())))
+            .and_then(|x| x.as_dictionary())
+            .and_then(|x| x.get(&CosName::new(b"Im1".to_vec())));
+        let stream = match xobj {
+            Some(CosObject::Reference(rid)) => editor
+                .document()
+                .objects
+                .get(rid)
+                .and_then(|o| o.as_stream()),
+            _ => None,
+        };
+        assert!(stream.is_some());
+        let stream = stream.unwrap();
+        assert_eq!(stream.data, new_data);
+        assert_eq!(
+            stream
+                .dictionary
+                .get(&CosName::new(b"Width".to_vec()))
+                .and_then(|v| v.as_integer()),
+            Some(1)
+        );
+        assert_eq!(
+            stream
+                .dictionary
+                .get(&CosName::new(b"Height".to_vec()))
+                .and_then(|v| v.as_integer()),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn test_editor_rename_xobject() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+        let count = editor.rename_xobject_on_page(0, "Im1", "ImX").unwrap();
+        assert_eq!(count, 0); // no content stream operators that use Im1
+    }
+
+    #[test]
+    fn test_editor_text_roundtrip() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+
+        // Content stream has BT ET operators
+        let ops = editor.get_content_operators(0).unwrap();
+        assert!(!ops.is_empty());
+        // Roundtrip: set back and parse again
+        editor.set_content_operators(0, &ops).unwrap();
+        let ops2 = editor.get_content_operators(0).unwrap();
+        assert_eq!(ops.len(), ops2.len());
+    }
+
+    #[test]
+    fn test_editor_save_roundtrip() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        let bytes = editor.save_to_bytes().unwrap();
+        assert!(!bytes.is_empty());
+        assert!(bytes.starts_with(b"%PDF-"));
+    }
+
+    #[test]
+    fn test_editor_into_document() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        let doc_back = editor.into_document();
+        assert_eq!(doc_back.page_count(), 1);
     }
 }
