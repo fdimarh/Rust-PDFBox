@@ -6,7 +6,7 @@
 
 use std::io::{self, Write, Seek, SeekFrom};
 use std::collections::{BTreeMap, HashSet};
-use crate::cos::{CosObject, CosName, ObjectId, CosDictionary};
+use crate::cos::{CosObject, CosName, ObjectId};
 use crate::Document;
 use super::serializer::Serializer;
 

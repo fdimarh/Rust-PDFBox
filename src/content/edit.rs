@@ -10,7 +10,7 @@
 //! typed [`ContentOperator`] tree.  Edits are applied on the tree, and the
 //! tree is then serialised back to bytes for injection into the PDF.
 
-use crate::content::{ContentTokenizer, Instruction, Operator};
+use crate::content::Instruction;
 use crate::cos::{CosDictionary, CosName, CosObject};
 use std::fmt;
 

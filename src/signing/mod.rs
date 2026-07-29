@@ -1005,6 +1005,7 @@ fn extract_certs_from_cms(cms_der: &[u8]) -> Vec<x509_certificate::CapturedX509C
 }
 
 
+#[allow(dead_code)]
 fn next_free_object_id(doc: &Document) -> u32 {
     doc.objects.max_object_number() + 1
 }
@@ -1064,6 +1065,7 @@ fn build_page_with_annot(
     Some((page_id, CosObject::Dictionary(new_page)))
 }
 
+#[allow(dead_code)]
 fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: ObjectId)
     -> CosObject
 {
@@ -1080,6 +1082,7 @@ fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: Obje
 /// `/Contents <000…0>` in the serialised PDF bytes.
 ///
 /// Returns `(byte_range_offset, contents_angle_open_offset, total_hex_field_len)`
+#[allow(dead_code)]
 fn find_sig_placeholders(buf: &[u8], _field_name: &str)
     -> Result<(usize, usize, usize), PdfError>
 {
