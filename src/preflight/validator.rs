@@ -9,16 +9,33 @@ pub struct PreflightValidator {
 impl PreflightValidator {
     /// Creates a new validator configured for PDF/A-1b.
     pub fn pdf_a1b() -> Self {
-        let mut rules: Vec<Box<dyn PreflightRule>> = Vec::new();
-        
-        // Add ISO 19005-1 (PDF/A-1b) rules
-        rules.push(Box::new(NoEncryptionRule));
-        rules.push(Box::new(NoLzwFilterRule));
-        rules.push(Box::new(NoJavaScriptRule));
-        rules.push(Box::new(NoOpiRule));
-        
-        // TODO: MetadataRule, ColorSpaceRule
-        
+        let rules: Vec<Box<dyn PreflightRule>> = vec![
+            // Security & encoding
+            Box::new(NoEncryptionRule),
+            Box::new(NoJavaScriptRule),
+            Box::new(NoLaunchActionsRule),
+            // Filters
+            Box::new(NoLzwFilterRule),
+            Box::new(NoDeprecatedFiltersRule),
+            // Content restrictions
+            Box::new(NoTransparencyRule),
+            Box::new(NoOpiRule),
+            Box::new(ColorSpaceRule),
+            // Fonts & metadata
+            Box::new(FontEmbeddingRule),
+            Box::new(MetadataRule),
+            Box::new(OutputIntentRule),
+            // Pages & annotations
+            Box::new(AnnotationRule),
+            Box::new(PageRule),
+            Box::new(EmbeddedFileRule),
+        ];
+
+        Self { rules }
+    }
+
+    /// Creates a validator with a custom set of rules.
+    pub fn with_rules(rules: Vec<Box<dyn PreflightRule>>) -> Self {
         Self { rules }
     }
 
