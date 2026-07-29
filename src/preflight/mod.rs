@@ -27,3 +27,5 @@ impl fmt::Display for ValidationError {
         write!(f, "[{}] {}", self.rule_id, self.message)
     }
 }
+
+pub use validator::PreflightValidator;
