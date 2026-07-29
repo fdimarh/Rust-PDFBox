@@ -3,12 +3,18 @@ use rust_pdfbox::signing::{self, SignOptions, SignatureFormat, PadesLevel};
 use rust_pdfbox::preflight::PreflightValidator;
 use rust_pdfbox::Document;
 use std::path::PathBuf;
+use std::process;
 
 /// Rust PDFBox CLI (Equivalent to Apache PDFBox Tools)
 #[derive(Parser, Debug)]
 #[command(name = "rust-pdfbox")]
 #[command(about = "Command line tools for PDF manipulation and extraction", version)]
+#[command(disable_help_flag = false)]
 struct Cli {
+    /// Enable verbose output
+    #[arg(short = 'v', long, global = true)]
+    verbose: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -61,6 +67,9 @@ enum Commands {
         /// Visible signature rectangle: x1,y1,x2,y2
         #[arg(long)]
         rect: Option<String>,
+        /// Signature appearance image (PNG/JPEG)
+        #[arg(long)]
+        image: Option<PathBuf>,
         /// Timestamp authority URL
         #[arg(long)]
         tsa_url: Option<String>,
@@ -113,20 +122,14 @@ enum Commands {
     },
 }
 
-fn read_file_or_empty(path: &Option<PathBuf>) -> Result<String, Box<dyn std::error::Error>> {
-    match path {
-        Some(p) => Ok(std::fs::read_to_string(p)?),
-        None => Ok(String::new()),
-    }
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::ExtractText { input, output } => {
-            println!("Loading document: {}", input.display());
-            let doc = Document::load(input)?;
+            if cli.verbose { eprintln!("ℹ Loading document: {}", input.display()); }
+            let doc = Document::load(input)
+                .map_err(|e| format!("Failed to open '{}': {e}", input.display()))?;
 
             #[cfg(feature = "text")]
             {
@@ -134,38 +137,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 full_text.push_str("... Text extraction requires resolved CMap integration ...\n");
 
                 if let Some(out_path) = output {
-                    std::fs::write(out_path, full_text)?;
-                    println!("Text saved to {}", out_path.display());
+                    std::fs::write(out_path, full_text)
+                        .map_err(|e| format!("Failed to write '{}': {e}", out_path.display()))?;
+                    println!("✓ Text saved to {}", out_path.display());
                 } else {
-                    println!("{}", full_text);
+                    print!("{}", full_text);
                 }
             }
             #[cfg(not(feature = "text"))]
             {
-                println!("Error: 'text' feature not compiled in rust-pdfbox.");
+                eprintln!("✗ 'text' feature not compiled in rust-pdfbox.");
+                process::exit(1);
             }
         }
 
         Commands::ExtractImages { input, output_dir } => {
-            println!("Loading document: {}", input.display());
-            #[allow(unused_variables)]
-            let mut doc = Document::load(input)?;
+            if cli.verbose { eprintln!("ℹ Loading document: {}", input.display()); }
+            let mut doc = Document::load(input)
+                .map_err(|e| format!("Failed to open '{}': {e}", input.display()))?;
 
             #[cfg(feature = "image-extract")]
             {
-                std::fs::create_dir_all(output_dir)?;
-                let images = rust_pdfbox::image_extract::export::export_images(&mut doc)?;
-                println!("Found {} images.", images.len());
+                std::fs::create_dir_all(output_dir)
+                    .map_err(|e| format!("Cannot create output dir '{}': {e}", output_dir.display()))?;
+                let images = rust_pdfbox::image_extract::export::export_images(&mut doc)
+                    .map_err(|e| format!("Image extraction failed: {e}"))?;
+                println!("✓ Found {} images.", images.len());
 
                 for (idx, img) in images.iter().enumerate() {
                     let out_path = output_dir.join(format!("image_{:04}.png", idx + 1));
-                    img.image.save(&out_path)?;
-                    println!("Saved {}", out_path.display());
+                    img.image.save(&out_path)
+                        .map_err(|e| format!("Failed to save '{}': {e}", out_path.display()))?;
+                    println!("  Saved {}", out_path.display());
                 }
             }
             #[cfg(not(feature = "image-extract"))]
             {
-                println!("Error: 'image-extract' feature not compiled in rust-pdfbox.");
+                eprintln!("✗ 'image-extract' feature not compiled in rust-pdfbox.");
+                process::exit(1);
             }
         }
 
@@ -178,12 +187,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             pades_level,
             page,
             rect,
+            image,
             tsa_url,
             password,
         } => {
-            let pdf_bytes = std::fs::read(input)?;
-            let cert_pem = std::fs::read_to_string(cert)?;
-            let key_pem = std::fs::read_to_string(key)?;
+            if cli.verbose { eprintln!("ℹ Loading PDF: {}", input.display()); }
+            let pdf_bytes = std::fs::read(input)
+                .map_err(|e| format!("Cannot read '{}': {e}", input.display()))?;
+
+            let cert_pem = std::fs::read_to_string(cert)
+                .map_err(|e| format!("Cannot read certificate '{}': {e}", cert.display()))?;
+            let key_pem = std::fs::read_to_string(key)
+                .map_err(|e| format!("Cannot read key '{}': {e}", key.display()))?;
 
             let sig_format = match format.as_str() {
                 "pades" => SignatureFormat::PAdES,
@@ -199,8 +214,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let rect_parsed = rect.as_ref().and_then(|s| {
                 let parts: Vec<f64> = s.split(',').filter_map(|p| p.trim().parse().ok()).collect();
-                if parts.len() == 4 { Some([parts[0], parts[1], parts[2], parts[3]]) } else { None }
+                if parts.len() == 4 { Some([parts[0], parts[1], parts[2], parts[3]]) } else {
+                    eprintln!("⚠ Warning: --rect expected 4 comma-separated values (x1,y1,x2,y2), got '{s}'");
+                    None
+                }
             });
+
+            // Load signature appearance image if provided
+            let sig_image: Option<Vec<u8>> = if let Some(img_path) = image {
+                if cli.verbose { eprintln!("ℹ Loading signature image: {}", img_path.display()); }
+                // Read as raw bytes — the signing pipeline may embed them.
+                // For now, warn that --image is not yet integrated into sign_pdf.
+                eprintln!("⚠ --image flag recognized but image embedding in signature appearance is not yet implemented; signing will proceed without visual.");
+                None
+            } else {
+                None
+            };
+            let _ = sig_image; // suppress unused warning
 
             let opts = SignOptions {
                 format: sig_format,
@@ -211,34 +241,61 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ..SignOptions::default()
             };
 
-            let signed = signing::sign_pdf(&pdf_bytes, &cert_pem, &key_pem, password.as_deref(), &opts)?;
-            std::fs::write(output, &signed)?;
-            println!("Signed PDF saved to {}", output.display());
+            if cli.verbose {
+                eprintln!("ℹ Signing PDF (format={:?}, page={page}, rect={rect_parsed:?}) ...", opts.format);
+            }
+            let signed = signing::sign_pdf(&pdf_bytes, &cert_pem, &key_pem, password.as_deref(), &opts)
+                .map_err(|e| format!("Signing failed: {e}"))?;
+
+            std::fs::write(output, &signed)
+                .map_err(|e| format!("Cannot write '{}': {e}", output.display()))?;
+            println!("✓ Signed PDF saved to {}", output.display());
         }
 
         Commands::Validate { input, check_ltv } => {
-            let doc = Document::load(input)?;
+            if cli.verbose { eprintln!("ℹ Loading document: {}", input.display()); }
+            let doc = Document::load(input)
+                .map_err(|e| format!("Failed to open '{}': {e}", input.display()))?;
 
             #[cfg(feature = "signing")]
             {
-                let result = rust_pdfbox::signing::validator::validate_signatures(&doc)?;
-                println!("Signature count: {}", result.signatures.len());
+                let result = rust_pdfbox::signing::validator::validate_signatures(&doc)
+                    .map_err(|e| format!("Signature validation failed: {e}"))?;
+                println!("✓ Signature count: {}", result.signatures.len());
                 for (i, sig) in result.signatures.iter().enumerate() {
-                    println!("  [{i}] Status: {}", if sig.is_valid { "✅ Valid" } else { "❌ Invalid" });
+                    let status = if sig.is_valid { "✅ Valid" } else { "❌ Invalid" };
+                    println!("  [{i}] Status: {status}");
                     println!("      Signed at: {:?}", sig.signed_at);
                     println!("      Signer: {}", sig.signer_name.as_deref().unwrap_or("(unknown)"));
                     println!("      Reason: {}", sig.reason.as_deref().unwrap_or("(not specified)"));
+                    if *check_ltv {
+                        let ltv = if sig.is_ltv_enabled { "✅ LTV enabled" } else { "❌ Not LTV" };
+                        println!("      LTV: {ltv}");
+                        println!("      DSS CRLs: {}, OCSPs: {}", sig.dss_crl_count, sig.dss_ocsp_count);
+                    }
                 }
-                println!("Overall: {}", if result.is_valid { "✅ All signatures valid" } else { "❌ Some signatures invalid" });
+                println!(
+                    "{}",
+                    if result.is_valid { "✅ All signatures valid" } else { "❌ Some signatures invalid" }
+                );
+                if !result.errors.is_empty() {
+                    eprintln!("Errors:");
+                    for e in &result.errors {
+                        eprintln!("  - {e}");
+                    }
+                }
             }
             #[cfg(not(feature = "signing"))]
             {
-                println!("Error: 'signing' feature not compiled in rust-pdfbox.");
+                eprintln!("✗ 'signing' feature not compiled in rust-pdfbox.");
+                process::exit(1);
             }
         }
 
         Commands::Preflight { input, output } => {
-            let doc = Document::load(input)?;
+            if cli.verbose { eprintln!("ℹ Loading document: {}", input.display()); }
+            let doc = Document::load(input)
+                .map_err(|e| format!("Failed to open '{}': {e}", input.display()))?;
             let validator = PreflightValidator::pdf_a1b();
             let result = validator.validate(&doc);
 
@@ -257,10 +314,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 json.push_str(",\n  \"errors\": [\n");
                 for (i, err) in result.errors.iter().enumerate() {
                     if i > 0 { json.push_str(",\n"); }
-                    json.push_str(&format!("    {{\"rule_id\": {:?}, \"message\": {:?}}}", err.rule_id, err.message));
+                    json.push_str(&format!(
+                        "    {{\"rule_id\": {:?}, \"message\": {:?}}}",
+                        err.rule_id, err.message
+                    ));
                 }
                 json.push_str("\n  ]\n}\n");
-                std::fs::write(out_path, json)?;
+                std::fs::write(out_path, &json)
+                    .map_err(|e| format!("Failed to write '{}': {e}", out_path.display()))?;
+                if cli.verbose { eprintln!("ℹ JSON output written to {}", out_path.display()); }
             }
         }
 
@@ -270,7 +332,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             user_password,
             owner_password,
         } => {
-            let mut doc = Document::load(input)?;
+            if cli.verbose { eprintln!("ℹ Loading document: {}", input.display()); }
+            let mut doc = Document::load(input)
+                .map_err(|e| format!("Failed to open '{}': {e}", input.display()))?;
 
             let policy = rust_pdfbox::protection::StandardProtectionPolicy {
                 user_password: Some(user_password.clone().unwrap_or_default()),
@@ -282,21 +346,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             #[cfg(feature = "crypto")]
             {
-                doc.protect(&policy)?;
-                doc.save(output)?;
-                println!("Encrypted PDF saved to {}", output.display());
+                doc.protect(&policy)
+                    .map_err(|e| format!("Encryption failed: {e}"))?;
+                doc.save(output)
+                    .map_err(|e| format!("Cannot write '{}': {e}", output.display()))?;
+                println!("✓ Encrypted PDF saved to {}", output.display());
             }
             #[cfg(not(feature = "crypto"))]
             {
-                println!("Error: 'crypto' feature not compiled in rust-pdfbox.");
+                eprintln!("✗ 'crypto' feature not compiled in rust-pdfbox.");
+                process::exit(1);
             }
         }
 
         Commands::Info { input } => {
-            let doc = Document::load(input)?;
-            println!("File: {}", input.display());
-            println!("Pages: {}", doc.page_count());
-            println!("Objects: {}", doc.objects.len());
+            if cli.verbose { eprintln!("ℹ Loading document: {}", input.display()); }
+            let doc = Document::load(input)
+                .map_err(|e| format!("Failed to open '{}': {e}", input.display()))?;
+
+            println!("📄 File: {}", input.display());
+            println!("   Pages:   {}", doc.page_count());
+            println!("   Objects: {}", doc.objects.len());
+
+            #[cfg(feature = "text")]
+            {
+                let _ = doc.page_count(); // suppress unused
+            }
 
             let trailer = doc.trailer();
             if let Some(info) = trailer.get(&rust_pdfbox::cos::CosName::new(b"Info".to_vec())) {
@@ -306,17 +381,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         dict.get(&k)
                             .and_then(|o| o.as_string().map(|s| String::from_utf8_lossy(s).to_string()))
                     };
-                    if let Some(v) = get_str("Title") { println!("Title: {v}"); }
-                    if let Some(v) = get_str("Author") { println!("Author: {v}"); }
-                    if let Some(v) = get_str("Subject") { println!("Subject: {v}"); }
-                    if let Some(v) = get_str("Creator") { println!("Creator: {v}"); }
-                    if let Some(v) = get_str("Producer") { println!("Producer: {v}"); }
+                    for field in ["Title", "Author", "Subject", "Keywords", "Creator", "Producer"] {
+                        if let Some(v) = get_str(field) {
+                            println!("   {}: {}", field, v);
+                        }
+                    }
                 }
             }
 
-            println!("Encrypted: {}", doc.is_encrypted());
+            println!("   Encrypted: {}", doc.is_encrypted());
+
+            #[cfg(feature = "signing")]
+            {
+                if let Ok(result) = rust_pdfbox::signing::validator::validate_signatures(&doc) {
+                    if !result.signatures.is_empty() {
+                        println!("   Signatures: {}", result.signatures.len());
+                        for (i, sig) in result.signatures.iter().enumerate() {
+                            println!("     [{i}] {}", sig.signer_name.as_deref().unwrap_or("(unknown)"));
+                        }
+                    }
+                }
+            }
         }
     }
 
     Ok(())
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("✗ Error: {e}");
+        process::exit(1);
+    }
 }
