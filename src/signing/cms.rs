@@ -378,3 +378,86 @@ pub fn extract_message_digest(cms_der: &[u8]) -> (bool, Option<Vec<u8>>) {
     let parseable = parse_tlv(cms_der).is_some();
     (parseable, None)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Build a minimal CMS SignedData DER containing just messageDigest.
+    fn minimal_cms_with_message_digest(digest_bytes: &[u8]) -> Vec<u8> {
+        use crate::signing::asn1::*;
+        // SignedData ::= SEQUENCE {
+        //   version INTEGER,
+        //   digestAlgorithms SET,
+        //   encapContentInfo SEQUENCE,
+        //   certificates [0] IMPLICIT SET (optional),
+        //   signerInfos SET OF SignerInfo
+        // }
+
+        let digest = der_octet_string(digest_bytes);
+        let md_oid = der_oid(OID_MESSAGE_DIGEST);
+        let md_attr_value = der_set(&digest);
+        let md_attr = {
+            let mut b = md_oid;
+            b.extend(md_attr_value);
+            der_seq(&b)
+        };
+
+        // Build a minimal signerInfo with signedAttrs containing messageDigest
+        let signed_attrs = der_ctx_explicit(0, &der_set(&md_attr));
+        let signer_info = {
+            let si_version = der_integer(&[1]);
+            let si_sid = der_ctx_explicit(0, &der_integer(&[1])); // dummy serial
+            let si_digest = alg_id_sha256();
+            let si_sig_alg = alg_id_sha256_with_rsa();
+            let si_sig = der_octet_string(b"\x00\x01\x02\x03");
+            let mut b = si_version;
+            b.extend_from_slice(&si_sid);
+            b.extend_from_slice(&si_digest);
+            b.extend_from_slice(&signed_attrs);
+            b.extend_from_slice(&si_sig_alg);
+            b.extend_from_slice(&si_sig);
+            der_seq(&b)
+        };
+
+        let signer_infos = der_set(&signer_info);
+        let sd_version = der_integer(&[1]);
+        let sd_digest_algs = der_set(&alg_id_sha256());
+        let sd_eci = der_seq(&der_oid(OID_DATA)); // encapContentInfo w/out content
+
+        let sd_content = {
+            let mut b = sd_version;
+            b.extend_from_slice(&sd_digest_algs);
+            b.extend_from_slice(&sd_eci);
+            b.extend_from_slice(&signer_infos);
+            der_seq(&b)
+        };
+
+        // Unsigned attribute scan relies on the raw DER having the mDigest OID
+        sd_content
+    }
+
+    #[test]
+    fn test_extract_message_digest_found() {
+        let digest = b"\xab\xcd\xef\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e";
+        let cms = minimal_cms_with_message_digest(digest);
+        let (parseable, found) = extract_message_digest(&cms);
+        assert!(parseable);
+        assert_eq!(found.as_deref(), Some(digest.as_slice()));
+    }
+
+    #[test]
+    fn test_extract_message_digest_missing() {
+        let cms = vec![0x30, 0x02, 0x05, 0x00]; // just NULL, no SignedData
+        let (parseable, found) = extract_message_digest(&cms);
+        assert!(parseable);
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn test_extract_message_digest_empty() {
+        let (parseable, found) = extract_message_digest(&[]);
+        assert!(!parseable);
+        assert!(found.is_none());
+    }
+}

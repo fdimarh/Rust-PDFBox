@@ -83,8 +83,7 @@ pub trait CmsSigner {
 /// # Arguments
 ///
 /// * `pdf_bytes` — Original unencrypted PDF bytes.
-/// * `cert_chain_pem` — PEM-encoded certificate chain (or empty).
-/// * `private_key_pem` — Ignored (signer manages its own key), pass `""`.
+/// * `_cert_chain_pem` — Ignored (signer manages its own keys/certs), pass `""`.
 /// * `unlock_password` — Password for encrypted PDFs, or `None`.
 /// * `opts` — [`SignOptions`] controlling placement, format, and metadata.
 /// * `signer` — Anything implementing [`CmsSigner`].
@@ -94,7 +93,7 @@ pub trait CmsSigner {
 /// Returns [`PdfError`] if the signer fails or the PDF structure is invalid.
 pub fn sign_pdf_with_cms_signer(
     pdf_bytes: &[u8],
-    cert_chain_pem: &str,
+    _cert_chain_pem: &str,
     unlock_password: Option<&str>,
     opts: &super::SignOptions,
     mut signer: impl CmsSigner,
@@ -160,8 +159,7 @@ mod tests {
 
     #[test]
     fn test_sign_with_mock_signer() {
-        let opts = SignOptions::default();
         // Just verify the function signature compiles and accepts the trait.
-        let _sig = crate::signing::SignatureFormat::Pkcs7;
+        let _ = crate::signing::SignatureFormat::Pkcs7;
     }
 }

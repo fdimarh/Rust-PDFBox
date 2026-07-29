@@ -224,3 +224,151 @@ pub fn parse_tlv(data: &[u8]) -> Option<(usize, &[u8])> {
     Some((pos + len, &data[pos..pos + len]))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_der_length_short() {
+        assert_eq!(der_length(0),   vec![0x00]);
+        assert_eq!(der_length(1),   vec![0x01]);
+        assert_eq!(der_length(127), vec![0x7f]);
+    }
+
+    #[test]
+    fn test_der_length_long() {
+        let l = der_length(0x80);
+        assert_eq!(l, vec![0x81, 0x80]);
+
+        let l = der_length(0x100);
+        assert_eq!(l, vec![0x82, 0x01, 0x00]);
+
+        let l = der_length(0x1_0000);
+        assert_eq!(l, vec![0x83, 0x01, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn test_der_tlv() {
+        let tlv = der_tlv(0x30, &[0x01, 0x02]);
+        assert_eq!(tlv, vec![0x30, 0x02, 0x01, 0x02]);
+    }
+
+    #[test]
+    fn test_der_seq() {
+        let seq = der_seq(&[0x01, 0x02]);
+        assert_eq!(seq, vec![0x30, 0x02, 0x01, 0x02]);
+    }
+
+    #[test]
+    fn test_der_set() {
+        let set = der_set(&[0x01]);
+        assert_eq!(set, vec![0x31, 0x01, 0x01]);
+    }
+
+    #[test]
+    fn test_der_integer() {
+        // Small positive integer
+        let i = der_integer(&[0x01]);
+        assert_eq!(i, vec![0x02, 0x01, 0x01]);
+
+        // Integer with high-bit set — needs leading 0x00
+        let i = der_integer(&[0x80]);
+        assert_eq!(i, vec![0x02, 0x02, 0x00, 0x80]);
+    }
+
+    #[test]
+    fn test_der_oid() {
+        let oid = der_oid("1.2.840.113549.1.1.1"); // rsaEncryption
+        assert_eq!(oid[0], 0x06);
+        // body starts at offset 2 (tag + length)
+        assert_eq!(oid[2], 0x2a); // 40*1+2 = 0x2a
+    }
+
+    #[test]
+    fn test_der_utf8_string() {
+        let s = der_utf8_string("hello");
+        assert_eq!(s, vec![0x0c, 0x05, b'h', b'e', b'l', b'l', b'o']);
+    }
+
+    #[test]
+    fn test_parse_tlv() {
+        let data = vec![0x30, 0x05, 0x02, 0x01, 0x2a, 0x05, 0x00];
+        let (consumed, val) = parse_tlv(&data).unwrap();
+        assert_eq!(consumed, 7);
+        assert_eq!(val, &[0x02, 0x01, 0x2a, 0x05, 0x00]);
+    }
+
+    #[test]
+    fn test_parse_tlv_long_len() {
+        // Sequence with 0x82 long-form length (2-byte length)
+        let mut data = vec![0x30, 0x82, 0x00, 0x80];
+        data.extend(vec![0x05; 0x80]);
+        let (consumed, val) = parse_tlv(&data).unwrap();
+        assert_eq!(consumed, 132); // tag(1) + lenfield(3) + 128
+        assert_eq!(val.len(), 0x80);
+    }
+
+    #[test]
+    fn test_parse_tlv_empty() {
+        assert!(parse_tlv(&[]).is_none());
+    }
+
+    #[test]
+    fn test_issuer_and_serial() {
+        // minimal cert: version [0] EXPLICIT, serial, alg, issuer
+        // This is a synthetic DER for testing the parser structure
+        let issuer_seq = der_seq(b"issuer");     // placeholder issuer
+        let serial_int = der_integer(&[0x01]);
+        let alg_id = alg_id_sha256();
+        let tbs = {
+            let mut b = Vec::new();
+            b.extend(der_ctx_explicit(0, &der_integer(&[2]))); // version=2
+            b.extend_from_slice(&serial_int);
+            b.extend_from_slice(&alg_id);
+            b.extend_from_slice(&issuer_seq);
+            der_seq(&b)
+        };
+        let cert = der_seq(&tbs);
+
+        let (issuer_body, serial_body) = issuer_and_serial(&cert).unwrap();
+        // issuer_body should contain the seq + length + content
+        assert_eq!(issuer_body, issuer_seq);
+        // serial_body should contain the full serial TLV
+        assert_eq!(serial_body, serial_int);
+    }
+
+    #[test]
+    fn test_alg_id_sha256() {
+        let alg = alg_id_sha256();
+        // outer SEQUENCE: tag + len + body
+        assert_eq!(alg[0], 0x30);
+        let (consumed, _body) = parse_tlv(&alg).unwrap();
+        assert_eq!(consumed, alg.len());
+        // alg_id_sha256 builds SEQUENCE{ OID, NULL }
+        // Check NULL tag at the right offset after OID
+        let oid_tlv = der_oid(OID_SHA256);
+        // After outer SEQUENCE header + OID_tlv = position of NULL
+        let null_pos = (alg.len() - consumed) + 2 + oid_tlv.len(); // hdr(2=tag+len) + OID_body
+        // Actually simpler: just check the literal bytes
+        // alg = 30 <len> 06 <oid_len> <oid_body> 05 00
+        // Last two bytes of alg should be 05 00
+        assert_eq!(alg[alg.len()-2], 0x05, "NULL tag");
+        assert_eq!(alg[alg.len()-1], 0x00, "NULL length");
+    }
+
+    #[test]
+    fn test_alg_id_rsa() {
+        let alg = alg_id_rsa();
+        assert_eq!(alg[0], 0x30);
+    }
+
+    #[test]
+    fn test_oid_constants() {
+        assert_eq!(OID_DATA,        "1.2.840.113549.1.7.1");
+        assert_eq!(OID_SIGNED_DATA, "1.2.840.113549.1.7.2");
+        assert_eq!(OID_SHA256,      "2.16.840.1.101.3.4.2.1");
+        assert_eq!(OID_RSA_ENCRYPTION, "1.2.840.113549.1.1.1");
+        assert_eq!(OID_SIGNING_CERT_V2, "1.2.840.113549.1.9.16.2.47");
+    }
+}
+
