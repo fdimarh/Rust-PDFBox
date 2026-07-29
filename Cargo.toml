@@ -37,7 +37,7 @@ compress-mozjpeg = ["compress-images", "dep:mozjpeg"]
 ## CMYK/ICC color conversion: lcms2 ICC engine + palette pure-Rust fallback
 compress-color = ["compress", "dep:lcms2", "dep:palette"]
 ## Font subsetting: TrueType + CFF glyph subsetting via suLB2R2CCQCUGWKZKDbsetter + ttf-parser
-compress-fonts = ["compress", "dep:subsetter", "dep:ttf-parser", "dep:owned_ttf_parser"]
+compress-fonts = ["compress", "dep:subsetter", "dep:ttf-parser", "dep:owned_ttf_parser", "dep:anyhow", "dep:write-fonts"]
 ## Full ilovepdf-grade: all passes (requires C toolchain for mozjpeg + lcms2 + jbig2dec)
 compress-full = ["compress-mozjpeg", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts"]
 ## All features enabled
@@ -105,7 +105,7 @@ lcms2            = { version = "6", optional = true }   # ICC color engine (CMYK
 palette          = { version = "0.7",  optional = true }   # pure-Rust color math fallback
 
 # Font subsetting (compress-fonts feature)
-subsetter        = { version = "0.2",  optional = true }   # TrueType + CFF font subsetter
+subsetter        = { version = "0.2", optional = true }   # TrueType + CFF font subsetter
 ttf-parser       = { version = "0.25", optional = true }   # TrueType/OTF glyph table reader
 owned_ttf_parser = { version = "0.25", optional = true }   # owned wrapper (no lifetime coupling)
 
@@ -122,6 +122,8 @@ clap = { version = "4.6.3", features = ["derive"] }
 ab_glyph = "0.2.32"
 jpeg-decoder = "0.3.2"
 weezl = "0.2.1"
+anyhow = { version = "1.0.104", optional = true }
+write-fonts = { version = "0.51.0", optional = true }
 
 [[example]]
 name = "read_info"

@@ -391,7 +391,7 @@ pub fn compress(doc: &mut Document, opts: CompressOptions) -> PdfResult<Compress
     // ── Pass 6: fonts (requires compress-fonts) ───────────────────────────────
     #[cfg(feature = "compress-fonts")]
     if opts.subset_fonts {
-        let font_report = font_subset::run(doc, &opts)?;
+        let font_report = font_subset::run_font_subsetting(doc, &opts)?;
         report.fonts_subsetted += font_report.fonts_subsetted;
         report.fonts_removed += font_report.fonts_removed;
         report.bytes_saved_fonts += font_report.bytes_saved;
