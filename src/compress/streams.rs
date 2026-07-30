@@ -257,4 +257,92 @@ mod tests {
         let compressed = deflate_best(data, false).unwrap();
         assert!(compressed.len() > data.len());
     }
+
+    #[test]
+    fn is_image_dct_decode() {
+        use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
+        let mut d = CosDictionary::new();
+        d.set(CosName::type_name(), CosObject::Name(CosName::new(b"XObject")));
+        d.set(
+            CosName::new(b"Subtype"),
+            CosObject::Name(CosName::new(b"Image")),
+        );
+        d.set(
+            CosName::new(b"Filter"),
+            CosObject::Name(CosName::new(b"DCTDecode")),
+        );
+        d.set(CosName::new(b"Width"), CosObject::Integer(1));
+        d.set(CosName::new(b"Height"), CosObject::Integer(1));
+        d.set(CosName::new(b"Length"), CosObject::Integer(0));
+        let stream = CosObject::Stream(CosStream::new(d, vec![]));
+
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        let id = ObjectId::new(100, 0);
+        doc.insert_object(id, stream);
+        assert!(is_image_with_dct_or_jpx(&doc, id));
+    }
+
+    #[test]
+    fn is_image_jpx_decode() {
+        use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
+        let mut d = CosDictionary::new();
+        d.set(CosName::type_name(), CosObject::Name(CosName::new(b"XObject")));
+        d.set(
+            CosName::new(b"Subtype"),
+            CosObject::Name(CosName::new(b"Image")),
+        );
+        d.set(
+            CosName::new(b"Filter"),
+            CosObject::Name(CosName::new(b"JPXDecode")),
+        );
+        d.set(CosName::new(b"Width"), CosObject::Integer(1));
+        d.set(CosName::new(b"Height"), CosObject::Integer(1));
+        d.set(CosName::new(b"Length"), CosObject::Integer(0));
+        let stream = CosObject::Stream(CosStream::new(d, vec![]));
+
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        let id = ObjectId::new(101, 0);
+        doc.insert_object(id, stream);
+        assert!(is_image_with_dct_or_jpx(&doc, id));
+    }
+
+    #[test]
+    fn is_image_plain_flate_not_skipped() {
+        use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
+        let mut d = CosDictionary::new();
+        d.set(CosName::type_name(), CosObject::Name(CosName::new(b"XObject")));
+        d.set(
+            CosName::new(b"Subtype"),
+            CosObject::Name(CosName::new(b"Image")),
+        );
+        d.set(
+            CosName::new(b"Filter"),
+            CosObject::Name(CosName::new(b"FlateDecode")),
+        );
+        d.set(CosName::new(b"Width"), CosObject::Integer(1));
+        d.set(CosName::new(b"Height"), CosObject::Integer(1));
+        d.set(CosName::new(b"Length"), CosObject::Integer(0));
+        let stream = CosObject::Stream(CosStream::new(d, vec![]));
+
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        let id = ObjectId::new(102, 0);
+        doc.insert_object(id, stream);
+        assert!(!is_image_with_dct_or_jpx(&doc, id));
+    }
+
+    #[test]
+    fn non_image_stream_not_skipped() {
+        use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
+        let mut d = CosDictionary::new();
+        d.set(
+            CosName::new(b"Filter"),
+            CosObject::Name(CosName::new(b"DCTDecode")),
+        );
+        d.set(CosName::new(b"Length"), CosObject::Integer(0));
+        let stream = CosObject::Stream(CosStream::new(d, vec![]));
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        let id = ObjectId::new(103, 0);
+        doc.insert_object(id, stream);
+        assert!(!is_image_with_dct_or_jpx(&doc, id));
+    }
 }
