@@ -82,3 +82,80 @@ impl<'a> PdAcroForm<'a> {
         self.has_xfa() && !self.fields().is_empty()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+    use crate::ObjectStore;
+
+    #[test]
+    fn pd_acro_form_empty_fields() {
+        let store = ObjectStore::new();
+        let dict = CosDictionary::new();
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(form.fields().is_empty());
+    }
+
+    #[test]
+    fn pd_acro_form_has_xfa_true() {
+        let mut dict = CosDictionary::new();
+        dict.set(CosName::new(b"XFA".to_vec()), CosObject::Null);
+        let store = ObjectStore::new();
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(form.has_xfa());
+    }
+
+    #[test]
+    fn pd_acro_form_has_xfa_false() {
+        let dict = CosDictionary::new();
+        let store = ObjectStore::new();
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(!form.has_xfa());
+    }
+
+    #[test]
+    fn pd_acro_form_get_field_not_found_empty() {
+        let store = ObjectStore::new();
+        let dict = CosDictionary::new();
+        let form = PdAcroForm::new(&dict, &store);
+        let field = form.get_field("NonExistent");
+        assert!(field.is_none());
+    }
+
+    #[test]
+    fn pd_acro_form_is_hybrid_xfa_false_no_fields() {
+        let store = ObjectStore::new();
+        let mut dict = CosDictionary::new();
+        dict.set(CosName::new(b"XFA".to_vec()), CosObject::Null);
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(!form.is_hybrid_xfa());
+    }
+
+    #[test]
+    fn pd_acro_form_is_hybrid_xfa_false_no_xfa() {
+        let store = ObjectStore::new();
+        let mut dict = CosDictionary::new();
+        // With Fields but no XFA -> not hybrid
+        dict.set(
+            CosName::new(b"Fields".to_vec()),
+            CosObject::Array(vec![CosObject::Reference(ObjectId::new(1, 0))]),
+        );
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(!form.is_hybrid_xfa());
+    }
+
+    #[test]
+    fn pd_acro_form_dictionary_accessor() {
+        let mut dict = CosDictionary::new();
+        dict.set(CosName::new(b"Test".to_vec()), CosObject::Integer(42));
+        let store = ObjectStore::new();
+        let form = PdAcroForm::new(&dict, &store);
+        let d = form.dictionary();
+        assert_eq!(
+            d.get(&CosName::new(b"Test".to_vec()))
+                .and_then(|v| v.as_integer()),
+            Some(42)
+        );
+    }
+}
