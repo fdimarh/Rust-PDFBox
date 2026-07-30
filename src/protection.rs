@@ -82,4 +82,32 @@ mod tests {
         assert!(!policy.permissions.can_fill_forms());
         assert!(!policy.permissions.can_print());
     }
+
+    #[test]
+    fn test_policy_default_no_permissions() {
+        let policy = StandardProtectionPolicy::default();
+        assert_eq!(policy.permissions, Permissions::default());
+    }
+
+    #[test]
+    fn test_policy_owner_only_no_user() {
+        let policy = StandardProtectionPolicy::owner_password("owner", Permissions::none_allowed());
+        assert_eq!(policy.user_password, None);
+        assert_eq!(policy.owner_password, "owner");
+    }
+
+    #[test]
+    fn test_policy_protect_and_check_encryption() {
+        use crate::cos::CosName;
+        use crate::Document;
+
+        let mut doc = Document::empty();
+        let policy = StandardProtectionPolicy::new("owner", "user", Permissions::all_allowed());
+        doc.protect(&policy).unwrap();
+
+        // Manually verify the encrypt dict was set
+        let trailer = doc.trailer();
+        let encrypt = trailer.get(&CosName::new(b"Encrypt"));
+        assert!(encrypt.is_some());
+    }
 }

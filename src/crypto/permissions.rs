@@ -128,4 +128,58 @@ mod tests {
         assert_eq!(p & 0b11, 0, "bits 0-1 must be 0");
         assert_eq!(p & 0b1100_0000, 0b1100_0000, "bits 6-7 must be 1");
     }
+
+    #[test]
+    fn can_modify_content() {
+        let perms = Permissions(Permissions::MODIFY_CONTENT);
+        assert!(perms.can_modify_content());
+        assert!(!perms.can_print());
+    }
+
+    #[test]
+    fn can_modify_annotations() {
+        let perms = Permissions(Permissions::MODIFY_ANNOTATIONS);
+        assert!(perms.can_modify_annotations());
+    }
+
+    #[test]
+    fn can_fill_forms() {
+        let perms = Permissions(Permissions::FILL_FORMS);
+        assert!(perms.can_fill_forms());
+        assert!(!perms.can_print());
+    }
+
+    #[test]
+    fn can_extract_accessibility() {
+        let perms = Permissions(Permissions::EXTRACT_ACCESSIBILITY);
+        assert!(perms.can_extract_for_accessibility());
+    }
+
+    #[test]
+    fn can_assemble() {
+        let perms = Permissions(Permissions::ASSEMBLE);
+        assert!(perms.can_assemble());
+    }
+
+    #[test]
+    fn can_print_high_quality() {
+        let perms = Permissions(Permissions::PRINT_HIGH_QUALITY);
+        assert!(perms.can_print_high_quality());
+        assert!(!perms.can_print());
+    }
+
+    #[test]
+    fn round_trip_with_forced_bits() {
+        let perms = Permissions(Permissions::PRINT
+            | Permissions::COPY
+            | Permissions::FILL_FORMS);
+        let p = perms.to_bits_p();
+        let recovered = Permissions::from_bits_p(p);
+        assert!(recovered.can_print());
+        assert!(recovered.can_copy());
+        assert!(recovered.can_fill_forms());
+        // Reserved bits forced
+        assert_eq!(p as u32 & 0b11, 0);
+        assert_eq!(p as u32 & 0b1100_0000, 0b1100_0000);
+    }
 }
