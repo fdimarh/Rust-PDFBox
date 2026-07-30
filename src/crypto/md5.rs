@@ -59,7 +59,9 @@ mod tests {
     #[test]
     fn rfc1321_alphanumeric() {
         assert_eq!(
-            hex(&md5(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")),
+            hex(&md5(
+                b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+            )),
             "d174ab98d277d9f5a5611c2c9f419d9f"
         );
     }
@@ -73,5 +75,27 @@ mod tests {
     fn different_inputs_different_output() {
         assert_ne!(md5(b"hello"), md5(b"world"));
     }
-}
 
+    #[test]
+    fn md5_large_input_does_not_panic() {
+        let large = [0x42u8; 65536];
+        let result = md5(&large);
+        assert_eq!(result.len(), 16);
+    }
+
+    #[test]
+    fn md5_known_vector_longer() {
+        assert_eq!(
+            hex(&md5(b"The quick brown fox jumps over the lazy dog")),
+            "9e107d9d372bb6826bd81d3542a419d6"
+        );
+    }
+
+    #[test]
+    fn md5_known_vector_with_dot() {
+        assert_eq!(
+            hex(&md5(b"The quick brown fox jumps over the lazy dog.")),
+            "e4d909c290d0fb1ca068ffaddf22cbd0"
+        );
+    }
+}

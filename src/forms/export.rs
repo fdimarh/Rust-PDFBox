@@ -5,7 +5,7 @@
 //! Maps to Java PDFBox's `FDFCatalog` / `XFDF` export utilities.
 
 use crate::cos::{CosDictionary, CosName, CosObject};
-use crate::forms::field::{get_field_value_for_export};
+use crate::forms::field::get_field_value_for_export;
 use crate::{Document, PdfResult};
 
 /// Exports all AcroForm field values to an FDF byte buffer (PDF-based format).
@@ -50,7 +50,10 @@ pub fn export_fdf(doc: &Document) -> PdfResult<Vec<u8>> {
 
     // Build FDF document structure
     let mut root_dict = CosDictionary::new();
-    root_dict.insert(CosName::new(b"FDF".to_vec()), CosObject::Dictionary(fdf_dict));
+    root_dict.insert(
+        CosName::new(b"FDF".to_vec()),
+        CosObject::Dictionary(fdf_dict),
+    );
 
     // Serialize as a minimal PDF-like structure
     let mut out = Vec::new();
@@ -144,9 +147,7 @@ fn xml_escape(s: &str) -> String {
 fn serialize_cos(obj: &CosObject) -> String {
     match obj {
         CosObject::Null => "null".to_string(),
-        CosObject::Bool(b) => {
-            if *b { "true" } else { "false" }.to_string()
-        }
+        CosObject::Bool(b) => if *b { "true" } else { "false" }.to_string(),
         CosObject::Integer(i) => i.to_string(),
         CosObject::Real(f) => f.to_string(),
         CosObject::Name(name) => format!("{}", name),
@@ -257,5 +258,49 @@ mod tests {
     fn test_escape_pdf_string() {
         let s = escape_pdf_string("a(b)c");
         assert_eq!(s, "a\\(b\\)c");
+    }
+
+    #[test]
+    fn test_xml_escape_apos_quote() {
+        assert_eq!(xml_escape("it's"), "it&apos;s");
+        assert_eq!(xml_escape("\"hello\""), "&quot;hello&quot;");
+    }
+
+    #[test]
+    fn test_xml_escape_no_change() {
+        assert_eq!(xml_escape("plain text 123"), "plain text 123");
+    }
+
+    #[test]
+    fn test_xml_escape_multiple() {
+        assert_eq!(
+            xml_escape("a < b && c > d"),
+            "a &lt; b &amp;&amp; c &gt; d"
+        );
+    }
+
+    #[test]
+    fn test_xml_escape_empty() {
+        assert_eq!(xml_escape(""), "");
+    }
+
+    #[test]
+    fn test_escape_pdf_string_special() {
+        assert_eq!(escape_pdf_string("a\\b"), "a\\\\b");
+        // \n becomes literal \\n (backslash + n)
+        assert_eq!(escape_pdf_string("line1\nline2"), "line1\\nline2");
+        // \t becomes literal \\t
+        assert_eq!(escape_pdf_string("col1\ttab"), "col1\\ttab");
+    }
+
+    #[test]
+    fn test_serialize_cos_variants() {
+        assert_eq!(serialize_cos(&CosObject::Null), "null");
+        assert_eq!(serialize_cos(&CosObject::Bool(true)), "true");
+        assert_eq!(serialize_cos(&CosObject::Bool(false)), "false");
+        assert_eq!(serialize_cos(&CosObject::Integer(42)), "42");
+        let name = CosName::new(b"Test");
+        let s = serialize_cos(&CosObject::Name(name));
+        assert!(s.starts_with("/"));
     }
 }

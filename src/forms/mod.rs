@@ -3,17 +3,17 @@
 //!
 //! Maps to `org.apache.pdfbox.pdmodel.interactive.form.*` in Java PDFBox.
 
-pub mod field;
-pub mod widget;
 pub mod appearance;
-pub mod flatten;
-pub mod xfa;
 pub mod export;
+pub mod field;
+pub mod flatten;
 pub mod import;
+pub mod widget;
+pub mod xfa;
 
 pub use appearance::{generate_all_appearances, generate_field_appearance};
-pub use field::{PdField, get_field_value_for_export, set_field_value};
 pub use export::{export_fdf, export_xfdf};
+pub use field::{PdField, get_field_value_for_export, set_field_value};
 pub use flatten::{flatten_all_fields, flatten_fields};
 pub use import::{import_fdf, import_xfdf};
 pub use widget::PdWidget;
@@ -62,7 +62,9 @@ impl<'a> PdAcroForm<'a> {
     /// Finds a field by its fully qualified name.
     pub fn get_field(&self, fully_qualified_name: &str) -> Option<PdField<'a>> {
         // Simple linear scan for now. True implementation should climb/descend.
-        self.fields().into_iter().find(|f| f.fully_qualified_name() == fully_qualified_name)
+        self.fields()
+            .into_iter()
+            .find(|f| f.fully_qualified_name() == fully_qualified_name)
     }
 
     /// Returns true if the AcroForm contains an `/XFA` entry.
@@ -78,5 +80,130 @@ impl<'a> PdAcroForm<'a> {
     /// Returns true for hybrid forms (both AcroForm fields and XFA payload).
     pub fn is_hybrid_xfa(&self) -> bool {
         self.has_xfa() && !self.fields().is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+    use crate::ObjectStore;
+
+    #[test]
+    fn pd_acro_form_empty_fields() {
+        let store = ObjectStore::new();
+        let dict = CosDictionary::new();
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(form.fields().is_empty());
+    }
+
+    #[test]
+    fn pd_acro_form_has_xfa_true() {
+        let mut dict = CosDictionary::new();
+        dict.set(CosName::new(b"XFA".to_vec()), CosObject::Null);
+        let store = ObjectStore::new();
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(form.has_xfa());
+    }
+
+    #[test]
+    fn pd_acro_form_has_xfa_false() {
+        let dict = CosDictionary::new();
+        let store = ObjectStore::new();
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(!form.has_xfa());
+    }
+
+    #[test]
+    fn pd_acro_form_get_field_not_found_empty() {
+        let store = ObjectStore::new();
+        let dict = CosDictionary::new();
+        let form = PdAcroForm::new(&dict, &store);
+        let field = form.get_field("NonExistent");
+        assert!(field.is_none());
+    }
+
+    #[test]
+    fn pd_acro_form_is_hybrid_xfa_false_no_fields() {
+        let store = ObjectStore::new();
+        let mut dict = CosDictionary::new();
+        dict.set(CosName::new(b"XFA".to_vec()), CosObject::Null);
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(!form.is_hybrid_xfa());
+    }
+
+    #[test]
+    fn pd_acro_form_is_hybrid_xfa_false_no_xfa() {
+        let store = ObjectStore::new();
+        let mut dict = CosDictionary::new();
+        // With Fields but no XFA -> not hybrid
+        dict.set(
+            CosName::new(b"Fields".to_vec()),
+            CosObject::Array(vec![CosObject::Reference(ObjectId::new(1, 0))]),
+        );
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(!form.is_hybrid_xfa());
+    }
+
+    #[test]
+    fn pd_acro_form_dictionary_accessor() {
+        let mut dict = CosDictionary::new();
+        dict.set(CosName::new(b"Test".to_vec()), CosObject::Integer(42));
+        let store = ObjectStore::new();
+        let form = PdAcroForm::new(&dict, &store);
+        let d = form.dictionary();
+        assert_eq!(
+            d.get(&CosName::new(b"Test".to_vec()))
+                .and_then(|v| v.as_integer()),
+            Some(42)
+        );
+    }
+
+    #[test]
+    fn pd_acro_form_xfa_returns_none_without_xfa() {
+        let store = ObjectStore::new();
+        let dict = CosDictionary::new();
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(form.xfa().is_none());
+    }
+
+    #[test]
+    fn pd_acro_form_debug_format() {
+        let store = ObjectStore::new();
+        let dict = CosDictionary::new();
+        let form = PdAcroForm::new(&dict, &store);
+        let _ = format!("{:?}", form);
+    }
+
+    #[test]
+    fn pd_acro_form_fields_with_reference_to_missing_object() {
+        let store = ObjectStore::new();
+        let mut dict = CosDictionary::new();
+        dict.set(
+            CosName::new(b"Fields".to_vec()),
+            CosObject::Array(vec![CosObject::Reference(ObjectId::new(99, 0))]),
+        );
+        let form = PdAcroForm::new(&dict, &store);
+        // Reference to non-existent object -> silently skipped
+        assert!(form.fields().is_empty());
+    }
+
+    #[test]
+    fn pd_acro_form_get_field_ignores_non_dict_kids() {
+        let mut store = ObjectStore::new();
+        let kid_id = ObjectId::new(1, 0);
+        // kid is a stream, not a dictionary -> should be skipped
+        store.insert(
+            kid_id,
+            CosObject::Stream(crate::cos::CosStream::new(CosDictionary::new(), b"data".to_vec())),
+        );
+        let mut dict = CosDictionary::new();
+        dict.set(
+            CosName::new(b"Fields".to_vec()),
+            CosObject::Array(vec![CosObject::Reference(kid_id)]),
+        );
+        let form = PdAcroForm::new(&dict, &store);
+        let fields = form.fields();
+        assert!(fields.is_empty());
     }
 }

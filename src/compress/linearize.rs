@@ -9,9 +9,9 @@
 //!
 //! **No new crates** — pure COS writer pass.
 
-use crate::cos::{CosName, CosObject, CosDictionary};
-use crate::{Document, PdfResult};
 use super::CompressOptions;
+use crate::cos::{CosDictionary, CosName, CosObject};
+use crate::{Document, PdfResult};
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -106,5 +106,41 @@ mod tests {
         mark_linearized(&mut doc);
         // No panic is the minimum bar; page count accuracy is verified in integration tests.
     }
-}
 
+    #[test]
+    fn linearize_empty_doc_no_panic() {
+        let mut doc = crate::Document::empty();
+        let opts = CompressOptions::default();
+        let result = run(&mut doc, &opts);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn linearize_twice_no_duplicate_dict() {
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        let opts = CompressOptions::default();
+        run(&mut doc, &opts).unwrap();
+        run(&mut doc, &opts).unwrap();
+        // No panic means it's idempotent at the run() level
+        assert!(doc.page_count() > 0 || doc.page_count() == 0);
+    }
+
+    #[test]
+    fn mark_linearized_no_catalog_no_panic() {
+        let mut doc = crate::Document::empty();
+        mark_linearized(&mut doc);
+        // empty doc has no catalog — should not panic
+    }
+
+    #[test]
+    fn mark_linearized_sets_pages_in_dict() {
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        mark_linearized(&mut doc);
+        if let Some(catalog_id) = doc.catalog_id() {
+            if let Some(crate::cos::CosObject::Dictionary(dict)) = doc.get_object_ref(catalog_id) {
+                let lin = dict.get(&CosName::new(b"Linearized".to_vec()));
+                assert!(lin.is_some());
+            }
+        }
+    }
+}

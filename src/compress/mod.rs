@@ -36,7 +36,11 @@ pub mod linearize;
 pub mod streams;
 pub mod version;
 
-#[cfg(any(feature = "compress-images", feature = "compress-mozjpeg", feature = "compress-jbig2"))]
+#[cfg(any(
+    feature = "compress-images",
+    feature = "compress-mozjpeg",
+    feature = "compress-jbig2"
+))]
 pub mod images;
 
 #[cfg(feature = "compress-color")]
@@ -173,7 +177,7 @@ impl CompressOptions {
                 repack_object_streams: true,
                 downgrade_pdf_version: true,
                 linearize: true,
-                use_zopfli: true,     // Extreme: use Zopfli for best stream compression
+                use_zopfli: true, // Extreme: use Zopfli for best stream compression
                 image_jpeg_quality: 40,
                 image_max_dpi: 96,
                 image_use_mozjpeg: true,
@@ -201,7 +205,7 @@ impl CompressOptions {
                 repack_object_streams: true,
                 downgrade_pdf_version: false,
                 linearize: true,
-                use_zopfli: false,    // Recommended: fast zlib level-9
+                use_zopfli: false, // Recommended: fast zlib level-9
                 image_jpeg_quality: 72,
                 image_max_dpi: 150,
                 image_use_mozjpeg: true,
@@ -229,7 +233,7 @@ impl CompressOptions {
                 repack_object_streams: false,
                 downgrade_pdf_version: false,
                 linearize: false,
-                use_zopfli: false,    // Less: fast zlib level-9
+                use_zopfli: false, // Less: fast zlib level-9
                 image_jpeg_quality: 85,
                 image_max_dpi: 300,
                 image_use_mozjpeg: false,
@@ -377,7 +381,11 @@ pub fn compress(doc: &mut Document, opts: CompressOptions) -> PdfResult<Compress
     }
 
     // ── Pass 5: images (requires compress-images, compress-mozjpeg, or compress-jbig2) ─
-    #[cfg(any(feature = "compress-images", feature = "compress-mozjpeg", feature = "compress-jbig2"))]
+    #[cfg(any(
+        feature = "compress-images",
+        feature = "compress-mozjpeg",
+        feature = "compress-jbig2"
+    ))]
     if opts.optimize_images || opts.optimize_png_images {
         let images_report = images::run(doc, &opts)?;
         report.images_resampled += images_report.images_resampled;
@@ -533,4 +541,3 @@ mod tests {
         assert_eq!(CompressionMode::default(), CompressionMode::Recommended);
     }
 }
-

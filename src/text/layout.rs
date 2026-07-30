@@ -45,11 +45,11 @@ pub struct LayoutConfig {
 impl Default for LayoutConfig {
     fn default() -> Self {
         Self {
-            line_height_ratio: 1.5,      // 1.5× font size for line membership
-            column_gap_threshold: 40.0,  // >40 points = column break
-            word_gap_threshold: 3.0,     // >3 points = word space
-            paragraph_gap_ratio: 2.0,    // >2× font size = paragraph break
-            min_column_chunks: 3,        // at least 3 chunks per column
+            line_height_ratio: 1.5,     // 1.5× font size for line membership
+            column_gap_threshold: 40.0, // >40 points = column break
+            word_gap_threshold: 3.0,    // >3 points = word space
+            paragraph_gap_ratio: 2.0,   // >2× font size = paragraph break
+            min_column_chunks: 3,       // at least 3 chunks per column
         }
     }
 }
@@ -62,15 +62,19 @@ impl Default for LayoutConfig {
 #[derive(Debug, Clone)]
 pub struct Line {
     pub chunks: Vec<TextChunk>,
-    pub y: f64,           // Baseline Y coordinate
-    pub font_size: f64,   // Representative font size for spacing
+    pub y: f64,         // Baseline Y coordinate
+    pub font_size: f64, // Representative font size for spacing
 }
 
 impl Line {
     /// Creates a new line from a chunk.
     fn new(chunk: TextChunk) -> Self {
         let font_size = chunk.font_size;
-        Self { chunks: vec![chunk], y: 0.0, font_size }
+        Self {
+            chunks: vec![chunk],
+            y: 0.0,
+            font_size,
+        }
     }
 
     /// Recalculate Y-baseline from chunks (median Y position).
@@ -89,9 +93,8 @@ impl Line {
 
     /// Sort chunks left-to-right by X coordinate.
     fn sort_chunks(&mut self) {
-        self.chunks.sort_by(|a, b| {
-            a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        self.chunks
+            .sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal));
     }
 
     /// Join chunks into text with word spacing heuristics.
@@ -128,10 +131,13 @@ pub fn detect_columns(chunks: &[TextChunk], config: &LayoutConfig) -> Vec<(f64, 
     }
 
     // Collect all X boundaries (chunk starts and ends)
-    let mut x_positions: Vec<f64> = chunks.iter().flat_map(|c| {
-        let w = text_width(&c.text);
-        vec![c.x, c.x + w]
-    }).collect();
+    let mut x_positions: Vec<f64> = chunks
+        .iter()
+        .flat_map(|c| {
+            let w = text_width(&c.text);
+            vec![c.x, c.x + w]
+        })
+        .collect();
     x_positions.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     x_positions.dedup_by(|a, b| (*a - *b).abs() < 1.0);
 
@@ -147,7 +153,10 @@ pub fn detect_columns(chunks: &[TextChunk], config: &LayoutConfig) -> Vec<(f64, 
     // If no significant gaps, return single column
     if gaps.is_empty() {
         let min_x = chunks.iter().map(|c| c.x).fold(f64::INFINITY, f64::min);
-        let max_x = chunks.iter().map(|c| c.x + text_width(&c.text)).fold(f64::NEG_INFINITY, f64::max);
+        let max_x = chunks
+            .iter()
+            .map(|c| c.x + text_width(&c.text))
+            .fold(f64::NEG_INFINITY, f64::max);
         return vec![(min_x, max_x)];
     }
 
@@ -159,14 +168,21 @@ pub fn detect_columns(chunks: &[TextChunk], config: &LayoutConfig) -> Vec<(f64, 
         columns.push((col_min, gap_min));
         col_min = _gap_max;
     }
-    let max_x = chunks.iter().map(|c| c.x + text_width(&c.text)).fold(f64::NEG_INFINITY, f64::max);
+    let max_x = chunks
+        .iter()
+        .map(|c| c.x + text_width(&c.text))
+        .fold(f64::NEG_INFINITY, f64::max);
     columns.push((col_min, max_x));
 
     // Filter columns with too few chunks
     let min_chunks = config.min_column_chunks;
-    columns.iter().filter(|(min, max)| {
-        chunks.iter().filter(|c| c.x >= *min && c.x <= *max).count() >= min_chunks
-    }).copied().collect()
+    columns
+        .iter()
+        .filter(|(min, max)| {
+            chunks.iter().filter(|c| c.x >= *min && c.x <= *max).count() >= min_chunks
+        })
+        .copied()
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -181,12 +197,12 @@ pub fn group_into_lines(chunks: &[TextChunk], config: &LayoutConfig) -> Vec<Line
 
     // Sort by Y descending (top to bottom), then X ascending (left to right)
     let mut sorted = chunks.to_vec();
-    sorted.sort_by(|a, b| {
-        match b.y.partial_cmp(&a.y).unwrap_or(std::cmp::Ordering::Equal) {
+    sorted.sort_by(
+        |a, b| match b.y.partial_cmp(&a.y).unwrap_or(std::cmp::Ordering::Equal) {
             std::cmp::Ordering::Equal => a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal),
             other => other,
-        }
-    });
+        },
+    );
 
     let mut lines: Vec<Line> = Vec::new();
     for chunk in sorted {
@@ -251,7 +267,11 @@ pub fn extract_with_layout(chunks: &[TextChunk], config: &LayoutConfig) -> Strin
     for (col_idx, (col_min, col_max)) in columns.iter().enumerate() {
         let mut col_line_indices = Vec::new();
         for (line_idx, line) in lines.iter().enumerate() {
-            let line_x = line.chunks.iter().map(|c| c.x).fold(f64::INFINITY, f64::min);
+            let line_x = line
+                .chunks
+                .iter()
+                .map(|c| c.x)
+                .fold(f64::INFINITY, f64::min);
             if line_x >= *col_min && line_x <= *col_max {
                 col_line_indices.push(line_idx);
             }
@@ -318,7 +338,12 @@ mod tests {
     use super::*;
 
     fn chunk(text: &str, x: f64, y: f64, font_size: f64) -> TextChunk {
-        TextChunk { text: text.to_string(), x, y, font_size }
+        TextChunk {
+            text: text.to_string(),
+            x,
+            y,
+            font_size,
+        }
     }
 
     #[test]
@@ -332,7 +357,11 @@ mod tests {
     #[test]
     fn line_to_string_single_chunk() {
         let chunks = vec![chunk("Hello", 10.0, 100.0, 12.0)];
-        let line = Line { chunks, y: 100.0, font_size: 12.0 };
+        let line = Line {
+            chunks,
+            y: 100.0,
+            font_size: 12.0,
+        };
         let config = LayoutConfig::default();
         assert_eq!(line.to_string(&config), "Hello");
     }
@@ -342,7 +371,11 @@ mod tests {
         let config = LayoutConfig::default();
         let c1 = chunk("Hello", 10.0, 100.0, 12.0);
         let c2 = chunk("World", 100.0, 100.0, 12.0); // gap > word_gap_threshold
-        let line = Line { chunks: vec![c1, c2], y: 100.0, font_size: 12.0 };
+        let line = Line {
+            chunks: vec![c1, c2],
+            y: 100.0,
+            font_size: 12.0,
+        };
         let s = line.to_string(&config);
         assert!(s.contains(' '), "expected space in: {s:?}");
     }
@@ -374,10 +407,7 @@ mod tests {
 
     #[test]
     fn detect_columns_single_column() {
-        let chunks = vec![
-            chunk("A", 10.0, 100.0, 12.0),
-            chunk("B", 10.0, 80.0, 12.0),
-        ];
+        let chunks = vec![chunk("A", 10.0, 100.0, 12.0), chunk("B", 10.0, 80.0, 12.0)];
         let config = LayoutConfig::default();
         let cols = detect_columns(&chunks, &config);
         assert_eq!(cols.len(), 1);
@@ -449,4 +479,3 @@ mod tests {
         assert!(text.contains("Para2"));
     }
 }
-

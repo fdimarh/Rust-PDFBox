@@ -52,13 +52,14 @@ pub mod acroform;
 pub mod appearance;
 pub mod asn1;
 pub mod cms;
+pub mod cms_signer;
 pub mod ltv;
 pub mod validator;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use crate::cos::{CosName, CosObject, CosDictionary, ObjectId};
+use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 use crate::{Document, PdfError};
 
 // ---------------------------------------------------------------------------
@@ -99,7 +100,9 @@ pub enum SignatureAnchorMode {
 }
 
 impl Default for SignatureAnchorMode {
-    fn default() -> Self { Self::InFront }
+    fn default() -> Self {
+        Self::InFront
+    }
 }
 
 /// Controls how and where the signature is placed.
@@ -209,27 +212,27 @@ pub struct SignOptions {
 impl Default for SignOptions {
     fn default() -> Self {
         Self {
-            format:        SignatureFormat::Pkcs7,
-            pades_level:   PadesLevel::B_B,
+            format: SignatureFormat::Pkcs7,
+            pades_level: PadesLevel::B_B,
             // DigiCert free TSA — used for PKCS7 LTV and PAdES B-T+
             timestamp_url: Some("http://timestamp.digicert.com".into()),
-            include_crl:   true,   // Adobe LTV default for PKCS7
-            include_ocsp:  false,
-            include_dss:   false,
-            page:          1,
-            rect:          None,
+            include_crl: true, // Adobe LTV default for PKCS7
+            include_ocsp: false,
+            include_dss: false,
+            page: 1,
+            rect: None,
             visible_signature: true,
-            anchor_tag:    None,
-            anchor_width:  None,
+            anchor_tag: None,
+            anchor_width: None,
             anchor_height: None,
-            anchor_mode:   SignatureAnchorMode::InFront,
-            signer_name:   String::new(),
-            contact_info:  String::new(),
-            reason:        "Digital Signature".into(),
-            location:      String::new(),
+            anchor_mode: SignatureAnchorMode::InFront,
+            signer_name: String::new(),
+            contact_info: String::new(),
+            reason: "Digital Signature".into(),
+            location: String::new(),
             reserved_size: 32_768,
-            field_name:    "Signature1".into(),
-            image_path:    None,
+            field_name: "Signature1".into(),
+            image_path: None,
             certification_level: None,
         }
     }
@@ -254,12 +257,12 @@ impl SignOptions {
 /// Certificate information extracted from a CMS blob.
 #[derive(Debug, Clone)]
 pub struct CertInfo {
-    pub subject:       String,
-    pub issuer:        String,
-    pub serial:        String,
-    pub not_before:    Option<String>,
-    pub not_after:     Option<String>,
-    pub is_expired:    bool,
+    pub subject: String,
+    pub issuer: String,
+    pub serial: String,
+    pub not_before: Option<String>,
+    pub not_after: Option<String>,
+    pub is_expired: bool,
     pub is_self_signed: bool,
 }
 
@@ -321,7 +324,6 @@ impl VerifyResult {
 // ---------------------------------------------------------------------------
 // ByteRangePlaceholder — reserve then patch
 // ---------------------------------------------------------------------------
-
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -394,9 +396,13 @@ fn sign_pdf_inner(
 
     // Dynamic object allocation (same pattern as append_document_timestamp)
     let mut obj_counter = doc.objects.max_object_number() + 1;
-    let mut alloc = || { let id = ObjectId::new(obj_counter, 0); obj_counter += 1; id };
+    let mut alloc = || {
+        let id = ObjectId::new(obj_counter, 0);
+        obj_counter += 1;
+        id
+    };
 
-    let sig_id    = alloc();
+    let sig_id = alloc();
     let widget_id = alloc();
 
     // ── Step 2: build /Sig dictionary ────────────────────────────────────
@@ -409,26 +415,53 @@ fn sign_pdf_inner(
     };
 
     let mut sig_dict = CosDictionary::new();
-    sig_dict.set(CosName::type_name(),           CosObject::Name(CosName::new(b"Sig")));
-    sig_dict.set(CosName::new(b"Filter"),         CosObject::Name(CosName::new(b"Adobe.PPKLite")));
-    sig_dict.set(CosName::new(b"SubFilter"),      CosObject::Name(CosName::new(sub_filter_bytes)));
-    sig_dict.set(CosName::new(b"Reason"),         CosObject::String(opts.reason.as_bytes().to_vec()));
-    sig_dict.set(CosName::new(b"Location"),       CosObject::String(opts.location.as_bytes().to_vec()));
-    sig_dict.set(CosName::new(b"M"),              CosObject::String(date_str.clone().into_bytes()));
+    sig_dict.set(CosName::type_name(), CosObject::Name(CosName::new(b"Sig")));
+    sig_dict.set(
+        CosName::new(b"Filter"),
+        CosObject::Name(CosName::new(b"Adobe.PPKLite")),
+    );
+    sig_dict.set(
+        CosName::new(b"SubFilter"),
+        CosObject::Name(CosName::new(sub_filter_bytes)),
+    );
+    sig_dict.set(
+        CosName::new(b"Reason"),
+        CosObject::String(opts.reason.as_bytes().to_vec()),
+    );
+    sig_dict.set(
+        CosName::new(b"Location"),
+        CosObject::String(opts.location.as_bytes().to_vec()),
+    );
+    sig_dict.set(
+        CosName::new(b"M"),
+        CosObject::String(date_str.clone().into_bytes()),
+    );
     if !opts.contact_info.is_empty() {
-        sig_dict.set(CosName::new(b"ContactInfo"), CosObject::String(opts.contact_info.as_bytes().to_vec()));
+        sig_dict.set(
+            CosName::new(b"ContactInfo"),
+            CosObject::String(opts.contact_info.as_bytes().to_vec()),
+        );
     }
     if !opts.signer_name.is_empty() {
-        sig_dict.set(CosName::new(b"Name"), CosObject::String(opts.signer_name.as_bytes().to_vec()));
+        sig_dict.set(
+            CosName::new(b"Name"),
+            CosObject::String(opts.signer_name.as_bytes().to_vec()),
+        );
     }
     const PAD: i64 = 1_000_000_000;
-    sig_dict.set(CosName::new(b"ByteRange"), CosObject::Array(vec![
-        CosObject::Integer(PAD), CosObject::Integer(PAD),
-        CosObject::Integer(PAD), CosObject::Integer(PAD),
-    ]));
-    sig_dict.set(CosName::new(b"Contents"), CosObject::HexString(
-        vec![0u8; opts.reserved_size],
-    ));
+    sig_dict.set(
+        CosName::new(b"ByteRange"),
+        CosObject::Array(vec![
+            CosObject::Integer(PAD),
+            CosObject::Integer(PAD),
+            CosObject::Integer(PAD),
+            CosObject::Integer(PAD),
+        ]),
+    );
+    sig_dict.set(
+        CosName::new(b"Contents"),
+        CosObject::HexString(vec![0u8; opts.reserved_size]),
+    );
 
     // ── Step 3: build /Widget annotation dictionary ──────────────────────
     let page_ref = page_object_id(&doc, opts.page);
@@ -454,21 +487,34 @@ fn sign_pdf_inner(
     };
 
     let mut widget_dict = CosDictionary::new();
-    widget_dict.set(CosName::type_name(),          CosObject::Name(CosName::new(b"Annot")));
-    widget_dict.set(CosName::new(b"Subtype"),       CosObject::Name(CosName::new(b"Widget")));
-    widget_dict.set(CosName::new(b"FT"),            CosObject::Name(CosName::new(b"Sig")));
-    widget_dict.set(CosName::new(b"T"),             CosObject::String(opts.field_name.as_bytes().to_vec()));
-    widget_dict.set(CosName::new(b"V"),             CosObject::Reference(sig_id));
-    widget_dict.set(CosName::new(b"F"),             CosObject::Integer(4)); // Print flag
+    widget_dict.set(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"Annot")),
+    );
+    widget_dict.set(
+        CosName::new(b"Subtype"),
+        CosObject::Name(CosName::new(b"Widget")),
+    );
+    widget_dict.set(CosName::new(b"FT"), CosObject::Name(CosName::new(b"Sig")));
+    widget_dict.set(
+        CosName::new(b"T"),
+        CosObject::String(opts.field_name.as_bytes().to_vec()),
+    );
+    widget_dict.set(CosName::new(b"V"), CosObject::Reference(sig_id));
+    widget_dict.set(CosName::new(b"F"), CosObject::Integer(4)); // Print flag
     let effective_rect = resolved_rect;
     let rect_arr = match effective_rect {
         Some([x1, y1, x2, y2]) => vec![
-            CosObject::Real(x1), CosObject::Real(y1),
-            CosObject::Real(x2), CosObject::Real(y2),
+            CosObject::Real(x1),
+            CosObject::Real(y1),
+            CosObject::Real(x2),
+            CosObject::Real(y2),
         ],
         None => vec![
-            CosObject::Integer(0), CosObject::Integer(0),
-            CosObject::Integer(0), CosObject::Integer(0),
+            CosObject::Integer(0),
+            CosObject::Integer(0),
+            CosObject::Integer(0),
+            CosObject::Integer(0),
         ],
     };
     widget_dict.set(CosName::new(b"Rect"), CosObject::Array(rect_arr));
@@ -484,13 +530,12 @@ fn sign_pdf_inner(
 
     // For DocMDP, build /Reference + /TransformParams objects
     if opts.is_certification() {
-        let ref_id = build_docmdp_objects(
-            opts.certification_level.unwrap(),
-            &mut changed, &mut alloc,
+        let ref_id =
+            build_docmdp_objects(opts.certification_level.unwrap(), &mut changed, &mut alloc);
+        sig_dict.set(
+            CosName::new(b"Reference"),
+            CosObject::Array(vec![CosObject::Reference(ref_id)]),
         );
-        sig_dict.set(CosName::new(b"Reference"), CosObject::Array(vec![
-            CosObject::Reference(ref_id),
-        ]));
     };
 
     // Update sig_obj with any late additions (DocMDP /Reference was added above)
@@ -499,17 +544,25 @@ fn sign_pdf_inner(
 
     if opts.visible_signature {
         if let Some(r) = effective_rect {
-            let ap_id   = alloc();
-            let n0_id   = alloc();
-            let n2_id   = alloc();
-            let img_id  = alloc();
+            let ap_id = alloc();
+            let n0_id = alloc();
+            let n2_id = alloc();
+            let img_id = alloc();
             let font_id = alloc();
 
             let ap_result = appearance::build_appearance(
-                r, opts.image_path.as_deref(),
-                &opts.signer_name, &opts.reason, &date_str,
-                ap_id, n0_id, n2_id, img_id, font_id,
-            ).map_err(|e| PdfError::Parse {
+                r,
+                opts.image_path.as_deref(),
+                &opts.signer_name,
+                &opts.reason,
+                &date_str,
+                ap_id,
+                n0_id,
+                n2_id,
+                img_id,
+                font_id,
+            )
+            .map_err(|e| PdfError::Parse {
                 offset: None,
                 context: format!("appearance build failed: {e}"),
             })?;
@@ -520,9 +573,9 @@ fn sign_pdf_inner(
             widget_dict.set(CosName::new(b"AP"), CosObject::Dictionary(ap_dict));
 
             // Insert appearance objects
-            changed.insert(ap_result.ap_id,  ap_result.ap_obj);
-            changed.insert(ap_result.n0_id,  ap_result.n0_obj);
-            changed.insert(ap_result.n2_id,  ap_result.n2_obj);
+            changed.insert(ap_result.ap_id, ap_result.ap_obj);
+            changed.insert(ap_result.n0_id, ap_result.n0_obj);
+            changed.insert(ap_result.n2_id, ap_result.n2_obj);
             if let (Some(iid), Some(iobj)) = (ap_result.img_id, ap_result.img_obj) {
                 changed.insert(iid, iobj);
             }
@@ -549,7 +602,8 @@ fn sign_pdf_inner(
 
     // Update catalog: add AcroForm and optionally /Perms for DocMDP
     let catalog_id = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
-    let mut cat = doc.objects
+    let mut cat = doc
+        .objects
         .get(&catalog_id)
         .and_then(|o| o.as_dictionary())
         .cloned()
@@ -611,8 +665,8 @@ fn build_local_cms(
     let is_pades = opts.format == SignatureFormat::PAdES;
     let (include_cms_crl, include_cms_ocsp) = if is_pades {
         match opts.pades_level {
-            PadesLevel::B_B  => (false, false),
-            PadesLevel::B_T  => (opts.include_crl, opts.include_ocsp),
+            PadesLevel::B_B => (false, false),
+            PadesLevel::B_T => (opts.include_crl, opts.include_ocsp),
             PadesLevel::B_LT => (true, true),
             PadesLevel::B_LTA => (true, true),
         }
@@ -636,14 +690,14 @@ fn build_local_cms(
 // ---------------------------------------------------------------------------
 
 fn sign_pdf_with_changes(
-    pdf_bytes:        &[u8],
-    opts:             &SignOptions,
-    changed:          BTreeMap<ObjectId, CosObject>,
-    date_str:         &str,
+    pdf_bytes: &[u8],
+    opts: &SignOptions,
+    changed: BTreeMap<ObjectId, CosObject>,
+    date_str: &str,
     _sub_filter_bytes: &[u8],
-    sig_id:           ObjectId,
-    file_key:         Option<Vec<u8>>,
-    signer:           impl FnOnce(&[u8]) -> Result<Vec<u8>, PdfError>,
+    sig_id: ObjectId,
+    file_key: Option<Vec<u8>>,
+    signer: impl FnOnce(&[u8]) -> Result<Vec<u8>, PdfError>,
 ) -> Result<Vec<u8>, PdfError> {
     let doc = Document::load_from_bytes(pdf_bytes)?;
 
@@ -658,29 +712,45 @@ fn sign_pdf_with_changes(
     };
 
     let mut first_pass: Vec<u8> = Vec::with_capacity(pdf_bytes.len() + 8192);
-    
+
     let mut bypass_ids = std::collections::HashSet::new();
     bypass_ids.insert(sig_id);
-    crate::writer::IncrementalWriter::write_update(pdf_bytes, &doc_with_key, &changed, bypass_ids, &mut first_pass)
-        .map_err(|e| PdfError::Parse { offset: None, context: format!("write pass 1: {e}") })?;
+    crate::writer::IncrementalWriter::write_update(
+        pdf_bytes,
+        &doc_with_key,
+        &changed,
+        bypass_ids,
+        &mut first_pass,
+    )
+    .map_err(|e| PdfError::Parse {
+        offset: None,
+        context: format!("write pass 1: {e}"),
+    })?;
 
     // ── Step 6: locate ByteRange and Contents placeholders ────────────────
-    let (br_offset, contents_offset, contents_hex_len) =
-        find_last_sig_placeholders(&first_pass)?;
+    let (br_offset, contents_offset, contents_hex_len) = find_last_sig_placeholders(&first_pass)?;
 
-    let range0_end:   i64 = contents_offset as i64;
+    let range0_end: i64 = contents_offset as i64;
     let range1_start: i64 = (contents_offset + contents_hex_len) as i64;
-    let range1_end:   i64 = first_pass.len() as i64 - range1_start;
+    let range1_end: i64 = first_pass.len() as i64 - range1_start;
 
     // ── Step 7: patch /ByteRange in-place ────────────────────────────────
-    patch_byte_range(&mut first_pass,
-        br_offset, 0, range0_end, range1_start, range1_end)?;
+    patch_byte_range(
+        &mut first_pass,
+        br_offset,
+        0,
+        range0_end,
+        range1_start,
+        range1_end,
+    )?;
 
     // ── Step 8: concatenate signed byte ranges ───────────────────────────
     let signed_content = {
         let mut v = Vec::with_capacity(range0_end as usize + range1_end as usize);
         v.extend_from_slice(&first_pass[0..range0_end as usize]);
-        v.extend_from_slice(&first_pass[range1_start as usize..(range1_start + range1_end) as usize]);
+        v.extend_from_slice(
+            &first_pass[range1_start as usize..(range1_start + range1_end) as usize],
+        );
         v
     };
 
@@ -693,7 +763,8 @@ fn sign_pdf_with_changes(
             context: format!(
                 "CMS blob ({} bytes) exceeds reserved_size ({}). \
                  Increase SignOptions::reserved_size.",
-                cms_der.len(), opts.reserved_size
+                cms_der.len(),
+                opts.reserved_size
             ),
         });
     }
@@ -719,7 +790,11 @@ fn sign_pdf_with_changes(
     // ── Step 12: PAdES B-LTA — document-level timestamp ───────────────────
     let is_pades = opts.format == SignatureFormat::PAdES;
     if is_pades && opts.pades_level == PadesLevel::B_LTA && opts.timestamp_url.is_some() {
-        signed = append_document_timestamp(signed, opts.timestamp_url.as_deref().unwrap(), opts.reserved_size)?;
+        signed = append_document_timestamp(
+            signed,
+            opts.timestamp_url.as_deref().unwrap(),
+            opts.reserved_size,
+        )?;
     }
 
     Ok(signed)
@@ -732,17 +807,21 @@ fn sign_pdf_with_changes(
 /// Append a `/Type /DocTimeStamp` signature field to `pdf_bytes` as an
 /// incremental update. Mirrors `rust_pdf_signing::append_document_timestamp`.
 fn append_document_timestamp(
-    pdf_bytes:     Vec<u8>,
-    tsa_url:       &str,
+    pdf_bytes: Vec<u8>,
+    tsa_url: &str,
     reserved_size: usize,
 ) -> Result<Vec<u8>, PdfError> {
-    use crate::cos::{CosName, CosObject, CosDictionary, ObjectId};
+    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
     use crate::writer::IncrementalWriter;
     use sha2::{Digest, Sha256};
 
     let doc = Document::load_from_bytes(&pdf_bytes)?;
     let mut obj_counter = doc.objects.max_object_number() + 1;
-    let mut alloc = || { let id = ObjectId::new(obj_counter, 0); obj_counter += 1; id };
+    let mut alloc = || {
+        let id = ObjectId::new(obj_counter, 0);
+        obj_counter += 1;
+        id
+    };
     let mut changed: BTreeMap<ObjectId, CosObject> = BTreeMap::new();
 
     // V (signature value) dictionary
@@ -750,32 +829,57 @@ fn append_document_timestamp(
     {
         let mut v = CosDictionary::new();
         v.set(CosName::type_name(), CosObject::Name(CosName::new(b"Sig")));
-        v.set(CosName::new(b"Filter"),    CosObject::Name(CosName::new(b"Adobe.PPKLite")));
-        v.set(CosName::new(b"SubFilter"), CosObject::Name(CosName::new(b"ETSI.RFC3161")));
+        v.set(
+            CosName::new(b"Filter"),
+            CosObject::Name(CosName::new(b"Adobe.PPKLite")),
+        );
+        v.set(
+            CosName::new(b"SubFilter"),
+            CosObject::Name(CosName::new(b"ETSI.RFC3161")),
+        );
         const PAD: i64 = 1_000_000_000;
-        v.set(CosName::new(b"ByteRange"), CosObject::Array(vec![
-            CosObject::Integer(PAD), CosObject::Integer(PAD),
-            CosObject::Integer(PAD), CosObject::Integer(PAD),
-        ]));
-        v.set(CosName::new(b"Contents"), CosObject::HexString(vec![0u8; reserved_size]));
+        v.set(
+            CosName::new(b"ByteRange"),
+            CosObject::Array(vec![
+                CosObject::Integer(PAD),
+                CosObject::Integer(PAD),
+                CosObject::Integer(PAD),
+                CosObject::Integer(PAD),
+            ]),
+        );
+        v.set(
+            CosName::new(b"Contents"),
+            CosObject::HexString(vec![0u8; reserved_size]),
+        );
         changed.insert(v_id, CosObject::Dictionary(v));
     }
 
     // Merged field + widget annotation
-    let field_id  = alloc();
-    let page_ref  = page_object_id(&doc, 1).unwrap_or(ObjectId::new(1, 0));
+    let field_id = alloc();
+    let page_ref = page_object_id(&doc, 1).unwrap_or(ObjectId::new(1, 0));
     {
         let ts_name = format!("DocTimestamp{}", rand::random::<u32>());
         let mut fw = CosDictionary::new();
-        fw.set(CosName::new(b"FT"),      CosObject::Name(CosName::new(b"Sig")));
-        fw.set(CosName::new(b"T"),       CosObject::String(ts_name.into_bytes()));
-        fw.set(CosName::new(b"V"),       CosObject::Reference(v_id));
-        fw.set(CosName::type_name(),     CosObject::Name(CosName::new(b"Annot")));
-        fw.set(CosName::new(b"Subtype"), CosObject::Name(CosName::new(b"Widget")));
-        fw.set(CosName::new(b"Rect"), CosObject::Array(vec![
-            CosObject::Integer(0), CosObject::Integer(0),
-            CosObject::Integer(0), CosObject::Integer(0),
-        ]));
+        fw.set(CosName::new(b"FT"), CosObject::Name(CosName::new(b"Sig")));
+        fw.set(CosName::new(b"T"), CosObject::String(ts_name.into_bytes()));
+        fw.set(CosName::new(b"V"), CosObject::Reference(v_id));
+        fw.set(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Annot")),
+        );
+        fw.set(
+            CosName::new(b"Subtype"),
+            CosObject::Name(CosName::new(b"Widget")),
+        );
+        fw.set(
+            CosName::new(b"Rect"),
+            CosObject::Array(vec![
+                CosObject::Integer(0),
+                CosObject::Integer(0),
+                CosObject::Integer(0),
+                CosObject::Integer(0),
+            ]),
+        );
         fw.set(CosName::new(b"P"), CosObject::Reference(page_ref));
         fw.set(CosName::new(b"F"), CosObject::Integer(6));
         changed.insert(field_id, CosObject::Dictionary(fw));
@@ -783,12 +887,17 @@ fn append_document_timestamp(
 
     // Add field to page /Annots
     {
-        let page_dict = doc.objects.get(&page_ref)
-            .and_then(|o| o.as_dictionary()).cloned()
+        let page_dict = doc
+            .objects
+            .get(&page_ref)
+            .and_then(|o| o.as_dictionary())
+            .cloned()
             .unwrap_or_else(CosDictionary::new);
         let mut new_page = page_dict;
-        let mut annots = new_page.get_array(&CosName::new(b"Annots"))
-            .map(|a| a.to_vec()).unwrap_or_default();
+        let mut annots = new_page
+            .get_array(&CosName::new(b"Annots"))
+            .map(|a| a.to_vec())
+            .unwrap_or_default();
         annots.push(CosObject::Reference(field_id));
         new_page.set(CosName::new(b"Annots"), CosObject::Array(annots));
         changed.insert(page_ref, CosObject::Dictionary(new_page));
@@ -799,19 +908,25 @@ fn append_document_timestamp(
     let acroform_obj = acroform::build_acroform(&doc, field_id, acroform_id, &mut changed);
     changed.insert(acroform_id, acroform_obj);
     let catalog_id = doc.catalog_ref().unwrap_or(ObjectId::new(1, 0));
-    let mut cat = doc.objects.get(&catalog_id)
-        .and_then(|o| o.as_dictionary()).cloned()
+    let mut cat = doc
+        .objects
+        .get(&catalog_id)
+        .and_then(|o| o.as_dictionary())
+        .cloned()
         .unwrap_or_else(CosDictionary::new);
     cat.set(CosName::new(b"AcroForm"), CosObject::Reference(acroform_id));
     changed.insert(catalog_id, CosObject::Dictionary(cat));
 
     // First pass: write placeholder
     let mut first_pass: Vec<u8> = Vec::with_capacity(pdf_bytes.len() + 8192);
-    
+
     let mut bypass_ids = std::collections::HashSet::new();
     bypass_ids.insert(v_id);
     IncrementalWriter::write_update(&pdf_bytes, &doc, &changed, bypass_ids, &mut first_pass)
-        .map_err(|e| PdfError::Parse { offset: None, context: format!("DTS write: {e}") })?;
+        .map_err(|e| PdfError::Parse {
+            offset: None,
+            context: format!("DTS write: {e}"),
+        })?;
 
     // Patch ByteRange — use LAST occurrence (DocTimestamp is at end; existing sigs are earlier)
     let (br_off, ct_off, ct_len) = find_last_sig_placeholders(&first_pass)?;
@@ -833,7 +948,8 @@ fn append_document_timestamp(
             offset: None,
             context: format!(
                 "DocTimestamp token ({} bytes) > reserved_size ({}).",
-                ts_token.len(), reserved_size
+                ts_token.len(),
+                reserved_size
             ),
         });
     }
@@ -862,21 +978,30 @@ pub fn verify_pdf(pdf_bytes: &[u8]) -> Result<Vec<VerifyResult>, PdfError> {
 
     for v in val_results {
         let br = if v.byte_range.len() == 4 {
-            [v.byte_range[0], v.byte_range[1], v.byte_range[2], v.byte_range[3]]
+            [
+                v.byte_range[0],
+                v.byte_range[1],
+                v.byte_range[2],
+                v.byte_range[3],
+            ]
         } else {
             [0i64; 4]
         };
 
         // Convert validator::CertInfo → signing::CertInfo
-        let certificates: Vec<CertInfo> = v.certificates.iter().map(|c| CertInfo {
-            subject:       c.subject.clone(),
-            issuer:        c.issuer.clone(),
-            serial:        c.serial_number.clone(),
-            not_before:    c.not_before.map(|t| t.to_rfc3339()),
-            not_after:     c.not_after.map(|t| t.to_rfc3339()),
-            is_expired:    c.is_expired,
-            is_self_signed: c.is_self_signed,
-        }).collect();
+        let certificates: Vec<CertInfo> = v
+            .certificates
+            .iter()
+            .map(|c| CertInfo {
+                subject: c.subject.clone(),
+                issuer: c.issuer.clone(),
+                serial: c.serial_number.clone(),
+                not_before: c.not_before.map(|t| t.to_rfc3339()),
+                not_after: c.not_after.map(|t| t.to_rfc3339()),
+                is_expired: c.is_expired,
+                is_self_signed: c.is_self_signed,
+            })
+            .collect();
 
         // Build status string
         let all_ok = v.digest_match && v.cms_signature_valid;
@@ -891,26 +1016,26 @@ pub fn verify_pdf(pdf_bytes: &[u8]) -> Result<Vec<VerifyResult>, PdfError> {
         };
 
         results.push(VerifyResult {
-            field_name:                v.field_name.unwrap_or_else(|| "unnamed".into()),
-            filter:                    v.filter,
-            sub_filter:                v.sub_filter,
-            reason:                    v.reason,
-            contact_info:              v.contact_info,
-            signing_time:              v.signing_time,
-            cms_bytes:                 vec![],    // not needed in VerifyResult
-            byte_range:                br,
+            field_name: v.field_name.unwrap_or_else(|| "unnamed".into()),
+            filter: v.filter,
+            sub_filter: v.sub_filter,
+            reason: v.reason,
+            contact_info: v.contact_info,
+            signing_time: v.signing_time,
+            cms_bytes: vec![], // not needed in VerifyResult
+            byte_range: br,
             byte_range_covers_whole_file: v.byte_range_covers_whole_file,
-            digest_valid:              v.digest_match,
-            cms_signature_valid:       v.cms_signature_valid,
-            cms_parseable:             true,
+            digest_valid: v.digest_match,
+            cms_signature_valid: v.cms_signature_valid,
+            cms_parseable: true,
             certificates,
-            certificate_chain_valid:   v.certificate_chain_valid,
-            chain_warnings:            v.chain_warnings,
-            has_timestamp:             v.has_timestamp,
-            has_dss:                   v.has_dss,
-            is_ltv_enabled:            v.is_ltv_enabled,
+            certificate_chain_valid: v.certificate_chain_valid,
+            chain_warnings: v.chain_warnings,
+            has_timestamp: v.has_timestamp,
+            has_dss: v.has_dss,
+            is_ltv_enabled: v.is_ltv_enabled,
             status,
-            errors:                    v.errors,
+            errors: v.errors,
         });
     }
 
@@ -923,9 +1048,10 @@ pub fn verify_pdf(pdf_bytes: &[u8]) -> Result<Vec<VerifyResult>, PdfError> {
 ///
 /// If the PDF is encrypted, provide `password` so string fields (e.g. `/T`)
 /// are decrypted and readable; pass `None` for unencrypted documents.
-pub fn validate_pdf_full(pdf_bytes: &[u8], password: Option<&str>)
-    -> Result<Vec<validator::ValidationResult>, PdfError>
-{
+pub fn validate_pdf_full(
+    pdf_bytes: &[u8],
+    password: Option<&str>,
+) -> Result<Vec<validator::ValidationResult>, PdfError> {
     validator::SignatureValidator::validate(pdf_bytes, password)
 }
 
@@ -962,16 +1088,31 @@ fn build_docmdp_objects(
     let ref_id = alloc();
 
     let mut params = CosDictionary::new();
-    params.set(CosName::type_name(), CosObject::Name(CosName::new(b"TransformParams")));
+    params.set(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"TransformParams")),
+    );
     params.set(CosName::new(b"P"), CosObject::Integer(level as i64));
     params.set(CosName::new(b"V"), CosObject::Name(CosName::new(b"1.2")));
     changed.insert(params_id, CosObject::Dictionary(params));
 
     let mut sig_ref = CosDictionary::new();
-    sig_ref.set(CosName::type_name(), CosObject::Name(CosName::new(b"SigRef")));
-    sig_ref.set(CosName::new(b"TransformMethod"), CosObject::Name(CosName::new(b"DocMDP")));
-    sig_ref.set(CosName::new(b"TransformParams"), CosObject::Reference(params_id));
-    sig_ref.set(CosName::new(b"DigestMethod"), CosObject::Name(CosName::new(b"SHA256")));
+    sig_ref.set(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"SigRef")),
+    );
+    sig_ref.set(
+        CosName::new(b"TransformMethod"),
+        CosObject::Name(CosName::new(b"DocMDP")),
+    );
+    sig_ref.set(
+        CosName::new(b"TransformParams"),
+        CosObject::Reference(params_id),
+    );
+    sig_ref.set(
+        CosName::new(b"DigestMethod"),
+        CosObject::Name(CosName::new(b"SHA256")),
+    );
     changed.insert(ref_id, CosObject::Dictionary(sig_ref));
 
     ref_id
@@ -1003,7 +1144,7 @@ fn extract_certs_from_cms(cms_der: &[u8]) -> Vec<x509_certificate::CapturedX509C
     }
 }
 
-
+#[allow(dead_code)]
 fn next_free_object_id(doc: &Document) -> u32 {
     doc.objects.max_object_number() + 1
 }
@@ -1017,9 +1158,12 @@ fn page_object_id(doc: &Document, page_num: u32) -> Option<ObjectId> {
     find_page_id_in_tree(doc, pages_ref, idx, &mut 0)
 }
 
-fn find_page_id_in_tree(doc: &Document, node_id: ObjectId, target: usize, count: &mut usize)
-    -> Option<ObjectId>
-{
+fn find_page_id_in_tree(
+    doc: &Document,
+    node_id: ObjectId,
+    target: usize,
+    count: &mut usize,
+) -> Option<ObjectId> {
     let node = doc.objects.get(&node_id)?.as_dictionary()?.clone();
     let type_name = node.get_name(&CosName::type_name());
 
@@ -1063,10 +1207,10 @@ fn build_page_with_annot(
     Some((page_id, CosObject::Dictionary(new_page)))
 }
 
-fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: ObjectId)
-    -> CosObject
-{
-    let mut cat = doc.objects
+#[allow(dead_code)]
+fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: ObjectId) -> CosObject {
+    let mut cat = doc
+        .objects
         .get(&catalog_id)
         .and_then(|o| o.as_dictionary())
         .cloned()
@@ -1079,12 +1223,12 @@ fn build_updated_catalog(doc: &Document, catalog_id: ObjectId, acroform_id: Obje
 /// `/Contents <000…0>` in the serialised PDF bytes.
 ///
 /// Returns `(byte_range_offset, contents_angle_open_offset, total_hex_field_len)`
-fn find_sig_placeholders(buf: &[u8], _field_name: &str)
-    -> Result<(usize, usize, usize), PdfError>
-{
+#[allow(dead_code)]
+fn find_sig_placeholders(buf: &[u8], _field_name: &str) -> Result<(usize, usize, usize), PdfError> {
     // Locate /ByteRange [1000000000 — the sentinel padded placeholder
     let br_needle = b"/ByteRange [1000000000";
-    let br_off = buf.windows(br_needle.len())
+    let br_off = buf
+        .windows(br_needle.len())
         .position(|w| w == br_needle)
         .ok_or_else(|| PdfError::Parse {
             offset: None,
@@ -1093,7 +1237,8 @@ fn find_sig_placeholders(buf: &[u8], _field_name: &str)
 
     // Locate /Contents < — the HexString placeholder
     let ct_needle = b"/Contents <";
-    let ct_off = buf.windows(ct_needle.len())
+    let ct_off = buf
+        .windows(ct_needle.len())
         .position(|w| w == ct_needle)
         .ok_or_else(|| PdfError::Parse {
             offset: None,
@@ -1118,7 +1263,8 @@ fn find_sig_placeholders(buf: &[u8], _field_name: &str)
 fn find_last_sig_placeholders(buf: &[u8]) -> Result<(usize, usize, usize), PdfError> {
     // Last /ByteRange [1000000000 placeholder
     let br_needle = b"/ByteRange [1000000000";
-    let br_off = buf.windows(br_needle.len())
+    let br_off = buf
+        .windows(br_needle.len())
         .enumerate()
         .filter(|(_, w)| *w == br_needle)
         .map(|(i, _)| i)
@@ -1130,7 +1276,8 @@ fn find_last_sig_placeholders(buf: &[u8]) -> Result<(usize, usize, usize), PdfEr
 
     // Last /Contents < placeholder (must come after br_off)
     let ct_needle = b"/Contents <";
-    let ct_off = buf.windows(ct_needle.len())
+    let ct_off = buf
+        .windows(ct_needle.len())
         .enumerate()
         .filter(|(i, w)| *i > br_off && *w == ct_needle)
         .map(|(i, _)| i)
@@ -1156,8 +1303,10 @@ fn find_last_sig_placeholders(buf: &[u8]) -> Result<(usize, usize, usize), PdfEr
 fn patch_byte_range(
     buf: &mut Vec<u8>,
     br_off: usize,
-    r0s: i64, r0e: i64,
-    r1s: i64, r1e: i64,
+    r0s: i64,
+    r0e: i64,
+    r1s: i64,
+    r1e: i64,
 ) -> Result<(), PdfError> {
     let end = buf[br_off..]
         .iter()
@@ -1178,7 +1327,8 @@ fn patch_byte_range(
             context: format!(
                 "/ByteRange replacement ({} bytes) longer than placeholder ({} bytes). \
                  Increase PAD sentinel value.",
-                new_bytes.len(), old_len
+                new_bytes.len(),
+                old_len
             ),
         });
     }
@@ -1192,11 +1342,14 @@ fn patch_byte_range(
 }
 
 /// Hex-encode the CMS DER blob and overwrite the `/Contents <000…>` placeholder.
-fn inject_contents(buf: &mut Vec<u8>, hex_start: usize, hex_field_len: usize, cms_der: &[u8])
-    -> Result<(), PdfError>
-{
+fn inject_contents(
+    buf: &mut Vec<u8>,
+    hex_start: usize,
+    hex_field_len: usize,
+    cms_der: &[u8],
+) -> Result<(), PdfError> {
     // hex_start points to '<'; the payload area is [hex_start+1 .. hex_start+hex_field_len-1]
-    let payload_start = hex_start;           // '<'
+    let payload_start = hex_start; // '<'
     let payload_capacity = hex_field_len - 2; // space between '<' and '>'
 
     let hex_len = cms_der.len() * 2;
@@ -1215,7 +1368,7 @@ fn inject_contents(buf: &mut Vec<u8>, hex_start: usize, hex_field_len: usize, cm
         let hi = (byte >> 4) as usize;
         let lo = (byte & 0x0f) as usize;
         const HEX: &[u8] = b"0123456789abcdef";
-        buf[write_at + i * 2]     = HEX[hi];
+        buf[write_at + i * 2] = HEX[hi];
         buf[write_at + i * 2 + 1] = HEX[lo];
     }
     Ok(())
@@ -1239,7 +1392,11 @@ fn find_sig_fields(doc: &Document) -> Vec<(String, ObjectId)> {
         }
         _ => return out,
     };
-    let acroform_dict = match doc.objects.get(&acroform_ref).and_then(|o| o.as_dictionary()) {
+    let acroform_dict = match doc
+        .objects
+        .get(&acroform_ref)
+        .and_then(|o| o.as_dictionary())
+    {
         Some(d) => d.clone(),
         None => return out,
     };
@@ -1307,15 +1464,16 @@ fn collect_sig_fields_from_acroform_dict(
 ///
 /// Returns `Err` if the tag is not found.
 pub fn resolve_anchor_rect(
-    doc:         &Document,
-    page_id:     ObjectId,
-    tag:         &str,
-    width:       f64,
-    height:      f64,
-    mode:        &SignatureAnchorMode,
+    doc: &Document,
+    page_id: ObjectId,
+    tag: &str,
+    width: f64,
+    height: f64,
+    mode: &SignatureAnchorMode,
 ) -> Result<[f64; 4], PdfError> {
     // Collect content stream bytes for this page.
-    let page_dict = doc.objects
+    let page_dict = doc
+        .objects
         .get(&page_id)
         .and_then(|o| o.as_dictionary())
         .ok_or_else(|| PdfError::Parse {
@@ -1338,11 +1496,11 @@ pub fn resolve_anchor_rect(
         match hit {
             Some(chunk) => {
                 let x = match mode {
-                    SignatureAnchorMode::Overlay  => chunk.x,
-                    SignatureAnchorMode::InFront  => chunk.x + chunk.font_size.max(8.0),
+                    SignatureAnchorMode::Overlay => chunk.x,
+                    SignatureAnchorMode::InFront => chunk.x + chunk.font_size.max(8.0),
                 };
-                let y_top = chunk.y;          // baseline = top of sig rect
-                let y_bot = y_top - height;   // bottom of sig rect
+                let y_top = chunk.y; // baseline = top of sig rect
+                let y_bot = y_top - height; // bottom of sig rect
                 Ok([x, y_bot, x + width, y_top])
             }
             None => Err(PdfError::Parse {
@@ -1350,7 +1508,11 @@ pub fn resolve_anchor_rect(
                 context: format!(
                     "anchor tag {:?} not found on page; available text chunks: [{}]",
                     tag,
-                    chunks.iter().map(|c| format!("{:?}", c.text)).collect::<Vec<_>>().join(", ")
+                    chunks
+                        .iter()
+                        .map(|c| format!("{:?}", c.text))
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ),
             }),
         }
@@ -1371,7 +1533,7 @@ fn collect_page_content_bytes(doc: &Document, page_dict: &CosDictionary) -> Vec<
 
     let contents_obj = match page_dict.get(&CosName::new(b"Contents")) {
         Some(o) => o.clone(),
-        None    => return vec![],
+        None => return vec![],
     };
 
     let decode = |obj: &CosObject| -> Vec<u8> {
@@ -1381,7 +1543,7 @@ fn collect_page_content_bytes(doc: &Document, page_dict: &CosDictionary) -> Vec<
         } else if let Some(ref_id) = obj.as_reference() {
             let inner = match doc.objects.get(&ref_id) {
                 Some(o) => o,
-                None    => return vec![],
+                None => return vec![],
             };
             if let Some(stream) = inner.as_stream() {
                 let filter = stream.dictionary.get(&CosName::new(b"Filter"));
@@ -1406,4 +1568,3 @@ fn collect_page_content_bytes(doc: &Document, page_dict: &CosDictionary) -> Vec<
         other => decode(other),
     }
 }
-

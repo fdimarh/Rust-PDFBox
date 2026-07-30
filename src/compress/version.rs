@@ -16,9 +16,9 @@
 //!
 //! **No new crates** — uses existing `src/writer/` and `src/io/` infrastructure.
 
+use super::CompressOptions;
 use crate::cos::{CosName, CosObject};
 use crate::{Document, PdfResult};
-use super::CompressOptions;
 
 // ---------------------------------------------------------------------------
 // Public report
@@ -116,23 +116,21 @@ fn doc_has_xfa(doc: &Document) -> bool {
     };
     let obj = doc.get_object_ref(catalog_id);
     match obj {
-        Some(CosObject::Dictionary(dict)) => {
-            match dict.get(&CosName::new(b"AcroForm".to_vec())) {
-                Some(CosObject::Reference(form_id)) => {
-                    let form_obj = doc.get_object_ref(*form_id);
-                    match form_obj {
-                        Some(CosObject::Dictionary(form_dict)) => {
-                            form_dict.get(&CosName::new(b"XFA".to_vec())).is_some()
-                        }
-                        _ => false,
+        Some(CosObject::Dictionary(dict)) => match dict.get(&CosName::new(b"AcroForm".to_vec())) {
+            Some(CosObject::Reference(form_id)) => {
+                let form_obj = doc.get_object_ref(*form_id);
+                match form_obj {
+                    Some(CosObject::Dictionary(form_dict)) => {
+                        form_dict.get(&CosName::new(b"XFA".to_vec())).is_some()
                     }
+                    _ => false,
                 }
-                Some(CosObject::Dictionary(form_dict)) => {
-                    form_dict.get(&CosName::new(b"XFA".to_vec())).is_some()
-                }
-                _ => false,
             }
-        }
+            Some(CosObject::Dictionary(form_dict)) => {
+                form_dict.get(&CosName::new(b"XFA".to_vec())).is_some()
+            }
+            _ => false,
+        },
         _ => false,
     }
 }
@@ -198,8 +196,8 @@ fn pack_chunk_into_objstm(
     doc: &mut Document,
     object_ids: &[crate::cos::ObjectId],
 ) -> PdfResult<()> {
-    use crate::writer::serializer::Serializer;
     use super::streams::deflate_best;
+    use crate::writer::serializer::Serializer;
 
     // Build the ObjStm body: preamble (num offset pairs) + serialised objects.
     let mut preamble = String::new();
@@ -234,11 +232,26 @@ fn pack_chunk_into_objstm(
 
     // Build the ObjStm stream dict.
     let mut dict = crate::cos::CosDictionary::new();
-    dict.set(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"ObjStm".to_vec())));
-    dict.set(CosName::new(b"N".to_vec()), CosObject::Integer(object_ids.len() as i64));
-    dict.set(CosName::new(b"First".to_vec()), CosObject::Integer(first as i64));
-    dict.set(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(b"FlateDecode".to_vec())));
-    dict.set(CosName::new(b"Length".to_vec()), CosObject::Integer(compressed.len() as i64));
+    dict.set(
+        CosName::new(b"Type".to_vec()),
+        CosObject::Name(CosName::new(b"ObjStm".to_vec())),
+    );
+    dict.set(
+        CosName::new(b"N".to_vec()),
+        CosObject::Integer(object_ids.len() as i64),
+    );
+    dict.set(
+        CosName::new(b"First".to_vec()),
+        CosObject::Integer(first as i64),
+    );
+    dict.set(
+        CosName::new(b"Filter".to_vec()),
+        CosObject::Name(CosName::new(b"FlateDecode".to_vec())),
+    );
+    dict.set(
+        CosName::new(b"Length".to_vec()),
+        CosObject::Integer(compressed.len() as i64),
+    );
 
     let objstm_stream = crate::cos::CosStream {
         dictionary: dict,
@@ -298,5 +311,25 @@ mod tests {
         // Verify the version constants are reasonable.
         assert_eq!(1_u8, 1);
         assert_eq!(4_u8, 4);
+    }
+
+    #[test]
+    fn doc_uses_aes_no_encryption_returns_false() {
+        let doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        assert!(!doc_uses_aes_encryption(&doc));
+    }
+
+    #[test]
+    fn doc_has_xfa_no_catalog_returns_false() {
+        // minimal PDF has a catalog but no AcroForm
+        let doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        assert!(!doc_has_xfa(&doc));
+    }
+
+    #[test]
+    fn version_report_display() {
+        let r = VersionReport::default();
+        // just ensure Debug/Derive works
+        let _ = format!("{:?}", r);
     }
 }

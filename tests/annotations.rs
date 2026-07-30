@@ -23,9 +23,7 @@ fn build_pdf_with_annotation() -> Vec<u8> {
 
     let content = b"BT ET";
     let obj5_offset = pdf.len();
-    pdf.extend_from_slice(
-        format!("5 0 obj\n<< /Length {} >>\nstream\n", content.len()).as_bytes(),
-    );
+    pdf.extend_from_slice(format!("5 0 obj\n<< /Length {} >>\nstream\n", content.len()).as_bytes());
     pdf.extend_from_slice(content);
     pdf.extend_from_slice(b"\nendstream\nendobj\n");
 

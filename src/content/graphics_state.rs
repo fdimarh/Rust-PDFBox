@@ -43,7 +43,14 @@ pub struct Matrix {
 impl Matrix {
     /// The identity matrix.
     pub fn identity() -> Self {
-        Self { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: 0.0, f: 0.0 }
+        Self {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 1.0,
+            e: 0.0,
+            f: 0.0,
+        }
     }
 
     /// Multiply `self × other` (right-multiply, PDF convention).
@@ -60,18 +67,31 @@ impl Matrix {
 
     /// Translate matrix by (tx, ty).
     pub fn translate(tx: f64, ty: f64) -> Self {
-        Self { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: tx, f: ty }
+        Self {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 1.0,
+            e: tx,
+            f: ty,
+        }
     }
 
     /// Returns the X translation component.
-    pub fn tx(&self) -> f64 { self.e }
+    pub fn tx(&self) -> f64 {
+        self.e
+    }
 
     /// Returns the Y translation component.
-    pub fn ty(&self) -> f64 { self.f }
+    pub fn ty(&self) -> f64 {
+        self.f
+    }
 }
 
 impl Default for Matrix {
-    fn default() -> Self { Self::identity() }
+    fn default() -> Self {
+        Self::identity()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +228,9 @@ impl Default for GraphicsState {
 }
 
 impl GraphicsState {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// `q` — save current state.
     pub fn save(&mut self) {
@@ -322,7 +344,14 @@ mod tests {
     #[test]
     fn identity_matrix_multiply() {
         let id = Matrix::identity();
-        let m = Matrix { a: 2.0, b: 0.0, c: 0.0, d: 3.0, e: 10.0, f: 20.0 };
+        let m = Matrix {
+            a: 2.0,
+            b: 0.0,
+            c: 0.0,
+            d: 3.0,
+            e: 10.0,
+            f: 20.0,
+        };
         let r = id.multiply(&m);
         assert_eq!(r, m);
     }
@@ -448,4 +477,3 @@ mod tests {
         assert!((ts.text_matrix.e - 6.0).abs() < 1e-10);
     }
 }
-

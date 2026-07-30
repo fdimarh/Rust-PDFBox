@@ -3,8 +3,8 @@
 //!
 //! Maps to `PDOutlineItem` in Java PDFBox.
 
-use crate::cos::{CosDictionary, CosName, ObjectId};
 use crate::ObjectStore;
+use crate::cos::{CosDictionary, CosName, ObjectId};
 
 use super::destination::Destination;
 
@@ -51,7 +51,10 @@ impl<'a> OutlineItem<'a> {
     }
 
     /// Parses the destination for this outline item.
-    pub fn destination(&self, page_id_to_index: &impl Fn(ObjectId) -> Option<usize>) -> Option<Destination> {
+    pub fn destination(
+        &self,
+        page_id_to_index: &impl Fn(ObjectId) -> Option<usize>,
+    ) -> Option<Destination> {
         // Try /Dest first (direct destination or action dict)
         if let Some(dest_obj) = self.dict.get(&CosName::new(b"Dest".to_vec())) {
             if let Some(dest) = Destination::from_cos(dest_obj, page_id_to_index) {
@@ -165,6 +168,25 @@ mod tests {
     }
 
     #[test]
+    fn test_item_count_zero_default() {
+        let dict = make_item_dict("", 0);
+        let store = crate::ObjectStore::new();
+        let id = ObjectId::new(1, 0);
+        let item = OutlineItem::new(id, &dict, &store);
+        assert_eq!(item.count(), 0);
+        assert!(!item.is_open());
+    }
+
+    #[test]
+    fn test_item_title_default_empty() {
+        let dict = make_item_dict("", 0);
+        let store = crate::ObjectStore::new();
+        let id = ObjectId::new(1, 0);
+        let item = OutlineItem::new(id, &dict, &store);
+        assert_eq!(item.title(), "");
+    }
+
+    #[test]
     fn test_outline_item_open_closed() {
         let store = crate::ObjectStore::new();
 
@@ -184,5 +206,33 @@ mod tests {
         let item = OutlineItem::new(ObjectId::new(1, 0), &dict, &store);
         assert!(item.first_child().is_none());
         assert!(item.descendants().is_empty());
+    }
+
+    #[test]
+    fn test_outline_item_dictionary_access() {
+        let dict = make_item_dict("Test", 1);
+        let store = crate::ObjectStore::new();
+        let item = OutlineItem::new(ObjectId::new(1, 0), &dict, &store);
+        let d = item.dictionary();
+        assert!(d.get(&CosName::new(b"Title".to_vec())).is_some());
+        assert!(d.get(&CosName::count()).is_some());
+    }
+
+    #[test]
+    fn test_outline_item_next_prev_parent_none() {
+        let dict = make_item_dict("Solo", 0);
+        let store = crate::ObjectStore::new();
+        let item = OutlineItem::new(ObjectId::new(1, 0), &dict, &store);
+        assert!(item.next().is_none());
+        assert!(item.prev().is_none());
+        assert!(item.parent().is_none());
+    }
+
+    #[test]
+    fn test_outline_item_debug() {
+        let dict = make_item_dict("Debug", 0);
+        let store = crate::ObjectStore::new();
+        let item = OutlineItem::new(ObjectId::new(1, 0), &dict, &store);
+        let _ = format!("{:?}", item);
     }
 }

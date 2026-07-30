@@ -61,7 +61,9 @@ impl<'a> PageTree<'a> {
 
     /// Returns the page at the given 0-based index.
     pub fn get(&self, index: usize) -> Option<Page<'a>> {
-        self.pages.get(index).map(|(id, d)| Page::new(*id, d, index))
+        self.pages
+            .get(index)
+            .map(|(id, d)| Page::new(*id, d, index))
     }
 
     /// Returns an iterator over all pages in order.
@@ -146,8 +148,8 @@ fn collect_pages<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
     use crate::ObjectStore;
+    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 
     /// Builds a minimal store with a Catalog → Pages → [Page1, Page2] tree.
     fn two_page_store() -> (ObjectStore, ObjectId) {
@@ -155,7 +157,10 @@ mod tests {
 
         // Page 1
         let mut p1 = CosDictionary::new();
-        p1.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Page".to_vec())));
+        p1.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Page".to_vec())),
+        );
         p1.insert(
             CosName::new(b"MediaBox".to_vec()),
             CosObject::Array(vec![
@@ -170,7 +175,10 @@ mod tests {
 
         // Page 2
         let mut p2 = CosDictionary::new();
-        p2.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Page".to_vec())));
+        p2.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Page".to_vec())),
+        );
         p2.insert(
             CosName::new(b"MediaBox".to_vec()),
             CosObject::Array(vec![
@@ -185,7 +193,10 @@ mod tests {
 
         // Pages node
         let mut pages = CosDictionary::new();
-        pages.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Pages".to_vec())));
+        pages.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Pages".to_vec())),
+        );
         pages.insert(
             CosName::kids(),
             CosObject::Array(vec![
@@ -199,7 +210,10 @@ mod tests {
 
         // Catalog
         let mut catalog = CosDictionary::new();
-        catalog.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Catalog".to_vec())));
+        catalog.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Catalog".to_vec())),
+        );
         catalog.insert(CosName::pages(), CosObject::Reference(pages_id));
         let catalog_id = ObjectId::new(1, 0);
         store.insert(catalog_id, CosObject::Dictionary(catalog));
@@ -255,10 +269,29 @@ mod tests {
     fn page_tree_missing_catalog_pages() {
         let store = ObjectStore::new();
         let mut cat = CosDictionary::new();
-        cat.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Catalog".to_vec())));
+        cat.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Catalog".to_vec())),
+        );
         // No /Pages entry
         let result = PageTree::new(&cat, &store);
         assert!(result.is_err());
     }
-}
 
+    #[test]
+    fn page_tree_missing_pages_entry_in_store() {
+        let store = ObjectStore::new();
+        let mut cat = CosDictionary::new();
+        cat.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Catalog".to_vec())),
+        );
+        // Store contains a reference that points to nothing
+        cat.insert(
+            CosName::pages(),
+            CosObject::Reference(ObjectId::new(999, 0)),
+        );
+        let result = PageTree::new(&cat, &store);
+        assert!(result.is_err());
+    }
+}

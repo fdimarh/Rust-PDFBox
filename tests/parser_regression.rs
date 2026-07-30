@@ -34,7 +34,12 @@ fn build_pdf(version: &[u8], objects: &[(u32, &[u8])], root_id: u32) -> Vec<u8> 
 }
 
 /// Like `build_pdf` but shifts every xref offset by `base_offset` bytes.
-fn build_pdf_with_base(version: &[u8], objects: &[(u32, &[u8])], root_id: u32, base_offset: usize) -> Vec<u8> {
+fn build_pdf_with_base(
+    version: &[u8],
+    objects: &[(u32, &[u8])],
+    root_id: u32,
+    base_offset: usize,
+) -> Vec<u8> {
     let mut pdf = b"%PDF-".to_vec();
     pdf.extend_from_slice(version);
     pdf.push(b'\n');
@@ -76,7 +81,12 @@ fn build_pdf_with_base(version: &[u8], objects: &[(u32, &[u8])], root_id: u32, b
     }
 
     pdf.extend_from_slice(
-        format!("trailer\n<< /Size {} /Root {} 0 R >>\n", max_id + 1, root_id).as_bytes(),
+        format!(
+            "trailer\n<< /Size {} /Root {} 0 R >>\n",
+            max_id + 1,
+            root_id
+        )
+        .as_bytes(),
     );
     pdf.extend_from_slice(format!("startxref\n{xref_offset}\n%%EOF\n").as_bytes());
     pdf
@@ -163,7 +173,7 @@ fn header_preceded_by_binary_comment() {
             (2, b"<< /Type /Pages /Kids [] /Count 0 >>"),
         ],
         1,
-        prefix.len(),  // shift all xref offsets by the prefix length
+        prefix.len(), // shift all xref offsets by the prefix length
     ));
     // The header finder scans first 1024 bytes — should find %PDF-
     assert!(Document::load_from_bytes(&pdf).is_ok());
@@ -373,7 +383,10 @@ fn page_with_resources_dict() {
         &[
             (1, b"<< /Type /Catalog /Pages 2 0 R >>"),
             (2, b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
-            (3, b"<< /Type /Page /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> >>"),
+            (
+                3,
+                b"<< /Type /Page /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> >>",
+            ),
             (4, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
         ],
         1,
@@ -415,7 +428,10 @@ fn content_stream_is_stored_as_stream_object() {
         &[
             (1, b"<< /Type /Catalog /Pages 2 0 R >>"),
             (2, b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
-            (3, b"<< /Type /Page /MediaBox [0 0 612 792] /Contents 4 0 R >>"),
+            (
+                3,
+                b"<< /Type /Page /MediaBox [0 0 612 792] /Contents 4 0 R >>",
+            ),
             (4, b"<< /Length 0 >> stream\nendstream"),
         ],
         1,
@@ -460,4 +476,3 @@ fn survives_truncated_xref_table() {
 fn survives_header_only() {
     let _ = Document::load_from_bytes(b"%PDF-1.4\n");
 }
-

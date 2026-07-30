@@ -20,8 +20,8 @@
 
 #[cfg(test)]
 mod lexer_edge_tokens {
-    use crate::parser::lexer::{LexError, Lexer, Token};
     use crate::cos::CosName;
+    use crate::parser::lexer::{LexError, Lexer, Token};
 
     fn lex_all(input: &[u8]) -> Vec<Token> {
         let mut lexer = Lexer::new(input);
@@ -61,7 +61,10 @@ mod lexer_edge_tokens {
 
     #[test]
     fn lex_large_negative_integer() {
-        assert_eq!(lex_all(b"-2147483648"), vec![Token::Integer(-2_147_483_648)]);
+        assert_eq!(
+            lex_all(b"-2147483648"),
+            vec![Token::Integer(-2_147_483_648)]
+        );
     }
 
     #[test]
@@ -89,7 +92,10 @@ mod lexer_edge_tokens {
     fn lex_multiple_numbers_no_space_after_delimiter() {
         // Directly adjacent to array delimiter
         let tokens = lex_all(b"[1]");
-        assert_eq!(tokens, vec![Token::ArrayStart, Token::Integer(1), Token::ArrayEnd]);
+        assert_eq!(
+            tokens,
+            vec![Token::ArrayStart, Token::Integer(1), Token::ArrayEnd]
+        );
     }
 
     // ---- String edge cases ----
@@ -178,7 +184,11 @@ mod lexer_edge_tokens {
     #[test]
     fn lex_unterminated_literal_string_with_escape() {
         let err = lex_first_err(b"(hello\\");
-        assert!(err.message.contains("unterminated") || err.message.contains("string") || err.message.contains("escape"));
+        assert!(
+            err.message.contains("unterminated")
+                || err.message.contains("string")
+                || err.message.contains("escape")
+        );
     }
 
     // ---- Hex string edge cases ----
@@ -252,7 +262,9 @@ mod lexer_edge_tokens {
     #[test]
     fn lex_name_long() {
         // PDF spec limits names to 127 bytes, but we don't enforce that
-        let long_name: Vec<u8> = std::iter::once(b'/').chain(b"A".repeat(127).into_iter()).collect();
+        let long_name: Vec<u8> = std::iter::once(b'/')
+            .chain(b"A".repeat(127).into_iter())
+            .collect();
         let tokens = lex_all(&long_name);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0], Token::Name(n) if n.as_bytes().len() == 127));
@@ -372,8 +384,8 @@ mod lexer_edge_tokens {
 
 #[cfg(test)]
 mod parser_malformed {
-    use crate::parser::parser::{ParseError, Parser};
     use crate::cos::{CosName, CosObject, ObjectId};
+    use crate::parser::parser::{ParseError, Parser};
 
     fn parse_one(input: &[u8]) -> Result<Option<CosObject>, ParseError> {
         Parser::new(input).parse_object()
@@ -526,7 +538,9 @@ mod parser_malformed {
 
     #[test]
     fn indirect_obj_large_object_number() {
-        let result = parse_indirect(b"99999 0 obj\n(big)\nendobj").unwrap().unwrap();
+        let result = parse_indirect(b"99999 0 obj\n(big)\nendobj")
+            .unwrap()
+            .unwrap();
         assert_eq!(result.0, ObjectId::new(99999, 0));
     }
 
@@ -692,4 +706,3 @@ mod parser_malformed {
         }
     }
 }
-

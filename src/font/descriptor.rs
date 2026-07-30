@@ -18,24 +18,40 @@ use crate::cos::{CosDictionary, CosName};
 pub struct FontFlags(pub u32);
 
 impl FontFlags {
-    pub const FIXED_PITCH:      u32 = 1 << 0;  // bit 1
-    pub const SERIF:            u32 = 1 << 1;  // bit 2
-    pub const SYMBOLIC:         u32 = 1 << 2;  // bit 3
-    pub const SCRIPT:           u32 = 1 << 3;  // bit 4
-    pub const NON_SYMBOLIC:     u32 = 1 << 5;  // bit 6
-    pub const ITALIC:           u32 = 1 << 6;  // bit 7
-    pub const ALL_CAP:          u32 = 1 << 16; // bit 17
-    pub const SMALL_CAP:        u32 = 1 << 17; // bit 18
-    pub const FORCE_BOLD:       u32 = 1 << 18; // bit 19
+    pub const FIXED_PITCH: u32 = 1 << 0; // bit 1
+    pub const SERIF: u32 = 1 << 1; // bit 2
+    pub const SYMBOLIC: u32 = 1 << 2; // bit 3
+    pub const SCRIPT: u32 = 1 << 3; // bit 4
+    pub const NON_SYMBOLIC: u32 = 1 << 5; // bit 6
+    pub const ITALIC: u32 = 1 << 6; // bit 7
+    pub const ALL_CAP: u32 = 1 << 16; // bit 17
+    pub const SMALL_CAP: u32 = 1 << 17; // bit 18
+    pub const FORCE_BOLD: u32 = 1 << 18; // bit 19
 
-    pub fn is_fixed_pitch(self)   -> bool { self.0 & Self::FIXED_PITCH   != 0 }
-    pub fn is_serif(self)         -> bool { self.0 & Self::SERIF         != 0 }
-    pub fn is_symbolic(self)      -> bool { self.0 & Self::SYMBOLIC      != 0 }
-    pub fn is_italic(self)        -> bool { self.0 & Self::ITALIC        != 0 }
-    pub fn is_non_symbolic(self)  -> bool { self.0 & Self::NON_SYMBOLIC  != 0 }
-    pub fn is_all_cap(self)       -> bool { self.0 & Self::ALL_CAP       != 0 }
-    pub fn is_small_cap(self)     -> bool { self.0 & Self::SMALL_CAP     != 0 }
-    pub fn is_force_bold(self)    -> bool { self.0 & Self::FORCE_BOLD    != 0 }
+    pub fn is_fixed_pitch(self) -> bool {
+        self.0 & Self::FIXED_PITCH != 0
+    }
+    pub fn is_serif(self) -> bool {
+        self.0 & Self::SERIF != 0
+    }
+    pub fn is_symbolic(self) -> bool {
+        self.0 & Self::SYMBOLIC != 0
+    }
+    pub fn is_italic(self) -> bool {
+        self.0 & Self::ITALIC != 0
+    }
+    pub fn is_non_symbolic(self) -> bool {
+        self.0 & Self::NON_SYMBOLIC != 0
+    }
+    pub fn is_all_cap(self) -> bool {
+        self.0 & Self::ALL_CAP != 0
+    }
+    pub fn is_small_cap(self) -> bool {
+        self.0 & Self::SMALL_CAP != 0
+    }
+    pub fn is_force_bold(self) -> bool {
+        self.0 & Self::FORCE_BOLD != 0
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -52,8 +68,12 @@ pub struct FontBBox {
 }
 
 impl FontBBox {
-    pub fn width(&self)  -> f64 { (self.urx - self.llx).abs() }
-    pub fn height(&self) -> f64 { (self.ury - self.lly).abs() }
+    pub fn width(&self) -> f64 {
+        (self.urx - self.llx).abs()
+    }
+    pub fn height(&self) -> f64 {
+        (self.ury - self.lly).abs()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -116,36 +136,48 @@ impl FontDescriptor {
         if let Some(arr) = dict.get_array(&CosName::new(b"FontBBox".to_vec())) {
             let nums: Vec<f64> = arr.iter().filter_map(|v| v.as_number()).collect();
             if nums.len() >= 4 {
-                desc.font_bbox = FontBBox { llx: nums[0], lly: nums[1], urx: nums[2], ury: nums[3] };
+                desc.font_bbox = FontBBox {
+                    llx: nums[0],
+                    lly: nums[1],
+                    urx: nums[2],
+                    ury: nums[3],
+                };
             }
         }
 
-        let num = |key: &[u8]| -> f64 {
-            dict.get_number(&CosName::new(key.to_vec())).unwrap_or(0.0)
-        };
+        let num =
+            |key: &[u8]| -> f64 { dict.get_number(&CosName::new(key.to_vec())).unwrap_or(0.0) };
 
-        desc.italic_angle  = num(b"ItalicAngle");
-        desc.ascent        = num(b"Ascent");
-        desc.descent       = num(b"Descent");
-        desc.leading       = num(b"Leading");
-        desc.cap_height    = num(b"CapHeight");
-        desc.x_height      = num(b"XHeight");
-        desc.stem_v        = num(b"StemV");
-        desc.stem_h        = num(b"StemH");
-        desc.avg_width     = num(b"AvgWidth");
-        desc.max_width     = num(b"MaxWidth");
+        desc.italic_angle = num(b"ItalicAngle");
+        desc.ascent = num(b"Ascent");
+        desc.descent = num(b"Descent");
+        desc.leading = num(b"Leading");
+        desc.cap_height = num(b"CapHeight");
+        desc.x_height = num(b"XHeight");
+        desc.stem_v = num(b"StemV");
+        desc.stem_h = num(b"StemH");
+        desc.avg_width = num(b"AvgWidth");
+        desc.max_width = num(b"MaxWidth");
         desc.missing_width = num(b"MissingWidth");
         desc
     }
 
     /// `true` if the font is fixed-pitch (monospace).
-    pub fn is_fixed_pitch(&self) -> bool { self.flags.is_fixed_pitch() }
+    pub fn is_fixed_pitch(&self) -> bool {
+        self.flags.is_fixed_pitch()
+    }
     /// `true` if the font has serifs.
-    pub fn is_serif(&self) -> bool { self.flags.is_serif() }
+    pub fn is_serif(&self) -> bool {
+        self.flags.is_serif()
+    }
     /// `true` if the font uses symbolic encoding.
-    pub fn is_symbolic(&self) -> bool { self.flags.is_symbolic() }
+    pub fn is_symbolic(&self) -> bool {
+        self.flags.is_symbolic()
+    }
     /// `true` if the font is italic or oblique.
-    pub fn is_italic(&self) -> bool { self.flags.is_italic() }
+    pub fn is_italic(&self) -> bool {
+        self.flags.is_italic()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -159,19 +191,29 @@ mod tests {
 
     fn make_desc_dict() -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.set(CosName::new(b"FontName".to_vec()), CosObject::Name(CosName::new(b"Helvetica".to_vec())));
+        d.set(
+            CosName::new(b"FontName".to_vec()),
+            CosObject::Name(CosName::new(b"Helvetica".to_vec())),
+        );
         d.set(CosName::new(b"Flags".to_vec()), CosObject::Integer(32)); // NON_SYMBOLIC bit 6
-        d.set(CosName::new(b"FontBBox".to_vec()),
+        d.set(
+            CosName::new(b"FontBBox".to_vec()),
             CosObject::Array(vec![
-                CosObject::Integer(-166), CosObject::Integer(-225),
-                CosObject::Integer(1000), CosObject::Integer(931),
-            ]));
+                CosObject::Integer(-166),
+                CosObject::Integer(-225),
+                CosObject::Integer(1000),
+                CosObject::Integer(931),
+            ]),
+        );
         d.set(CosName::new(b"ItalicAngle".to_vec()), CosObject::Integer(0));
         d.set(CosName::new(b"Ascent".to_vec()), CosObject::Integer(718));
         d.set(CosName::new(b"Descent".to_vec()), CosObject::Integer(-207));
         d.set(CosName::new(b"CapHeight".to_vec()), CosObject::Integer(718));
         d.set(CosName::new(b"StemV".to_vec()), CosObject::Integer(88));
-        d.set(CosName::new(b"MissingWidth".to_vec()), CosObject::Integer(278));
+        d.set(
+            CosName::new(b"MissingWidth".to_vec()),
+            CosObject::Integer(278),
+        );
         d
     }
 
@@ -229,7 +271,12 @@ mod tests {
 
     #[test]
     fn font_bbox_dimensions() {
-        let bb = FontBBox { llx: -100.0, lly: -200.0, urx: 900.0, ury: 800.0 };
+        let bb = FontBBox {
+            llx: -100.0,
+            lly: -200.0,
+            urx: 900.0,
+            ury: 800.0,
+        };
         assert_eq!(bb.width(), 1000.0);
         assert_eq!(bb.height(), 1000.0);
     }
@@ -237,6 +284,7 @@ mod tests {
 
 // Extra method needed in tests
 impl FontDescriptor {
-    pub fn is_non_symbolic(&self) -> bool { self.flags.is_non_symbolic() }
+    pub fn is_non_symbolic(&self) -> bool {
+        self.flags.is_non_symbolic()
+    }
 }
-

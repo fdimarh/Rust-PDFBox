@@ -25,7 +25,9 @@ pub mod parser;
 pub mod xref;
 pub mod xref_stream;
 
-pub use xref::{XRefEntry, XRefTable, find_startxref, load_xref, parse_xref_table, read_stream_data};
+pub use xref::{
+    XRefEntry, XRefTable, find_startxref, load_xref, parse_xref_table, read_stream_data,
+};
 pub use xref_stream::{XRefStream, XRefSubsection};
 // Binary xref entry type (PDF 1.5+) — kept separate from ASCII xref entry
 pub use xref_stream::XRefEntry as BinaryXRefEntry;

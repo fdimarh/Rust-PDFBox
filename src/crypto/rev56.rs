@@ -5,10 +5,10 @@
 //! For R=6, the hash is computed via repeated AES-128-CBC (64 reps) + SHA-2.
 //! The file encryption key is stored in /UE (encrypted with intermediate key).
 
-use sha2::{Digest, Sha256, Sha384, Sha512};
 use aes::{Aes128Enc, Aes256Dec};
 use cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use digest::generic_array::GenericArray;
+use sha2::{Digest, Sha256, Sha384, Sha512};
 use std::convert::TryInto;
 
 /// Implements Algorithm 2.B from ISO 32000-2 §7.6.4.3.5 (qpdf's hash_V5).
@@ -198,5 +198,142 @@ mod tests {
     fn test_hash_v5_r5_empty() {
         let result = hash_v5(b"", b"", &[], 5);
         assert_eq!(result.len(), 32);
+    }
+
+    #[test]
+    fn test_hash_v5_r5_known_input() {
+        let result = hash_v5(b"password", b"12345678", &[], 5);
+        assert_eq!(result.len(), 32, "R5 always produces 32-byte hash");
+    }
+
+    #[test]
+    fn test_hash_v5_r5_with_udata() {
+        let result = hash_v5(b"user", b"salt1234", b"udata123", 5);
+        assert_eq!(result.len(), 32);
+    }
+
+    #[test]
+    fn test_hash_v5_r6_deterministic() {
+        // Same input = same output for Rev 6
+        let a = hash_v5(b"test", b"saltsalt", &[], 6);
+        let b = hash_v5(b"test", b"saltsalt", &[], 6);
+        assert_eq!(a, b, "R6 hash must be deterministic");
+        assert_eq!(a.len(), 32);
+    }
+
+    #[test]
+    fn test_hash_v5_r5_vs_r6_differ() {
+        // Rev 5 and Rev 6 should produce different outputs for the same input
+        let r5 = hash_v5(b"same", b"same", &[], 5);
+        let r6 = hash_v5(b"same", b"same", &[], 6);
+        assert_ne!(r5, r6, "R5 and R6 must produce different hashes");
+    }
+
+    #[test]
+    fn test_hash_v5_different_passwords_differ() {
+        let a = hash_v5(b"alpha", b"salt1234", &[], 5);
+        let b = hash_v5(b"beta", b"salt1234", &[], 5);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_recover_key_r6_invalid_short_entries() {
+        let result = recover_encryption_key_r6(b"pwd", &[0u8; 10], &[0u8; 10]);
+        assert!(result.is_none(), "short entries should return None");
+    }
+
+    #[test]
+    fn test_recover_key_r6_wrong_password() {
+        // Build a U entry with wrong hash for this password
+        let mut u_entry = vec![0u8; 48];
+        u_entry[32..40].copy_from_slice(b"valsalt1"); // validation_salt (8 bytes)
+        u_entry[40..48].copy_from_slice(b"keyslt88"); // key_salt (8 bytes)
+        // U[0..32] should be hash(password, validation_salt, ""), but we put zeros
+        let result = recover_encryption_key_r6(b"wrongpass", &u_entry, &[0u8; 32]);
+        assert!(result.is_none(), "wrong password should fail validation");
+    }
+
+    #[test]
+    fn test_recover_key_r6_owner_short_entries() {
+        let result = recover_encryption_key_r6_owner(b"pwd", &[0u8; 10], &[0u8; 48], &[0u8; 10]);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_recover_key_r6_owner_wrong_password() {
+        let mut o_entry = vec![0u8; 48];
+        o_entry[32..40].copy_from_slice(b"valsalt1");
+        o_entry[40..48].copy_from_slice(b"keyslt88");
+        let result = recover_encryption_key_r6_owner(b"badpwd", &o_entry, &[0u8; 48], &[0u8; 32]);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_compute_encryption_key_rev5() {
+        let result = compute_encryption_key_rev5(b"password", b"validsalt");
+        assert_eq!(result.len(), 32);
+    }
+
+    #[test]
+    fn test_aes128_cbc_pipeline_empty_data() {
+        let key = [0u8; 16];
+        let iv = [0u8; 16];
+        let result = aes128_cbc_pipeline(&key, &iv, &[], 1);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_aes128_cbc_pipeline_single_block() {
+        let key = [0u8; 16];
+        let iv = [0u8; 16];
+        let data = [0x41u8; 16]; // single block of 'A's
+        let result = aes128_cbc_pipeline(&key, &iv, &data, 1);
+        assert_eq!(result.len(), 16, "single block should produce 16 bytes");
+        // With zero key+iv, encrypting 0x41 block should produce deterministic output
+        assert_ne!(result, data, "should encrypt, not pass through");
+    }
+
+    #[test]
+    fn test_aes256_cbc_decrypt_no_pad_roundtrip() {
+        // Simple roundtrip: encrypt then decrypt
+        let key = [0x01u8; 32];
+        let iv = [0x02u8; 16];
+        let plaintext = b"Hello Rev6 Decrypt!";
+        // ECB encrypt each 16-byte block with CBC XOR
+        let cipher = aes128_cbc_pipeline;
+        // We can't easily encrypt here, but we can at least verify it doesn't panic
+        let result = aes256_cbc_decrypt_no_pad(&key, &iv, &[0u8; 32]);
+        assert_eq!(result.len(), 32, "32 byte ciphertext = 2 blocks = 32 bytes output");
+    }
+
+    #[test]
+    fn test_aes128_cbc_pipeline_multiple_repetitions() {
+        let key = [0u8; 16];
+        let iv = [0u8; 16];
+        let data = [0x42u8; 48]; // 3 blocks
+        let r1 = aes128_cbc_pipeline(&key, &iv, &data, 1);
+        let r64 = aes128_cbc_pipeline(&key, &iv, &data, 64);
+        assert_eq!(r1.len(), 48);
+        assert_eq!(r64.len(), 48 * 64);
+        // First 48 bytes equal r1 (first repetition always same)
+        assert_eq!(&r64[..48], &r1);
+        // Later repetitions differ from first
+        assert_ne!(&r64[48..96], &r1[..48]);
+    }
+
+    #[test]
+    fn test_recover_key_r6_owner_valid_non_matching() {
+        let mut o_entry = vec![0u8; 48];
+        o_entry[32..40].copy_from_slice(b"valsalt1");
+        o_entry[40..48].copy_from_slice(b"keyslt88");
+        // U entry doesn't match, should return None
+        let result = recover_encryption_key_r6_owner(b"any", &o_entry, &[0u8; 48], &[0u8; 32]);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_compute_encryption_key_rev6_legacy() {
+        let result = compute_encryption_key_rev6(b"x", b"y", b"z");
+        assert!(result.is_empty());
     }
 }

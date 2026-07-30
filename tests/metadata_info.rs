@@ -20,9 +20,7 @@ fn build_pdf_with_info(info_dict: Option<&str>) -> Vec<u8> {
 
     let content = b"BT ET";
     let obj4_offset = pdf.len();
-    pdf.extend_from_slice(
-        format!("4 0 obj\n<< /Length {} >>\nstream\n", content.len()).as_bytes(),
-    );
+    pdf.extend_from_slice(format!("4 0 obj\n<< /Length {} >>\nstream\n", content.len()).as_bytes());
     pdf.extend_from_slice(content);
     pdf.extend_from_slice(b"\nendstream\nendobj\n");
 
@@ -93,4 +91,3 @@ fn creates_info_dict_when_missing_and_roundtrips() {
     assert_eq!(info.title().as_deref(), Some("New Title"));
     assert_eq!(info.author().as_deref(), Some("Bob"));
 }
-

@@ -1,7 +1,7 @@
 # Full Java PDFBox Feature Parity Plan
 
 _Created: 2026-04-03_  
-_Last updated: 2026-05-18_  
+_Last updated: 2026-07-30_  
 _P12 Interactive Forms — ✅ complete; P14 Bookmarks — ✅ complete; P17 Image Extraction — ✅ complete; P13 Annotations — ✅ complete; P22 Metadata — 🟡 progressing_  
 _Companion to: `PORTING_PLAN.md` (v1 core + Bonus 11 compression)_  
 _Goal: cover **every** remaining Java PDFBox feature not yet fully implemented._

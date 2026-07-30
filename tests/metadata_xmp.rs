@@ -1,14 +1,16 @@
 #![cfg(feature = "metadata")]
 
-use rust_pdfbox::metadata::SyncPolicy;
 use rust_pdfbox::Document;
+use rust_pdfbox::metadata::SyncPolicy;
 
 fn build_pdf_with_xmp(xmp_xml: Option<&[u8]>) -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
 
     let obj1_offset = pdf.len();
     if xmp_xml.is_some() {
-        pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Metadata 5 0 R >>\nendobj\n");
+        pdf.extend_from_slice(
+            b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Metadata 5 0 R >>\nendobj\n",
+        );
     } else {
         pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
     }
@@ -23,9 +25,7 @@ fn build_pdf_with_xmp(xmp_xml: Option<&[u8]>) -> Vec<u8> {
 
     let content = b"BT ET";
     let obj4_offset = pdf.len();
-    pdf.extend_from_slice(
-        format!("4 0 obj\n<< /Length {} >>\nstream\n", content.len()).as_bytes(),
-    );
+    pdf.extend_from_slice(format!("4 0 obj\n<< /Length {} >>\nstream\n", content.len()).as_bytes());
     pdf.extend_from_slice(content);
     pdf.extend_from_slice(b"\nendstream\nendobj\n");
 
@@ -129,7 +129,9 @@ fn malformed_xmp_is_tolerated() {
     let pdf = build_pdf_with_xmp(Some(xmp));
     let doc = Document::load_from_bytes(&pdf).unwrap();
 
-    let meta = doc.xmp_metadata().expect("raw metadata stream should be readable");
+    let meta = doc
+        .xmp_metadata()
+        .expect("raw metadata stream should be readable");
     assert_eq!(meta.dc_title(), None);
 }
 
@@ -194,7 +196,8 @@ fn sync_xmp_to_docinfo_populates_fields() {
 
     let pdf = build_pdf_with_xmp(Some(xmp));
     let mut doc = Document::load_from_bytes(&pdf).unwrap();
-    doc.sync_xmp_to_docinfo_with(SyncPolicy::all_fields()).unwrap();
+    doc.sync_xmp_to_docinfo_with(SyncPolicy::all_fields())
+        .unwrap();
 
     let info = doc.document_info();
     assert_eq!(info.title().as_deref(), Some("Title"));
@@ -203,7 +206,9 @@ fn sync_xmp_to_docinfo_populates_fields() {
     assert_eq!(info.keywords().as_deref(), Some("k1 k2"));
     assert_eq!(info.creator().as_deref(), Some("Tool"));
     assert_eq!(info.producer().as_deref(), Some("Producer"));
-    assert_eq!(info.creation_date().as_deref(), Some("2026-05-06T12:00:00Z"));
+    assert_eq!(
+        info.creation_date().as_deref(),
+        Some("2026-05-06T12:00:00Z")
+    );
     assert_eq!(info.mod_date().as_deref(), Some("2026-05-06T12:30:00Z"));
 }
-

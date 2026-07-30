@@ -3,10 +3,10 @@
 //! Covers all operator categories added in P16: path (v, y), paint (b, b*),
 //! color (cs, CS, sc, SC), state (d, ri, i, gs), Form XObject.
 
+use rust_pdfbox::PdfResult;
 use rust_pdfbox::content::writer::ContentStreamWriter;
 use rust_pdfbox::cos::{CosName, CosObject};
 use rust_pdfbox::pdmodel::{DocumentBuilder, PageSize};
-use rust_pdfbox::PdfResult;
 
 // =========================================================================
 // Path operator tests (P16 additions)
@@ -22,7 +22,10 @@ fn test_path_v_operator() -> PdfResult<()> {
 
     let page = doc.pages()?.get(0).unwrap();
     let stream_data = resolve_content_stream(&doc, &page)?;
-    assert!(stream_data.windows(2).any(|w| w == b" v"), "expected v operator");
+    assert!(
+        stream_data.windows(2).any(|w| w == b" v"),
+        "expected v operator"
+    );
     Ok(())
 }
 
@@ -36,7 +39,10 @@ fn test_path_y_operator() -> PdfResult<()> {
 
     let page = doc.pages()?.get(0).unwrap();
     let stream_data = resolve_content_stream(&doc, &page)?;
-    assert!(stream_data.windows(2).any(|w| w == b" y"), "expected y operator");
+    assert!(
+        stream_data.windows(2).any(|w| w == b" y"),
+        "expected y operator"
+    );
     Ok(())
 }
 
@@ -333,10 +339,22 @@ fn test_register_form_xobject() -> PdfResult<()> {
     writer.close()?;
 
     let page = doc.pages()?.get(0).unwrap();
-    let page_dict = doc.get_object_ref(page.id).and_then(|o| o.as_dictionary()).unwrap();
-    let resources = page_dict.get(&CosName::resources()).and_then(|r| r.as_dictionary()).unwrap();
-    let xobjects = resources.get(&CosName::new(b"XObject".to_vec())).and_then(|x| x.as_dictionary()).unwrap();
-    let _form_ref = xobjects.get(&CosName::new(name.as_bytes().to_vec())).and_then(|o| o.as_reference()).expect("form");
+    let page_dict = doc
+        .get_object_ref(page.id)
+        .and_then(|o| o.as_dictionary())
+        .unwrap();
+    let resources = page_dict
+        .get(&CosName::resources())
+        .and_then(|r| r.as_dictionary())
+        .unwrap();
+    let xobjects = resources
+        .get(&CosName::new(b"XObject".to_vec()))
+        .and_then(|x| x.as_dictionary())
+        .unwrap();
+    let _form_ref = xobjects
+        .get(&CosName::new(name.as_bytes().to_vec()))
+        .and_then(|o| o.as_reference())
+        .expect("form");
 
     Ok(())
 }
@@ -346,11 +364,15 @@ fn test_form_xobject_bbox() -> PdfResult<()> {
     let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
-    let name = writer.register_form_xobject(Some("Stamp"), b"q Q".to_vec(), (10.0, 20.0, 100.0, 200.0))?;
+    let name =
+        writer.register_form_xobject(Some("Stamp"), b"q Q".to_vec(), (10.0, 20.0, 100.0, 200.0))?;
     writer.close()?;
 
     let page = doc.pages()?.get(0).unwrap();
-    let page_dict = doc.get_object_ref(page.id).and_then(|o| o.as_dictionary()).unwrap();
+    let page_dict = doc
+        .get_object_ref(page.id)
+        .and_then(|o| o.as_dictionary())
+        .unwrap();
     let xobjects = page_dict
         .get(&CosName::resources())
         .and_then(|r| r.as_dictionary())
@@ -364,7 +386,11 @@ fn test_form_xobject_bbox() -> PdfResult<()> {
         .and_then(|o| o.as_stream())
         .unwrap();
 
-    let bbox = stream.dictionary.get(&CosName::new(b"BBox".to_vec())).and_then(|o| o.as_array()).unwrap();
+    let bbox = stream
+        .dictionary
+        .get(&CosName::new(b"BBox".to_vec()))
+        .and_then(|o| o.as_array())
+        .unwrap();
     assert_eq!(bbox.len(), 4);
     assert!((bbox[0].as_number().unwrap() - 10.0).abs() < 1e-9);
     assert!((bbox[3].as_number().unwrap() - 200.0).abs() < 1e-9);
@@ -375,20 +401,26 @@ fn test_form_xobject_bbox() -> PdfResult<()> {
 // Helper: resolve content stream bytes from a page
 // =========================================================================
 
-fn resolve_content_stream(doc: &rust_pdfbox::Document, page: &rust_pdfbox::pdmodel::page::Page<'_>) -> PdfResult<Vec<u8>> {
-    let contents_obj = page.contents_object().ok_or_else(|| rust_pdfbox::PdfError::Parse {
-        offset: None,
-        context: "no contents".to_string(),
-    })?;
+fn resolve_content_stream(
+    doc: &rust_pdfbox::Document,
+    page: &rust_pdfbox::pdmodel::page::Page<'_>,
+) -> PdfResult<Vec<u8>> {
+    let contents_obj = page
+        .contents_object()
+        .ok_or_else(|| rust_pdfbox::PdfError::Parse {
+            offset: None,
+            context: "no contents".to_string(),
+        })?;
 
     match contents_obj {
         CosObject::Reference(id) => {
-            let stream = doc.get_object_ref(*id).and_then(|obj| obj.as_stream()).ok_or_else(|| {
-                rust_pdfbox::PdfError::Parse {
+            let stream = doc
+                .get_object_ref(*id)
+                .and_then(|obj| obj.as_stream())
+                .ok_or_else(|| rust_pdfbox::PdfError::Parse {
                     offset: None,
                     context: "not a stream".to_string(),
-                }
-            })?;
+                })?;
             Ok(stream.data.clone())
         }
         CosObject::Array(arr) => {

@@ -38,12 +38,12 @@
 //! IncrementalWriter::write_update(&original_bytes, &doc, &changed, &mut out)?;
 //! ```
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::io::{self, Write};
 
-use crate::cos::{CosName, CosObject, ObjectId};
-use crate::Document;
 use super::serializer::Serializer;
+use crate::Document;
+use crate::cos::{CosName, CosObject, ObjectId};
 
 // ---------------------------------------------------------------------------
 // IncrementalWriter
@@ -90,7 +90,11 @@ impl IncrementalWriter {
         // Track running byte offset for xref entries.
         // Start counting from the length of the original bytes (+ possible \n above).
         let base_offset = original.len() as u64
-            + if original.last().copied() != Some(b'\n') { 1 } else { 0 };
+            + if original.last().copied() != Some(b'\n') {
+                1
+            } else {
+                0
+            };
 
         // 2. Write each changed object and record its offset.
         let mut object_offsets: BTreeMap<ObjectId, u64> = BTreeMap::new();
@@ -101,7 +105,11 @@ impl IncrementalWriter {
         for (id, obj) in changed {
             let mut buf: Vec<u8> = Vec::new();
             {
-                let mut ser = Serializer::new_encrypted(&mut buf, doc.file_encryption_key.clone(), bypass_ids.clone());
+                let mut ser = Serializer::new_encrypted(
+                    &mut buf,
+                    doc.file_encryption_key.clone(),
+                    bypass_ids.clone(),
+                );
                 ser.write_indirect_object(*id, obj)?;
             }
             object_bytes.insert(*id, buf);
@@ -217,9 +225,7 @@ impl IncrementalWriter {
             for (_num, generation, offset) in subsection {
                 // PDF spec §7.5.4: each xref entry must be exactly 20 bytes:
                 // oooooooooo ggggg n \r\n  (10+1+5+1+1+2 = 20)
-                buf.extend_from_slice(
-                    format!("{:010} {:05} n\r\n", offset, generation).as_bytes(),
-                );
+                buf.extend_from_slice(format!("{:010} {:05} n\r\n", offset, generation).as_bytes());
             }
         }
 
@@ -308,7 +314,8 @@ mod tests {
         changed.insert(ObjectId::new(3, 0), CosObject::Integer(42));
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out)
+            .unwrap();
 
         // The result must be parseable
         let updated_doc = Document::load_from_bytes(&out).unwrap();
@@ -334,13 +341,11 @@ mod tests {
         new_pages.insert(CosName::count(), CosObject::Integer(0));
 
         let mut changed = BTreeMap::new();
-        changed.insert(
-            ObjectId::new(2, 0),
-            CosObject::Dictionary(new_pages),
-        );
+        changed.insert(ObjectId::new(2, 0), CosObject::Dictionary(new_pages));
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out)
+            .unwrap();
 
         let updated_doc = Document::load_from_bytes(&out).unwrap();
         assert_eq!(updated_doc.page_count(), 0);
@@ -364,7 +369,8 @@ mod tests {
         changed.insert(ObjectId::new(3, 0), CosObject::Bool(true));
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out)
+            .unwrap();
 
         let text = String::from_utf8_lossy(&out);
         // The updated trailer must contain /Prev
@@ -379,7 +385,8 @@ mod tests {
         changed.insert(ObjectId::new(3, 0), CosObject::Integer(7));
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out)
+            .unwrap();
 
         // First N bytes must equal original
         assert_eq!(&out[..original.len()], original.as_slice());
@@ -392,7 +399,8 @@ mod tests {
         let changed = BTreeMap::new();
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out)
+            .unwrap();
 
         // Still must load
         let updated = Document::load_from_bytes(&out).unwrap();
@@ -405,8 +413,14 @@ mod tests {
         offsets.insert(ObjectId::new(3, 0), 1234u64);
         let bytes = IncrementalWriter::build_xref_section(&offsets);
         let text = String::from_utf8(bytes).unwrap();
-        assert!(text.contains("3 1\n"), "expected subsection header '3 1', got:\n{text}");
-        assert!(text.contains("0001234 00000 n"), "expected offset entry, got:\n{text}");
+        assert!(
+            text.contains("3 1\n"),
+            "expected subsection header '3 1', got:\n{text}"
+        );
+        assert!(
+            text.contains("0001234 00000 n"),
+            "expected offset entry, got:\n{text}"
+        );
     }
 
     #[test]
@@ -418,7 +432,10 @@ mod tests {
         let bytes = IncrementalWriter::build_xref_section(&offsets);
         let text = String::from_utf8(bytes).unwrap();
         // All three should be in one subsection: "4 3"
-        assert!(text.contains("4 3\n"), "expected subsection '4 3', got:\n{text}");
+        assert!(
+            text.contains("4 3\n"),
+            "expected subsection '4 3', got:\n{text}"
+        );
     }
 
     #[test]
@@ -433,5 +450,3 @@ mod tests {
         assert!(text.contains("5 1\n"), "expected '5 1', got:\n{text}");
     }
 }
-
-

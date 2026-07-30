@@ -5,10 +5,10 @@
 //!
 //! PDF §9.6 — Simple fonts use a single-byte character code per glyph.
 
-use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+use super::cmap::{ToUnicodeCMap, parse_to_unicode_cmap};
 use super::descriptor::FontDescriptor;
 use super::encoding::Encoding;
-use super::cmap::{ToUnicodeCMap, parse_to_unicode_cmap};
+use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 
 // ---------------------------------------------------------------------------
 // Simple font subtype
@@ -26,20 +26,20 @@ pub enum SimpleFontSubtype {
 impl SimpleFontSubtype {
     pub fn from_name(name: &[u8]) -> Option<Self> {
         match name {
-            b"Type1"    => Some(Self::Type1),
-            b"MMType1"  => Some(Self::MMType1),
+            b"Type1" => Some(Self::Type1),
+            b"MMType1" => Some(Self::MMType1),
             b"TrueType" => Some(Self::TrueType),
-            b"Type3"    => Some(Self::Type3),
+            b"Type3" => Some(Self::Type3),
             _ => None,
         }
     }
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Type1   => "Type1",
+            Self::Type1 => "Type1",
             Self::MMType1 => "MMType1",
-            Self::TrueType=> "TrueType",
-            Self::Type3   => "Type3",
+            Self::TrueType => "TrueType",
+            Self::Type3 => "Type3",
         }
     }
 }
@@ -61,15 +61,22 @@ pub struct GlyphWidths {
 impl GlyphWidths {
     /// Parse widths from the font dictionary.
     pub fn from_dict(dict: &CosDictionary) -> Self {
-        let first_char = dict.get_int(&CosName::new(b"FirstChar".to_vec()))
+        let first_char = dict
+            .get_int(&CosName::new(b"FirstChar".to_vec()))
             .unwrap_or(0) as u8;
-        let last_char  = dict.get_int(&CosName::new(b"LastChar".to_vec()))
+        let last_char = dict
+            .get_int(&CosName::new(b"LastChar".to_vec()))
             .unwrap_or(0) as u8;
         let widths: Vec<f64> = dict
             .get_array(&CosName::new(b"Widths".to_vec()))
             .map(|arr| arr.iter().filter_map(|v| v.as_number()).collect())
             .unwrap_or_default();
-        Self { first_char, last_char, widths, missing_width: 0.0 }
+        Self {
+            first_char,
+            last_char,
+            widths,
+            missing_width: 0.0,
+        }
     }
 
     /// Get the width for a character code.
@@ -128,7 +135,8 @@ impl SimpleFont {
         let subtype = dict.get_name(&CosName::subtype())?;
         let subtype = SimpleFontSubtype::from_name(subtype.as_bytes())?;
 
-        let base_font = dict.get_name(&CosName::new(b"BaseFont".to_vec()))
+        let base_font = dict
+            .get_name(&CosName::new(b"BaseFont".to_vec()))
             .map(|n| String::from_utf8_lossy(n.as_bytes()).to_string())
             .unwrap_or_default();
 
@@ -158,7 +166,15 @@ impl SimpleFont {
                 desc
             });
 
-        Some(Self { subtype, base_font, encoding, widths, to_unicode, descriptor, descriptor_ref })
+        Some(Self {
+            subtype,
+            base_font,
+            encoding,
+            widths,
+            to_unicode,
+            descriptor,
+            descriptor_ref,
+        })
     }
 
     /// Decode a byte sequence to Unicode using CMap → Encoding → Latin-1
@@ -230,19 +246,31 @@ mod tests {
     use super::*;
     use crate::cos::{CosDictionary, CosName, CosObject, CosStream};
 
-    fn no_object(_: ObjectId) -> Option<CosObject> { None }
+    fn no_object(_: ObjectId) -> Option<CosObject> {
+        None
+    }
 
     fn make_type1_dict() -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.set(CosName::type_name(), CosObject::Name(CosName::new(b"Font".to_vec())));
-        d.set(CosName::subtype(), CosObject::Name(CosName::new(b"Type1".to_vec())));
-        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Helvetica".to_vec())));
-        d.set(CosName::new(b"Encoding".to_vec()), CosObject::Name(CosName::new(b"WinAnsiEncoding".to_vec())));
+        d.set(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Font".to_vec())),
+        );
+        d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"Type1".to_vec())),
+        );
+        d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(b"Helvetica".to_vec())),
+        );
+        d.set(
+            CosName::new(b"Encoding".to_vec()),
+            CosObject::Name(CosName::new(b"WinAnsiEncoding".to_vec())),
+        );
         d.set(CosName::new(b"FirstChar".to_vec()), CosObject::Integer(32));
         d.set(CosName::new(b"LastChar".to_vec()), CosObject::Integer(122));
-        let widths: Vec<CosObject> = (32u8..=122u8)
-            .map(|_| CosObject::Integer(556))
-            .collect();
+        let widths: Vec<CosObject> = (32u8..=122u8).map(|_| CosObject::Integer(556)).collect();
         d.set(CosName::new(b"Widths".to_vec()), CosObject::Array(widths));
         d
     }
@@ -305,10 +333,17 @@ mod tests {
         let ref_id = ObjectId::new(10, 0);
 
         let mut d = make_type1_dict();
-        d.set(CosName::new(b"ToUnicode".to_vec()), CosObject::Reference(ref_id));
+        d.set(
+            CosName::new(b"ToUnicode".to_vec()),
+            CosObject::Reference(ref_id),
+        );
 
         let get_object = |id: ObjectId| -> Option<CosObject> {
-            if id == ref_id { Some(stream.clone()) } else { None }
+            if id == ref_id {
+                Some(stream.clone())
+            } else {
+                None
+            }
         };
         let font = SimpleFont::from_dict(&d, &get_object).unwrap();
         assert!(font.has_to_unicode());
@@ -318,7 +353,10 @@ mod tests {
     #[test]
     fn simple_font_subtype_truetype() {
         let mut d = make_type1_dict();
-        d.set(CosName::subtype(), CosObject::Name(CosName::new(b"TrueType".to_vec())));
+        d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"TrueType".to_vec())),
+        );
         let font = SimpleFont::from_dict(&d, &no_object).unwrap();
         assert_eq!(font.subtype, SimpleFontSubtype::TrueType);
     }
@@ -326,7 +364,10 @@ mod tests {
     #[test]
     fn simple_font_unknown_subtype_returns_none() {
         let mut d = make_type1_dict();
-        d.set(CosName::subtype(), CosObject::Name(CosName::new(b"Unknown".to_vec())));
+        d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"Unknown".to_vec())),
+        );
         assert!(SimpleFont::from_dict(&d, &no_object).is_none());
     }
 
@@ -334,8 +375,11 @@ mod tests {
     fn glyph_widths_missing_width() {
         let mut d = CosDictionary::new();
         d.set(CosName::new(b"FirstChar".to_vec()), CosObject::Integer(65));
-        d.set(CosName::new(b"LastChar".to_vec()),  CosObject::Integer(65));
-        d.set(CosName::new(b"Widths".to_vec()),    CosObject::Array(vec![CosObject::Integer(500)]));
+        d.set(CosName::new(b"LastChar".to_vec()), CosObject::Integer(65));
+        d.set(
+            CosName::new(b"Widths".to_vec()),
+            CosObject::Array(vec![CosObject::Integer(500)]),
+        );
         let gw = GlyphWidths::from_dict(&d);
         assert_eq!(gw.width_for_code(65), 500.0);
         assert_eq!(gw.width_for_code(66), 0.0); // outside range → missing_width
@@ -347,4 +391,3 @@ mod tests {
         assert_eq!(SimpleFontSubtype::TrueType.as_str(), "TrueType");
     }
 }
-

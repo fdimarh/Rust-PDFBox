@@ -169,5 +169,26 @@ mod tests {
         assert_eq!(CosName::kids().as_str(), Some("Kids"));
         assert_eq!(CosName::count().as_str(), Some("Count"));
     }
-}
 
+    #[test]
+    fn debug_format() {
+        let name = CosName::new(b"Test".to_vec());
+        let _ = format!("{:?}", name);
+    }
+
+    #[test]
+    fn clone_and_hash() {
+        use std::collections::HashSet;
+        let a = CosName::new(b"Type".to_vec());
+        let b = a.clone();
+        let mut set = HashSet::new();
+        set.insert(a);
+        assert!(set.contains(&b));
+    }
+
+    #[test]
+    fn hex_encoding() {
+        let name = CosName::new(b"A#20B".to_vec());
+        assert_eq!(name.as_bytes(), b"A#20B");
+    }
+}

@@ -42,7 +42,9 @@ pub fn generate_field_appearance(doc: &mut Document, field_id: ObjectId) -> PdfR
         .and_then(|n| n.as_str())
         .unwrap_or("")
         .to_string();
-    let flags = field_dict.get_int(&CosName::new(b"Ff".to_vec())).unwrap_or(0);
+    let flags = field_dict
+        .get_int(&CosName::new(b"Ff".to_vec()))
+        .unwrap_or(0);
 
     match ft.as_str() {
         "Tx" => generate_text_field_appearance(doc, field_id, &field_dict),
@@ -100,9 +102,15 @@ fn parse_da(da: &str) -> (String, f64, f64, f64, f64) {
         }
         if *token == "rg" && i >= 3 {
             if let (Some(rc), Some(gc), Some(bc)) = (
-                tokens.get(i.saturating_sub(3)).and_then(|s| s.parse::<f64>().ok()),
-                tokens.get(i.saturating_sub(2)).and_then(|s| s.parse::<f64>().ok()),
-                tokens.get(i.saturating_sub(1)).and_then(|s| s.parse::<f64>().ok()),
+                tokens
+                    .get(i.saturating_sub(3))
+                    .and_then(|s| s.parse::<f64>().ok()),
+                tokens
+                    .get(i.saturating_sub(2))
+                    .and_then(|s| s.parse::<f64>().ok()),
+                tokens
+                    .get(i.saturating_sub(1))
+                    .and_then(|s| s.parse::<f64>().ok()),
             ) {
                 r = rc;
                 g = gc;
@@ -206,7 +214,10 @@ fn set_appearance(
     doc.insert_object(form_id, CosObject::Stream(form_stream));
     doc.xref.insert_if_absent(
         form_id,
-        crate::parser::xref::XRefEntry::InUse { offset: 0, generation: 0 },
+        crate::parser::xref::XRefEntry::InUse {
+            offset: 0,
+            generation: 0,
+        },
     );
 
     let has_named_v = doc
@@ -220,10 +231,16 @@ fn set_appearance(
     let off_id = if has_named_v {
         let off_dict = CosDictionary::new();
         let oid = doc.allocate_object_id();
-        doc.insert_object(oid, CosObject::Stream(crate::cos::CosStream::new(off_dict, vec![])));
+        doc.insert_object(
+            oid,
+            CosObject::Stream(crate::cos::CosStream::new(off_dict, vec![])),
+        );
         doc.xref.insert_if_absent(
             oid,
-            crate::parser::xref::XRefEntry::InUse { offset: 0, generation: 0 },
+            crate::parser::xref::XRefEntry::InUse {
+                offset: 0,
+                generation: 0,
+            },
         );
         Some(oid)
     } else {
@@ -244,7 +261,10 @@ fn set_appearance(
                 let mut n_sub_dict = CosDictionary::new();
                 n_sub_dict.insert(CosName::new(val_name), CosObject::Reference(form_id));
                 n_sub_dict.insert(CosName::new(b"Off".to_vec()), CosObject::Reference(off));
-                ap_dict.insert(CosName::new(b"N".to_vec()), CosObject::Dictionary(n_sub_dict));
+                ap_dict.insert(
+                    CosName::new(b"N".to_vec()),
+                    CosObject::Dictionary(n_sub_dict),
+                );
             } else {
                 ap_dict.insert(CosName::new(b"N".to_vec()), CosObject::Reference(form_id));
             }
@@ -372,16 +392,52 @@ fn generate_radio_button_appearance(
 
     content.extend_from_slice(format!("{} {} m\n", cx + radius, cy).as_bytes());
     content.extend_from_slice(
-        format!("{} {} {} {} {} {} c\n", cx + radius, cy + radius * k, cx + radius * k, cy + radius, cx, cy + radius).as_bytes(),
+        format!(
+            "{} {} {} {} {} {} c\n",
+            cx + radius,
+            cy + radius * k,
+            cx + radius * k,
+            cy + radius,
+            cx,
+            cy + radius
+        )
+        .as_bytes(),
     );
     content.extend_from_slice(
-        format!("{} {} {} {} {} {} c\n", cx - radius * k, cy + radius, cx - radius, cy + radius * k, cx - radius, cy).as_bytes(),
+        format!(
+            "{} {} {} {} {} {} c\n",
+            cx - radius * k,
+            cy + radius,
+            cx - radius,
+            cy + radius * k,
+            cx - radius,
+            cy
+        )
+        .as_bytes(),
     );
     content.extend_from_slice(
-        format!("{} {} {} {} {} {} c\n", cx - radius, cy - radius * k, cx - radius * k, cy - radius, cx, cy - radius).as_bytes(),
+        format!(
+            "{} {} {} {} {} {} c\n",
+            cx - radius,
+            cy - radius * k,
+            cx - radius * k,
+            cy - radius,
+            cx,
+            cy - radius
+        )
+        .as_bytes(),
     );
     content.extend_from_slice(
-        format!("{} {} {} {} {} {} c\n", cx + radius * k, cy - radius, cx + radius, cy - radius * k, cx + radius, cy).as_bytes(),
+        format!(
+            "{} {} {} {} {} {} c\n",
+            cx + radius * k,
+            cy - radius,
+            cx + radius,
+            cy - radius * k,
+            cx + radius,
+            cy
+        )
+        .as_bytes(),
     );
     content.extend_from_slice(b"0 0 0 RG\n");
     content.extend_from_slice(b"S\n");
@@ -390,16 +446,52 @@ fn generate_radio_button_appearance(
         let inner_r = radius * 0.4;
         content.extend_from_slice(format!("{} {} m\n", cx + inner_r, cy).as_bytes());
         content.extend_from_slice(
-            format!("{} {} {} {} {} {} c\n", cx + inner_r, cy + inner_r * k, cx + inner_r * k, cy + inner_r, cx, cy + inner_r).as_bytes(),
+            format!(
+                "{} {} {} {} {} {} c\n",
+                cx + inner_r,
+                cy + inner_r * k,
+                cx + inner_r * k,
+                cy + inner_r,
+                cx,
+                cy + inner_r
+            )
+            .as_bytes(),
         );
         content.extend_from_slice(
-            format!("{} {} {} {} {} {} c\n", cx - inner_r * k, cy + inner_r, cx - inner_r, cy + inner_r * k, cx - inner_r, cy).as_bytes(),
+            format!(
+                "{} {} {} {} {} {} c\n",
+                cx - inner_r * k,
+                cy + inner_r,
+                cx - inner_r,
+                cy + inner_r * k,
+                cx - inner_r,
+                cy
+            )
+            .as_bytes(),
         );
         content.extend_from_slice(
-            format!("{} {} {} {} {} {} c\n", cx - inner_r, cy - inner_r * k, cx - inner_r * k, cy - inner_r, cx, cy - inner_r).as_bytes(),
+            format!(
+                "{} {} {} {} {} {} c\n",
+                cx - inner_r,
+                cy - inner_r * k,
+                cx - inner_r * k,
+                cy - inner_r,
+                cx,
+                cy - inner_r
+            )
+            .as_bytes(),
         );
         content.extend_from_slice(
-            format!("{} {} {} {} {} {} c\n", cx + inner_r * k, cy - inner_r, cx + inner_r, cy - inner_r * k, cx + inner_r, cy).as_bytes(),
+            format!(
+                "{} {} {} {} {} {} c\n",
+                cx + inner_r * k,
+                cy - inner_r,
+                cx + inner_r,
+                cy - inner_r * k,
+                cx + inner_r,
+                cy
+            )
+            .as_bytes(),
         );
         content.extend_from_slice(b"0 0 0 rg\n");
         content.extend_from_slice(b"f\n");
@@ -435,8 +527,12 @@ fn generate_combo_box_appearance(
     let arrow_size = height * 0.6;
     let arrow_x = width - height * 0.8;
     content.extend_from_slice(format!("{} {} m\n", arrow_x, height * 0.3).as_bytes());
-    content.extend_from_slice(format!("{} {} l\n", arrow_x + arrow_size * 0.7, height * 0.3).as_bytes());
-    content.extend_from_slice(format!("{} {} l\n", arrow_x + arrow_size * 0.35, height * 0.7).as_bytes());
+    content.extend_from_slice(
+        format!("{} {} l\n", arrow_x + arrow_size * 0.7, height * 0.3).as_bytes(),
+    );
+    content.extend_from_slice(
+        format!("{} {} l\n", arrow_x + arrow_size * 0.35, height * 0.7).as_bytes(),
+    );
     content.extend_from_slice(b"h 0.4 0.4 0.4 rg f\n");
 
     if !text_value.is_empty() {
@@ -653,5 +749,64 @@ mod tests {
         let dict = CosDictionary::new();
         let val = get_field_value_as_string(&dict);
         assert!(val.is_empty());
+    }
+
+    #[test]
+    fn test_get_field_value_as_name() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"V".to_vec()), CosObject::Name(CosName::new(b"Yes".to_vec())));
+        let val = get_field_value_as_string(&dict);
+        assert_eq!(val, "/Yes");
+    }
+
+    #[test]
+    fn test_get_rect_with_integers() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(10.0), CosObject::Real(20.0),
+            CosObject::Real(200.0), CosObject::Real(400.0),
+        ]));
+        let (llx, lly, urx, ury) = get_rect(&dict);
+        assert!((llx - 10.0).abs() < f64::EPSILON);
+        assert!((lly - 20.0).abs() < f64::EPSILON);
+        assert!((urx - 200.0).abs() < f64::EPSILON);
+        assert!((ury - 400.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_get_field_name_with_value() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"T".to_vec()), CosObject::String(b"Username".to_vec()));
+        let name = get_field_name(&dict);
+        assert_eq!(name, "Username");
+    }
+
+    #[test]
+    fn test_get_field_value_as_string_string() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"V".to_vec()), CosObject::String(b"Hello World".to_vec()));
+        let val = get_field_value_as_string(&dict);
+        assert_eq!(val, "Hello World");
+    }
+
+    #[test]
+    fn test_parse_da_with_rg_color() {
+        let (font, size, r, g, b) = parse_da("/Helv 12 Tf 0.1 0.2 0.3 rg");
+        assert_eq!(font, "Helv");
+        assert!((size - 12.0).abs() < f64::EPSILON);
+        assert!((r - 0.1).abs() < f64::EPSILON);
+        assert!((g - 0.2).abs() < f64::EPSILON);
+        assert!((b - 0.3).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_generate_field_appearance_unknown_type_returns_ok() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"FT".to_vec()), CosObject::Name(CosName::new(b"Xyz".to_vec())));
+        let mut doc = crate::Document::empty();
+        let id = doc.allocate_object_id();
+        doc.insert_object(id, CosObject::Dictionary(dict));
+        let result = generate_field_appearance(&mut doc, id);
+        assert!(result.is_ok());
     }
 }

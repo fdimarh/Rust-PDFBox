@@ -29,18 +29,16 @@
 //!   the user password; run the user password check.
 
 use super::md5::md5;
-use super::rc4::Rc4;
 use super::permissions::Permissions;
+use super::rc4::Rc4;
 
 // ---------------------------------------------------------------------------
 // PDF password padding string (PDF §7.6.3.3, step 1)
 // ---------------------------------------------------------------------------
 
 const PAD: [u8; 32] = [
-    0x28, 0xBF, 0x4E, 0x5E, 0x4E, 0x75, 0x8A, 0x41,
-    0x64, 0x00, 0x4E, 0x56, 0xFF, 0xFA, 0x01, 0x08,
-    0x2E, 0x2E, 0x00, 0xB6, 0xD0, 0x68, 0x3E, 0x80,
-    0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A,
+    0x28, 0xBF, 0x4E, 0x5E, 0x4E, 0x75, 0x8A, 0x41, 0x64, 0x00, 0x4E, 0x56, 0xFF, 0xFA, 0x01, 0x08,
+    0x2E, 0x2E, 0x00, 0xB6, 0xD0, 0x68, 0x3E, 0x80, 0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A,
 ];
 
 // ---------------------------------------------------------------------------
@@ -112,11 +110,7 @@ impl StandardSecurityHandler {
     ///
     /// Tries user password first, then owner password.
     /// Returns the file encryption key on success.
-    pub fn authenticate(
-        enc: &EncryptionDict,
-        password: &[u8],
-        file_id: &[u8],
-    ) -> AuthResult {
+    pub fn authenticate(enc: &EncryptionDict, password: &[u8], file_id: &[u8]) -> AuthResult {
         // Try user password
         let key = Self::compute_encryption_key(enc, password, file_id);
         if Self::check_user_password(enc, &key) {
@@ -142,9 +136,9 @@ impl StandardSecurityHandler {
         policy: &crate::protection::StandardProtectionPolicy,
         _file_id: &[crate::cos::CosObject],
     ) -> Result<(crate::cos::CosObject, Vec<u8>), crate::parser::ParseError> {
+        use crate::cos::{CosDictionary, CosName, CosObject};
         use rand::RngCore;
-        use crate::cos::{CosDictionary, CosObject, CosName};
-        
+
         let revision = 6;
         let key_length_bits = 256;
         let key_length_bytes = key_length_bits / 8;
@@ -154,37 +148,68 @@ impl StandardSecurityHandler {
         rand::thread_rng().fill_bytes(&mut file_key);
         let owner_pass = policy.owner_password.as_bytes();
         let user_pass = policy.user_password.as_deref().unwrap_or("").as_bytes();
-        let (o_entry, u_entry, oe_entry, ue_entry) = Self::compute_encryption_keys_r6(
-            owner_pass,
-            user_pass,
-            &file_key,
-        );
+        let (o_entry, u_entry, oe_entry, ue_entry) =
+            Self::compute_encryption_keys_r6(owner_pass, user_pass, &file_key);
         let mut enc_dict = CosDictionary::new();
-        enc_dict.set(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(b"Standard".to_vec())));
+        enc_dict.set(
+            CosName::new(b"Filter".to_vec()),
+            CosObject::Name(CosName::new(b"Standard".to_vec())),
+        );
         enc_dict.set(CosName::new(b"V".to_vec()), CosObject::Integer(5));
         enc_dict.set(CosName::new(b"Length".to_vec()), CosObject::Integer(256));
-        enc_dict.set(CosName::new(b"R".to_vec()), CosObject::Integer(revision as i64));
+        enc_dict.set(
+            CosName::new(b"R".to_vec()),
+            CosObject::Integer(revision as i64),
+        );
         enc_dict.set(CosName::new(b"O".to_vec()), CosObject::HexString(o_entry));
         enc_dict.set(CosName::new(b"U".to_vec()), CosObject::HexString(u_entry));
         enc_dict.set(CosName::new(b"OE".to_vec()), CosObject::HexString(oe_entry));
         enc_dict.set(CosName::new(b"UE".to_vec()), CosObject::HexString(ue_entry));
-        enc_dict.set(CosName::new(b"P".to_vec()), CosObject::Integer(perms_flags as i64));
+        enc_dict.set(
+            CosName::new(b"P".to_vec()),
+            CosObject::Integer(perms_flags as i64),
+        );
         // /Perms: AES-256-CBC with zero IV, no IV prepend, no padding (16 bytes input)
         let perms_clear = Self::compute_perms_v5_clear(perms_flags);
         let zero_iv = [0u8; 16];
-        let perms_cipher = crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&file_key, &zero_iv, &perms_clear);
+        let perms_cipher =
+            crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&file_key, &zero_iv, &perms_clear);
         let perms_value = perms_cipher[..16.min(perms_cipher.len())].to_vec();
-        enc_dict.set(CosName::new(b"Perms".to_vec()), CosObject::HexString(perms_value));
+        enc_dict.set(
+            CosName::new(b"Perms".to_vec()),
+            CosObject::HexString(perms_value),
+        );
         let mut std_cf = CosDictionary::new();
-        std_cf.set(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"CryptFilter".to_vec())));
-        std_cf.set(CosName::new(b"CFM".to_vec()), CosObject::Name(CosName::new(b"AESV3".to_vec())));
-        std_cf.set(CosName::new(b"AuthEvent".to_vec()), CosObject::Name(CosName::new(b"DocOpen".to_vec())));
-        std_cf.set(CosName::new(b"Length".to_vec()), CosObject::Integer(key_length_bytes as i64));
+        std_cf.set(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"CryptFilter".to_vec())),
+        );
+        std_cf.set(
+            CosName::new(b"CFM".to_vec()),
+            CosObject::Name(CosName::new(b"AESV3".to_vec())),
+        );
+        std_cf.set(
+            CosName::new(b"AuthEvent".to_vec()),
+            CosObject::Name(CosName::new(b"DocOpen".to_vec())),
+        );
+        std_cf.set(
+            CosName::new(b"Length".to_vec()),
+            CosObject::Integer(key_length_bytes as i64),
+        );
         let mut cf = CosDictionary::new();
-        cf.set(CosName::new(b"StdCF".to_vec()), CosObject::Dictionary(std_cf));
+        cf.set(
+            CosName::new(b"StdCF".to_vec()),
+            CosObject::Dictionary(std_cf),
+        );
         enc_dict.set(CosName::new(b"CF".to_vec()), CosObject::Dictionary(cf));
-        enc_dict.set(CosName::new(b"StmF".to_vec()), CosObject::Name(CosName::new(b"StdCF".to_vec())));
-        enc_dict.set(CosName::new(b"StrF".to_vec()), CosObject::Name(CosName::new(b"StdCF".to_vec())));
+        enc_dict.set(
+            CosName::new(b"StmF".to_vec()),
+            CosObject::Name(CosName::new(b"StdCF".to_vec())),
+        );
+        enc_dict.set(
+            CosName::new(b"StrF".to_vec()),
+            CosObject::Name(CosName::new(b"StdCF".to_vec())),
+        );
         Ok((CosObject::Dictionary(enc_dict), file_key))
     }
 
@@ -207,8 +232,8 @@ impl StandardSecurityHandler {
         user_pass: &[u8],
         file_key: &[u8],
     ) -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
-        use rand::Rng;
         use crate::crypto::rev56::hash_v5;
+        use rand::Rng;
         let mut rng = rand::thread_rng();
 
         // === User Password (Algorithm 8) ===
@@ -226,7 +251,8 @@ impl StandardSecurityHandler {
         // UE: intermediate_key = hash_v5(user_pass, key_salt, ""), encrypt file_key with zero IV
         let ue_key = hash_v5(user_pass, &user_key_salt, &[], 6);
         let zero_iv = [0u8; 16];
-        let ue_cipher = crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&ue_key, &zero_iv, file_key);
+        let ue_cipher =
+            crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&ue_key, &zero_iv, file_key);
         let ue_entry = ue_cipher[..32.min(ue_cipher.len())].to_vec();
 
         // === Owner Password (Algorithm 9) ===
@@ -244,7 +270,8 @@ impl StandardSecurityHandler {
 
         // OE: intermediate_key = hash_v5(owner_pass, key_salt, U), encrypt file_key with zero IV
         let oe_key = hash_v5(owner_pass, &owner_key_salt, &u_entry, 6);
-        let oe_cipher = crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&oe_key, &zero_iv, file_key);
+        let oe_cipher =
+            crate::crypto::aes_encrypt::aes256_cbc_encrypt_noiv(&oe_key, &zero_iv, file_key);
         let oe_entry = oe_cipher[..32.min(oe_cipher.len())].to_vec();
 
         (o_entry, u_entry, oe_entry, ue_entry)
@@ -272,14 +299,14 @@ impl StandardSecurityHandler {
             }
             let iv = &ciphertext[0..16];
             let data = &ciphertext[16..];
-            
+
             // Use AES-256 for 32-byte keys (Rev 5/6), AES-128 otherwise
             let decrypted = if obj_key.len() >= 32 {
                 super::aes::aes256_cbc_decrypt(&obj_key[..32], iv, data)
             } else {
                 super::aes::aes_cbc_decrypt(&obj_key, iv, data)
             };
-            
+
             if let Some(result) = decrypted {
                 result
             } else {
@@ -304,13 +331,18 @@ impl StandardSecurityHandler {
         if enc.revision >= 6 {
             // Try user password first
             if let Some(key) = crate::crypto::rev56::recover_encryption_key_r6(
-                password, &enc.u_entry, &enc.ue_entry
+                password,
+                &enc.u_entry,
+                &enc.ue_entry,
             ) {
                 return key;
             }
             // Try owner password
             if let Some(key) = crate::crypto::rev56::recover_encryption_key_r6_owner(
-                password, &enc.o_entry, &enc.u_entry, &enc.oe_entry
+                password,
+                &enc.o_entry,
+                &enc.u_entry,
+                &enc.oe_entry,
             ) {
                 return key;
             }
@@ -318,7 +350,10 @@ impl StandardSecurityHandler {
         } else if enc.revision == 5 {
             if enc.u_entry.len() >= 48 {
                 let validation_salt = &enc.u_entry[32..40];
-                return crate::crypto::rev56::compute_encryption_key_rev5(password, validation_salt);
+                return crate::crypto::rev56::compute_encryption_key_rev5(
+                    password,
+                    validation_salt,
+                );
             }
         }
 
@@ -453,7 +488,7 @@ impl StandardSecurityHandler {
         if is_aes {
             input.extend_from_slice(b"sAlT");
         }
-        
+
         // Return MD5 hash up to (len+5) max 16 bytes
         let digest = md5(&input);
         let len = (file_key.len() + 5).min(16);
@@ -480,7 +515,10 @@ impl StandardSecurityHandler {
         if a.len() != b.len() {
             return false;
         }
-        a.iter().zip(b.iter()).fold(0u8, |acc, (&x, &y)| acc | (x ^ y)) == 0
+        a.iter()
+            .zip(b.iter())
+            .fold(0u8, |acc, (&x, &y)| acc | (x ^ y))
+            == 0
     }
 }
 
@@ -540,6 +578,8 @@ mod tests {
             u_entry: vec![0u8; 32],
             permissions: Permissions::all_allowed(),
             crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
         };
         let file_id = b"12345678901234567890123456789012";
         let k1 = StandardSecurityHandler::compute_encryption_key(&enc, b"owner", file_id);
@@ -551,14 +591,24 @@ mod tests {
     #[test]
     fn compute_key_rev3_is_longer_than_rev2() {
         let enc_r2 = EncryptionDict {
-            revision: 2, key_length: 5,
-            o_entry: vec![0u8; 32], u_entry: vec![0u8; 32],
-            permissions: Permissions::all_allowed(), crypt_filter: None,
+            revision: 2,
+            key_length: 5,
+            o_entry: vec![0u8; 32],
+            u_entry: vec![0u8; 32],
+            permissions: Permissions::all_allowed(),
+            crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
         };
         let enc_r3 = EncryptionDict {
-            revision: 3, key_length: 16,
-            o_entry: vec![0u8; 32], u_entry: vec![0u8; 32],
-            permissions: Permissions::all_allowed(), crypt_filter: None,
+            revision: 3,
+            key_length: 16,
+            o_entry: vec![0u8; 32],
+            u_entry: vec![0u8; 32],
+            permissions: Permissions::all_allowed(),
+            crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
         };
         let fid = b"filefilefilefil0";
         let k2 = StandardSecurityHandler::compute_encryption_key(&enc_r2, b"pass", fid);
@@ -570,9 +620,14 @@ mod tests {
     #[test]
     fn different_passwords_produce_different_keys() {
         let enc = EncryptionDict {
-            revision: 3, key_length: 16,
-            o_entry: vec![0u8; 32], u_entry: vec![0u8; 32],
-            permissions: Permissions::all_allowed(), crypt_filter: None,
+            revision: 3,
+            key_length: 16,
+            o_entry: vec![0u8; 32],
+            u_entry: vec![0u8; 32],
+            permissions: Permissions::all_allowed(),
+            crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
         };
         let fid = b"fileid0000000000";
         let k1 = StandardSecurityHandler::compute_encryption_key(&enc, b"pass1", fid);
@@ -587,16 +642,16 @@ mod tests {
     #[test]
     fn per_object_key_different_objects() {
         let file_key = [0xABu8; 16];
-        let k1 = StandardSecurityHandler::per_object_key(&file_key, 1, 0, false);
-        let k2 = StandardSecurityHandler::per_object_key(&file_key, 2, 0, false);
+        let k1 = StandardSecurityHandler::compute_object_key(&file_key, 1, 0, false);
+        let k2 = StandardSecurityHandler::compute_object_key(&file_key, 2, 0, false);
         assert_ne!(k1, k2);
     }
 
     #[test]
     fn per_object_key_aes_appends_salt() {
         let file_key = [0x01u8; 16];
-        let k_rc4 = StandardSecurityHandler::per_object_key(&file_key, 5, 0, false);
-        let k_aes = StandardSecurityHandler::per_object_key(&file_key, 5, 0, true);
+        let k_rc4 = StandardSecurityHandler::compute_object_key(&file_key, 5, 0, false);
+        let k_aes = StandardSecurityHandler::compute_object_key(&file_key, 5, 0, true);
         // AES key derivation includes "sAlT" so the MD5 input differs
         assert_ne!(k_rc4, k_aes);
     }
@@ -604,7 +659,7 @@ mod tests {
     #[test]
     fn per_object_key_max_length_16() {
         let file_key = [0x01u8; 16];
-        let k = StandardSecurityHandler::per_object_key(&file_key, 1, 0, false);
+        let k = StandardSecurityHandler::compute_object_key(&file_key, 1, 0, false);
         assert!(k.len() <= 16);
     }
 
@@ -618,13 +673,9 @@ mod tests {
         let plaintext = b"Hello, encrypted world!";
 
         // Encrypt
-        let ciphertext = StandardSecurityHandler::decrypt_object(
-            file_key, 3, 0, plaintext, false,
-        );
+        let ciphertext = StandardSecurityHandler::decrypt_object(file_key, 3, 0, plaintext, false);
         // Decrypt (RC4 is symmetric)
-        let recovered = StandardSecurityHandler::decrypt_object(
-            file_key, 3, 0, &ciphertext, false,
-        );
+        let recovered = StandardSecurityHandler::decrypt_object(file_key, 3, 0, &ciphertext, false);
         assert_eq!(&recovered, plaintext);
     }
 
@@ -668,10 +719,11 @@ mod tests {
             u_entry: vec![0u8; 32],
             permissions: Permissions::all_allowed(),
             crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
         };
-        // Derive the key and compute the expected /U entry (Rev 2: RC4(key, PAD) = 32 bytes)
         let key = StandardSecurityHandler::compute_encryption_key(&enc, user_pwd, file_id);
-        let u = Rc4::crypt(&key, &PAD);   // 32 bytes
+        let u = Rc4::crypt(&key, &PAD); // 32 bytes
         assert_eq!(u.len(), 32);
         enc.u_entry = u;
         enc
@@ -683,7 +735,11 @@ mod tests {
         let fid = b"myfileid00000000";
         let enc = make_enc_rev2(pwd, fid);
         let result = StandardSecurityHandler::authenticate(&enc, pwd, fid);
-        assert!(result.is_authenticated(), "expected authenticated, got {:?}", result);
+        assert!(
+            result.is_authenticated(),
+            "expected authenticated, got {:?}",
+            result
+        );
         assert!(matches!(result, AuthResult::UserPassword(_)));
     }
 
@@ -703,5 +759,63 @@ mod tests {
         let result = StandardSecurityHandler::authenticate(&enc, b"", fid);
         assert!(result.is_authenticated());
     }
-}
 
+    #[test]
+    fn constant_time_eq_equal_slices() {
+        assert!(StandardSecurityHandler::constant_time_eq(b"hello", b"hello"));
+    }
+
+    #[test]
+    fn constant_time_eq_different_length() {
+        assert!(!StandardSecurityHandler::constant_time_eq(b"hi", b"hello"));
+    }
+
+    #[test]
+    fn constant_time_eq_different_content() {
+        assert!(!StandardSecurityHandler::constant_time_eq(b"hello", b"world"));
+    }
+
+    #[test]
+    fn constant_time_eq_empty_slices() {
+        assert!(StandardSecurityHandler::constant_time_eq(b"", b""));
+    }
+
+    #[test]
+    fn encryption_dict_debug() {
+        let enc = EncryptionDict {
+            revision: 2,
+            key_length: 5,
+            o_entry: vec![0u8; 32],
+            u_entry: vec![0u8; 32],
+            permissions: Permissions::all_allowed(),
+            crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
+        };
+        let _ = format!("{:?}", enc);
+    }
+
+    #[test]
+    fn compute_key_rev2_rev3_different_file_ids() {
+        let enc = EncryptionDict {
+            revision: 2,
+            key_length: 5,
+            o_entry: vec![0u8; 32],
+            u_entry: vec![0u8; 32],
+            permissions: Permissions::all_allowed(),
+            crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
+        };
+        let k1 = StandardSecurityHandler::compute_encryption_key(&enc, b"pass", b"fid1_fid1_fid1_");
+        let k2 = StandardSecurityHandler::compute_encryption_key(&enc, b"pass", b"fid2_fid2_fid2_");
+        assert_ne!(k1, k2);
+    }
+
+    #[test]
+    fn auth_result_owner_password() {
+        let r = AuthResult::OwnerPassword(vec![4u8; 16]);
+        assert!(r.is_authenticated());
+        assert_eq!(r.encryption_key(), Some(vec![4u8; 16].as_slice()));
+    }
+}

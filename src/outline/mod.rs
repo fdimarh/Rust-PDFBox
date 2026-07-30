@@ -203,4 +203,22 @@ mod tests {
         let all = outline.all_items();
         assert_eq!(all.len(), 2);
     }
+
+    #[test]
+    fn test_outline_empty_items() {
+        let bytes = b"%PDF-1.7\n\
+            1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Outlines 4 0 R >>\nendobj\n\
+            2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+            3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n\
+            4 0 obj\n<< /Type /Outlines /Count 0 >>\nendobj\n\
+            xref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000075 00000 n \n\
+            0000000150 00000 n \n0000000249 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\n\
+            startxref\n328\n%%EOF";
+        let (doc, _) = Document::load_lenient(bytes);
+        let outline = doc.outline().unwrap();
+        assert_eq!(outline.count(), 0);
+        assert!(outline.first_item().is_none());
+        assert!(outline.last_item().is_none());
+        assert!(outline.items().is_empty());
+    }
 }

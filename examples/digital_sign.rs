@@ -30,7 +30,7 @@
 //! ```
 
 use rust_pdfbox::signing::{
-    sign_pdf, validate_pdf_full, PadesLevel, SignatureAnchorMode, SignatureFormat, SignOptions,
+    PadesLevel, SignOptions, SignatureAnchorMode, SignatureFormat, sign_pdf, validate_pdf_full,
 };
 use std::{env, fs, path::PathBuf, process};
 
@@ -103,59 +103,59 @@ Examples:
 // ---------------------------------------------------------------------------
 
 struct Args {
-    input:         PathBuf,
-    output:        PathBuf,
-    cert:          PathBuf,
-    key:           PathBuf,
-    format:        SignatureFormat,
-    pades_level:   PadesLevel,
-    page:          u32,
-    rect:          Option<[f64; 4]>,
-    visible:       bool,
-    anchor_tag:    Option<String>,
-    anchor_width:  Option<f64>,
+    input: PathBuf,
+    output: PathBuf,
+    cert: PathBuf,
+    key: PathBuf,
+    format: SignatureFormat,
+    pades_level: PadesLevel,
+    page: u32,
+    rect: Option<[f64; 4]>,
+    visible: bool,
+    anchor_tag: Option<String>,
+    anchor_width: Option<f64>,
     anchor_height: Option<f64>,
-    anchor_mode:   SignatureAnchorMode,
-    signer_name:   String,
-    contact:       String,
-    reason:        String,
-    location:      String,
-    tsa_url:       Option<String>,
-    include_dss:   bool,
-    include_crl:   Option<bool>,  // None = use default per format
-    include_ocsp:  bool,
+    anchor_mode: SignatureAnchorMode,
+    signer_name: String,
+    contact: String,
+    reason: String,
+    location: String,
+    tsa_url: Option<String>,
+    include_dss: bool,
+    include_crl: Option<bool>, // None = use default per format
+    include_ocsp: bool,
     reserved_size: usize,
-    field_name:    String,
-    image_path:    Option<PathBuf>,
+    field_name: String,
+    image_path: Option<PathBuf>,
 }
 
 impl Default for Args {
     fn default() -> Self {
         Self {
-            input:         asset("sample.pdf"),
-            output:        PathBuf::from("signed_output.pdf"),
-            cert:          asset("ca-chain.pem"),
-            key:           asset("user-key.pem"),
-            format:        SignatureFormat::Pkcs7,
-            pades_level:   PadesLevel::B_B,
-            page:          1,
-            rect:          None,
-            visible:       false,  // invisible by default (no rect)
-            anchor_tag:    None,
-            anchor_width:  None,
+            input: asset("sample.pdf"),
+            output: PathBuf::from("signed_output.pdf"),
+            cert: asset("ca-chain.pem"),
+            key: asset("user-key.pem"),
+            format: SignatureFormat::Pkcs7,
+            pades_level: PadesLevel::B_B,
+            page: 1,
+            rect: None,
+            visible: false, // invisible by default (no rect)
+            anchor_tag: None,
+            anchor_width: None,
             anchor_height: None,
-            anchor_mode:   SignatureAnchorMode::InFront,
-            signer_name:   String::new(),
-            contact:       "signer@example.com".into(),
-            reason:        "Approved via rust-pdfbox digital signature".into(),
-            location:      String::new(),
-            tsa_url:       Some("http://timestamp.digicert.com".into()),
-            include_dss:   false,
-            include_crl:   None,
-            include_ocsp:  false,
+            anchor_mode: SignatureAnchorMode::InFront,
+            signer_name: String::new(),
+            contact: "signer@example.com".into(),
+            reason: "Approved via rust-pdfbox digital signature".into(),
+            location: String::new(),
+            tsa_url: Some("http://timestamp.digicert.com".into()),
+            include_dss: false,
+            include_crl: None,
+            include_ocsp: false,
             reserved_size: 32_768,
-            field_name:    "Signature1".into(),
-            image_path:    None,
+            field_name: "Signature1".into(),
+            image_path: None,
         }
     }
 }
@@ -178,66 +178,139 @@ fn parse_args() -> Args {
 
     while i < cli.len() {
         match cli[i].as_str() {
-            "-o" | "--output"  => { i += 1; a.output = PathBuf::from(&cli[i]); }
-            "-c" | "--cert"    => { i += 1; a.cert   = PathBuf::from(&cli[i]); }
-            "-k" | "--key"     => { i += 1; a.key    = PathBuf::from(&cli[i]); }
-            "-p" | "--page"    => { i += 1; a.page   = cli[i].parse().unwrap_or(1); }
-            "--name"           => { i += 1; a.signer_name = cli[i].clone(); }
-            "--contact"        => { i += 1; a.contact = cli[i].clone(); }
-            "--reason" | "-r"  => { i += 1; a.reason  = cli[i].clone(); }
-            "--location"       => { i += 1; a.location = cli[i].clone(); }
-            "--tsa"            => { i += 1; a.tsa_url = Some(cli[i].clone()); }
-            "--no-tsa"         => { a.tsa_url = None; }
-            "--dss"            => { a.include_dss  = true; }
-            "--crl"            => { a.include_crl  = Some(true); }
-            "--no-crl"         => { a.include_crl  = Some(false); }
-            "--ocsp"           => { a.include_ocsp = true; }
-            "--invisible"      => { a.visible = false; }
-            "--field"          => { i += 1; a.field_name = cli[i].clone(); }
-            "--reserved"       => { i += 1; a.reserved_size = cli[i].parse().unwrap_or(32_768); }
-            "--image"          => { i += 1; a.image_path = Some(PathBuf::from(&cli[i])); }
-            "--tag"            => { i += 1; a.anchor_tag    = Some(cli[i].clone()); a.visible = true; }
-            "--width"          => { i += 1; a.anchor_width  = cli[i].parse().ok(); }
-            "--height"         => { i += 1; a.anchor_height = cli[i].parse().ok(); }
+            "-o" | "--output" => {
+                i += 1;
+                a.output = PathBuf::from(&cli[i]);
+            }
+            "-c" | "--cert" => {
+                i += 1;
+                a.cert = PathBuf::from(&cli[i]);
+            }
+            "-k" | "--key" => {
+                i += 1;
+                a.key = PathBuf::from(&cli[i]);
+            }
+            "-p" | "--page" => {
+                i += 1;
+                a.page = cli[i].parse().unwrap_or(1);
+            }
+            "--name" => {
+                i += 1;
+                a.signer_name = cli[i].clone();
+            }
+            "--contact" => {
+                i += 1;
+                a.contact = cli[i].clone();
+            }
+            "--reason" | "-r" => {
+                i += 1;
+                a.reason = cli[i].clone();
+            }
+            "--location" => {
+                i += 1;
+                a.location = cli[i].clone();
+            }
+            "--tsa" => {
+                i += 1;
+                a.tsa_url = Some(cli[i].clone());
+            }
+            "--no-tsa" => {
+                a.tsa_url = None;
+            }
+            "--dss" => {
+                a.include_dss = true;
+            }
+            "--crl" => {
+                a.include_crl = Some(true);
+            }
+            "--no-crl" => {
+                a.include_crl = Some(false);
+            }
+            "--ocsp" => {
+                a.include_ocsp = true;
+            }
+            "--invisible" => {
+                a.visible = false;
+            }
+            "--field" => {
+                i += 1;
+                a.field_name = cli[i].clone();
+            }
+            "--reserved" => {
+                i += 1;
+                a.reserved_size = cli[i].parse().unwrap_or(32_768);
+            }
+            "--image" => {
+                i += 1;
+                a.image_path = Some(PathBuf::from(&cli[i]));
+            }
+            "--tag" => {
+                i += 1;
+                a.anchor_tag = Some(cli[i].clone());
+                a.visible = true;
+            }
+            "--width" => {
+                i += 1;
+                a.anchor_width = cli[i].parse().ok();
+            }
+            "--height" => {
+                i += 1;
+                a.anchor_height = cli[i].parse().ok();
+            }
             "--tag-mode" => {
                 i += 1;
                 a.anchor_mode = match cli[i].to_lowercase().as_str() {
                     "front" | "in-front" | "in_front" => SignatureAnchorMode::InFront,
-                    "overlay" | "over"                => SignatureAnchorMode::Overlay,
-                    other => { eprintln!("Unknown --tag-mode: {other}"); process::exit(1); }
+                    "overlay" | "over" => SignatureAnchorMode::Overlay,
+                    other => {
+                        eprintln!("Unknown --tag-mode: {other}");
+                        process::exit(1);
+                    }
                 };
             }
             "-f" | "--format" => {
                 i += 1;
                 a.format = match cli[i].to_lowercase().as_str() {
-                    "pkcs7" | "p7"        => SignatureFormat::Pkcs7,
-                    "pades" | "cades"     => SignatureFormat::PAdES,
-                    other => { eprintln!("Unknown --format: {other}"); process::exit(1); }
+                    "pkcs7" | "p7" => SignatureFormat::Pkcs7,
+                    "pades" | "cades" => SignatureFormat::PAdES,
+                    other => {
+                        eprintln!("Unknown --format: {other}");
+                        process::exit(1);
+                    }
                 };
             }
             "-l" | "--level" => {
                 i += 1;
                 a.pades_level = match cli[i].to_lowercase().as_str() {
-                    "b-b" | "bb"   => PadesLevel::B_B,
-                    "b-t" | "bt"   => PadesLevel::B_T,
+                    "b-b" | "bb" => PadesLevel::B_B,
+                    "b-t" | "bt" => PadesLevel::B_T,
                     "b-lt" | "blt" => PadesLevel::B_LT,
-                    "b-lta"|"blta" => PadesLevel::B_LTA,
-                    other => { eprintln!("Unknown --level: {other}"); process::exit(1); }
+                    "b-lta" | "blta" => PadesLevel::B_LTA,
+                    other => {
+                        eprintln!("Unknown --level: {other}");
+                        process::exit(1);
+                    }
                 };
             }
             "--rect" => {
                 i += 1;
-                let parts: Vec<f64> = cli[i].split(',')
-                    .map(|s| s.trim().parse().unwrap_or(0.0)).collect();
+                let parts: Vec<f64> = cli[i]
+                    .split(',')
+                    .map(|s| s.trim().parse().unwrap_or(0.0))
+                    .collect();
                 if parts.len() == 4 {
-                    a.rect    = Some([parts[0], parts[1], parts[2], parts[3]]);
+                    a.rect = Some([parts[0], parts[1], parts[2], parts[3]]);
                     a.visible = true;
                 } else {
                     eprintln!("--rect requires 4 comma-separated values: x1,y1,x2,y2");
                     process::exit(1);
                 }
             }
-            other => { eprintln!("Unknown option: {other}"); usage(); process::exit(1); }
+            other => {
+                eprintln!("Unknown option: {other}");
+                usage();
+                process::exit(1);
+            }
         }
         i += 1;
     }
@@ -260,12 +333,15 @@ fn main() {
 
     let format_label = match args.format {
         SignatureFormat::Pkcs7 => "PKCS7".to_string(),
-        SignatureFormat::PAdES => format!("PAdES {}", match args.pades_level {
-            PadesLevel::B_B  => "B-B",
-            PadesLevel::B_T  => "B-T",
-            PadesLevel::B_LT => "B-LT",
-            PadesLevel::B_LTA=> "B-LTA",
-        }),
+        SignatureFormat::PAdES => format!(
+            "PAdES {}",
+            match args.pades_level {
+                PadesLevel::B_B => "B-B",
+                PadesLevel::B_T => "B-T",
+                PadesLevel::B_LT => "B-LT",
+                PadesLevel::B_LTA => "B-LTA",
+            }
+        ),
     };
 
     println!("══════════════════════════════════════════════════════");
@@ -274,58 +350,66 @@ fn main() {
 
     // ── 1. Load input PDF ──
     let pdf_bytes = fs::read(&args.input).unwrap_or_else(|e| {
-        eprintln!("Cannot read input PDF {:?}: {e}", args.input); process::exit(1);
+        eprintln!("Cannot read input PDF {:?}: {e}", args.input);
+        process::exit(1);
     });
     println!("  Input    : {:?}  ({} bytes)", args.input, pdf_bytes.len());
 
     let doc = rust_pdfbox::Document::load_from_bytes(&pdf_bytes).unwrap_or_else(|e| {
-        eprintln!("Failed to parse PDF: {e}"); process::exit(1);
+        eprintln!("Failed to parse PDF: {e}");
+        process::exit(1);
     });
     println!("  Pages    : {}", doc.page_count());
 
     // ── 2. Load cert chain ──
     let cert_pem = fs::read_to_string(&args.cert).unwrap_or_else(|e| {
-        eprintln!("Cannot read cert {:?}: {e}", args.cert); process::exit(1);
+        eprintln!("Cannot read cert {:?}: {e}", args.cert);
+        process::exit(1);
     });
     let cert_count = cert_pem.matches("-----BEGIN CERTIFICATE-----").count();
     if cert_count == 0 {
-        eprintln!("No certificates found in {:?}", args.cert); process::exit(1);
+        eprintln!("No certificates found in {:?}", args.cert);
+        process::exit(1);
     }
     println!("  Certs    : {cert_count} certificate(s)");
 
     // ── 3. Load private key ──
     let key_pem = fs::read_to_string(&args.key).unwrap_or_else(|e| {
-        eprintln!("Cannot read key {:?}: {e}", args.key); process::exit(1);
+        eprintln!("Cannot read key {:?}: {e}", args.key);
+        process::exit(1);
     });
     println!("  Key      : {:?}", args.key);
 
     // ── 4. Build SignOptions ──
     // Resolve CRL / OCSP defaults per format (mirrors rust_pdf_signing defaults)
-    let include_crl = args.include_crl.unwrap_or(matches!(args.format, SignatureFormat::Pkcs7));
-    let include_dss = args.include_dss
-        || matches!(args.pades_level, PadesLevel::B_LT | PadesLevel::B_LTA);
+    let include_crl = args
+        .include_crl
+        .unwrap_or(matches!(args.format, SignatureFormat::Pkcs7));
+    let include_dss =
+        args.include_dss || matches!(args.pades_level, PadesLevel::B_LT | PadesLevel::B_LTA);
 
     let opts = SignOptions {
-        format:        args.format.clone(),
-        pades_level:   args.pades_level.clone(),
+        format: args.format.clone(),
+        pades_level: args.pades_level.clone(),
         timestamp_url: args.tsa_url.clone(),
         include_crl,
-        include_ocsp:  args.include_ocsp,
+        include_ocsp: args.include_ocsp,
         include_dss,
-        page:          args.page,
-        rect:          args.rect,
+        page: args.page,
+        rect: args.rect,
         visible_signature: args.visible,
-        anchor_tag:    args.anchor_tag.clone(),
-        anchor_width:  args.anchor_width,
+        anchor_tag: args.anchor_tag.clone(),
+        anchor_width: args.anchor_width,
         anchor_height: args.anchor_height,
-        anchor_mode:   args.anchor_mode.clone(),
-        signer_name:   args.signer_name.clone(),
-        contact_info:  args.contact.clone(),
-        reason:        args.reason.clone(),
-        location:      args.location.clone(),
+        anchor_mode: args.anchor_mode.clone(),
+        signer_name: args.signer_name.clone(),
+        contact_info: args.contact.clone(),
+        reason: args.reason.clone(),
+        location: args.location.clone(),
         reserved_size: args.reserved_size,
-        field_name:    args.field_name.clone(),
-        image_path:    args.image_path.clone(),
+        field_name: args.field_name.clone(),
+        image_path: args.image_path.clone(),
+        certification_level: None,
     };
 
     // ── 5. Print summary ──
@@ -334,22 +418,32 @@ fn main() {
     if opts.visible_signature {
         match opts.rect {
             Some(r) => println!("  Rect     : [{} {} {} {}]", r[0], r[1], r[2], r[3]),
-            None    => println!("  Rect     : default"),
+            None => println!("  Rect     : default"),
         }
         if let Some(ref tag) = opts.anchor_tag {
-            println!("  Anchor   : tag={tag:?} w={:?} h={:?} mode={:?}",
-                opts.anchor_width, opts.anchor_height, opts.anchor_mode);
+            println!(
+                "  Anchor   : tag={tag:?} w={:?} h={:?} mode={:?}",
+                opts.anchor_width, opts.anchor_height, opts.anchor_mode
+            );
         }
     } else {
         println!("  Visible  : false (invisible signature)");
     }
-    if !opts.reason.is_empty()       { println!("  Reason   : {}", opts.reason); }
-    if !opts.signer_name.is_empty()  { println!("  Name     : {}", opts.signer_name); }
-    if !opts.contact_info.is_empty() { println!("  Contact  : {}", opts.contact_info); }
-    if !opts.location.is_empty()     { println!("  Location : {}", opts.location); }
+    if !opts.reason.is_empty() {
+        println!("  Reason   : {}", opts.reason);
+    }
+    if !opts.signer_name.is_empty() {
+        println!("  Name     : {}", opts.signer_name);
+    }
+    if !opts.contact_info.is_empty() {
+        println!("  Contact  : {}", opts.contact_info);
+    }
+    if !opts.location.is_empty() {
+        println!("  Location : {}", opts.location);
+    }
     match &opts.timestamp_url {
         Some(u) => println!("  TSA      : {u}"),
-        None    => println!("  TSA      : disabled"),
+        None => println!("  TSA      : disabled"),
     }
     println!("  CRL      : {}", opts.include_crl);
     println!("  OCSP     : {}", opts.include_ocsp);
@@ -359,15 +453,16 @@ fn main() {
 
     // ── 6. Sign ──
     println!("  Signing …");
-    let signed = sign_pdf(&pdf_bytes, &cert_pem, &key_pem, None, &opts)
-        .unwrap_or_else(|e| {
-            eprintln!("Signing failed: {e}"); process::exit(1);
-        });
+    let signed = sign_pdf(&pdf_bytes, &cert_pem, &key_pem, None, &opts).unwrap_or_else(|e| {
+        eprintln!("Signing failed: {e}");
+        process::exit(1);
+    });
     println!("  ✅ Signed PDF: {} bytes", signed.len());
 
     // ── 7. Write output ──
     fs::write(&args.output, &signed).unwrap_or_else(|e| {
-        eprintln!("Cannot write {:?}: {e}", args.output); process::exit(1);
+        eprintln!("Cannot write {:?}: {e}", args.output);
+        process::exit(1);
     });
     println!("  Output   : {:?}", args.output);
     println!();
@@ -381,15 +476,38 @@ fn main() {
         Ok(results) => {
             for (i, r) in results.iter().enumerate() {
                 let icon = if r.is_valid() { "✅" } else { "❌" };
-                let ts_label = if r.is_document_timestamp { " [DocTimestamp]" } else { "" };
-                println!("  Signature [{}] {}{}: field='{}'",
-                    i + 1, icon, ts_label,
-                    r.field_name.as_deref().unwrap_or("unnamed"));
-                println!("    Filter         : {}", r.filter.as_deref().unwrap_or("-"));
-                println!("    SubFilter      : {}", r.sub_filter.as_deref().unwrap_or("-"));
-                println!("    Reason         : {}", r.reason.as_deref().unwrap_or("-"));
-                println!("    Contact        : {}", r.contact_info.as_deref().unwrap_or("-"));
-                println!("    Signing time   : {}", r.signing_time.as_deref().unwrap_or("-"));
+                let ts_label = if r.is_document_timestamp {
+                    " [DocTimestamp]"
+                } else {
+                    ""
+                };
+                println!(
+                    "  Signature [{}] {}{}: field='{}'",
+                    i + 1,
+                    icon,
+                    ts_label,
+                    r.field_name.as_deref().unwrap_or("unnamed")
+                );
+                println!(
+                    "    Filter         : {}",
+                    r.filter.as_deref().unwrap_or("-")
+                );
+                println!(
+                    "    SubFilter      : {}",
+                    r.sub_filter.as_deref().unwrap_or("-")
+                );
+                println!(
+                    "    Reason         : {}",
+                    r.reason.as_deref().unwrap_or("-")
+                );
+                println!(
+                    "    Contact        : {}",
+                    r.contact_info.as_deref().unwrap_or("-")
+                );
+                println!(
+                    "    Signing time   : {}",
+                    r.signing_time.as_deref().unwrap_or("-")
+                );
                 println!("    ByteRange      : {:?}", r.byte_range);
                 println!("    Covers file    : {}", r.byte_range_covers_whole_file);
                 // ── cryptographic ──
@@ -436,17 +554,29 @@ fn main() {
                     println!("      [{ci}] Subject  : {}", cert.subject);
                     println!("           Issuer   : {}", cert.issuer);
                     println!("           Serial   : {}", cert.serial_number);
-                    let nb = cert.not_before.map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string()).unwrap_or_else(|| "?".into());
-                    let na = cert.not_after.map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string()).unwrap_or_else(|| "?".into());
+                    let nb = cert
+                        .not_before
+                        .map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                        .unwrap_or_else(|| "?".into());
+                    let na = cert
+                        .not_after
+                        .map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                        .unwrap_or_else(|| "?".into());
                     println!("           Valid    : {nb} → {na}");
-                    if cert.is_self_signed { println!("           ⚠  Self-signed"); }
-                    if cert.is_expired     { println!("           ❌ Expired"); }
+                    if cert.is_self_signed {
+                        println!("           ⚠  Self-signed");
+                    }
+                    if cert.is_expired {
+                        println!("           ❌ Expired");
+                    }
                 }
                 for err in &r.errors {
                     println!("    ❌ Error       : {err}");
                 }
             }
-            let all_ok = results.iter().all(|r| r.digest_match && r.cms_signature_valid);
+            let all_ok = results
+                .iter()
+                .all(|r| r.digest_match && r.cms_signature_valid);
             println!();
             if all_ok {
                 println!("  ✅ All signatures cryptographically verified.");
@@ -455,8 +585,10 @@ fn main() {
                 process::exit(2);
             }
         }
-        Err(e) => { eprintln!("  Verification error: {e}"); process::exit(2); }
+        Err(e) => {
+            eprintln!("  Verification error: {e}");
+            process::exit(2);
+        }
     }
     println!("══════════════════════════════════════════════════════");
 }
-

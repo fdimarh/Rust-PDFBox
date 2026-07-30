@@ -21,9 +21,9 @@
 
 use std::collections::{HashMap, HashSet};
 
+use super::CompressOptions;
 use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 use crate::{Document, PdfResult};
-use super::CompressOptions;
 
 // ---------------------------------------------------------------------------
 // Public report
@@ -104,9 +104,7 @@ fn collect_glyph_usage(doc: &Document) -> PdfResult<HashMap<ObjectId, HashSet<u1
         // For each font on this page, map characters → glyph IDs.
         for font_id in &font_ids {
             let glyphs = extract_glyphs(doc, *font_id, &text_ops);
-            usage.entry(*font_id)
-                .or_default()
-                .extend(glyphs);
+            usage.entry(*font_id).or_default().extend(glyphs);
         }
     }
 
@@ -134,16 +132,13 @@ fn resolve_page_fonts(doc: &Document, page_id: ObjectId) -> Vec<ObjectId> {
             None => break,
         };
         if resources_dict.is_none() {
-            if let Some(CosObject::Dictionary(res)) =
-                dict.get(&CosName::new(b"Resources".to_vec()))
+            if let Some(CosObject::Dictionary(res)) = dict.get(&CosName::new(b"Resources".to_vec()))
             {
                 resources_dict = Some(res);
                 break; // found inline Resources dict
             }
             // Check for indirect reference
-            if let Some(CosObject::Reference(id)) =
-                dict.get(&CosName::new(b"Resources".to_vec()))
-            {
+            if let Some(CosObject::Reference(id)) = dict.get(&CosName::new(b"Resources".to_vec())) {
                 if let Some(res_obj) = doc.objects().find(|(i, _)| *i == *id) {
                     if let Some(d) = res_obj.1.as_dictionary() {
                         resources_dict = Some(d);
@@ -153,7 +148,8 @@ fn resolve_page_fonts(doc: &Document, page_id: ObjectId) -> Vec<ObjectId> {
             }
         }
         // Move to parent
-        cur_id = dict.get(&CosName::new(b"Parent".to_vec()))
+        cur_id = dict
+            .get(&CosName::new(b"Parent".to_vec()))
             .and_then(|v| v.as_reference());
     }
 
@@ -164,16 +160,15 @@ fn resolve_page_fonts(doc: &Document, page_id: ObjectId) -> Vec<ObjectId> {
 
     let font_dict = match resources.get(&CosName::new(b"Font".to_vec())) {
         Some(CosObject::Dictionary(d)) => d,
-        Some(CosObject::Reference(id)) => {
-            match doc.objects().find(|(i, _)| *i == *id) {
-                Some((_, CosObject::Dictionary(d))) => d,
-                _ => return vec![],
-            }
-        }
+        Some(CosObject::Reference(id)) => match doc.objects().find(|(i, _)| *i == *id) {
+            Some((_, CosObject::Dictionary(d))) => d,
+            _ => return vec![],
+        },
         _ => return vec![],
     };
 
-    font_dict.iter()
+    font_dict
+        .iter()
         .filter_map(|(_, v)| v.as_reference())
         .collect()
 }
@@ -206,20 +201,32 @@ fn parse_text_operators(content: &[u8]) -> Vec<TextOp> {
                     ops.push(TextOp::Show(str_bytes));
                 }
             }
-            b"TJ" if i >= 1 => {
-                // Previous token should be an array [...]
-                let arr_tokens = try_unwrap_array(&tokens[i - 1]);
-                let mut strings = Vec::new();
-                for chunk in &arr_tokens {
-                    if chunk.starts_with(b"(") {
-                        if let Some(s) = parse_pdf_literal(chunk) {
-                            strings.push(s);
+        b"TJ" => {
+                // Scan backwards from i-1 to find matching '[' and collect tokens
+                let mut j = i.wrapping_sub(1);
+                while j > 0 && tokens[j] != b"]" {
+                    j -= 1;
+                }
+                if j > 0 && tokens[j] == b"]" {
+                    // j points to ']', now scan back to find '['
+                    let mut k = j;
+                    while k > 0 && tokens[k] != b"[" {
+                        k -= 1;
+                    }
+                    if tokens[k] == b"[" {
+                        // Collect everything between '[' and ']'
+                        let mut strings = Vec::new();
+                        for t in &tokens[k + 1..j] {
+                            if t.starts_with(b"(") {
+                                if let Some(s) = parse_pdf_literal(t) {
+                                    strings.push(s);
+                                }
+                            }
+                        }
+                        if !strings.is_empty() {
+                            ops.push(TextOp::ShowArray(strings));
                         }
                     }
-                    // Numbers (kerning offsets) are ignored.
-                }
-                if !strings.is_empty() {
-                    ops.push(TextOp::ShowArray(strings));
                 }
             }
             _ => {}
@@ -229,7 +236,8 @@ fn parse_text_operators(content: &[u8]) -> Vec<TextOp> {
     ops
 }
 
-/// Very naïve tokeniser — split on whitespace and the delimiters `(`, `)`, `[`, `]`, `<`, `>`.
+/// Very naïve tokeniser — split on whitespace and the delimiters `[`, `]`, `<`, `>`.
+/// Parenthesised strings `(...)` are kept as single tokens (with nesting support).
 fn simple_tokenise(content: &[u8]) -> Vec<Vec<u8>> {
     let mut tokens: Vec<Vec<u8>> = Vec::new();
     let mut cur: Vec<u8> = Vec::new();
@@ -244,8 +252,31 @@ fn simple_tokenise(content: &[u8]) -> Vec<Vec<u8>> {
             }
             continue;
         }
-        // Delimiters
-        if b == b'(' || b == b')' || b == b'[' || b == b']' {
+        // Parenthesised string — accumulate as a single token with nesting
+        if b == b'(' {
+            if !cur.is_empty() {
+                tokens.push(std::mem::take(&mut cur));
+            }
+            let mut depth = 1u32;
+            let start = i;
+            i += 1;
+            while i < content.len() && depth > 0 {
+                if content[i] == b'\\' && i + 1 < content.len() {
+                    i += 2; // skip escaped char
+                    continue;
+                }
+                if content[i] == b'(' {
+                    depth += 1;
+                } else if content[i] == b')' {
+                    depth -= 1;
+                }
+                i += 1;
+            }
+            tokens.push(content[start..i].to_vec());
+            continue;
+        }
+        // Other delimiters
+        if b == b'[' || b == b']' || b == b'<' || b == b'>' {
             if !cur.is_empty() {
                 tokens.push(std::mem::take(&mut cur));
             }
@@ -281,8 +312,14 @@ fn parse_pdf_literal(tok: &[u8]) -> Option<Vec<u8>> {
         if tok[i] == b'\\' && i + 1 < tok.len() {
             // handle escapes
             match tok[i + 1] {
-                b'\n' => { i += 2; continue; } // line continuation
-                b'\r' => { i += 2; continue; }
+                b'\n' => {
+                    i += 2;
+                    continue;
+                } // line continuation
+                b'\r' => {
+                    i += 2;
+                    continue;
+                }
                 b'n' => out.push(b'\n'),
                 b'r' => out.push(b'\r'),
                 b't' => out.push(b'\t'),
@@ -310,7 +347,9 @@ fn parse_pdf_literal(tok: &[u8]) -> Option<Vec<u8>> {
             i += 1;
         } else if tok[i] == b')' {
             depth -= 1;
-            if depth > 0 { out.push(b')'); }
+            if depth > 0 {
+                out.push(b')');
+            }
             i += 1;
         } else {
             out.push(tok[i]);
@@ -345,7 +384,7 @@ fn extract_glyphs(doc: &Document, font_id: ObjectId, _ops: &[TextOp]) -> HashSet
     // The `subsetter` crate already handles the heavy lifting — it just
     // needs the list of GIDs to keep. The fallback below is conservative:
     // keep all glyphs → no size reduction, but also no corruption.
-    
+
     // Try to count glyphs from the embedded font data.
     let font_obj = doc.objects().find(|(id, _)| *id == font_id);
     let font_dict = match font_obj.and_then(|(_, o)| o.as_dictionary()) {
@@ -354,7 +393,8 @@ fn extract_glyphs(doc: &Document, font_id: ObjectId, _ops: &[TextOp]) -> HashSet
     };
 
     // Locate the embedded font stream.
-    let stream_id = font_dict.get(&CosName::new(b"FontFile2".to_vec()))
+    let stream_id = font_dict
+        .get(&CosName::new(b"FontFile2".to_vec()))
         .or_else(|| font_dict.get(&CosName::new(b"FontFile3".to_vec())))
         .and_then(|v| v.as_reference());
 
@@ -387,17 +427,39 @@ fn guess_glyph_count(data: &[u8]) -> Option<u16> {
     // TrueType/OpenType: at offset 4 is `numTables` (u16).
     // The table directory starts.
     // For `maxp` table tag = 0x6D617870 ('maxp')
-    if data.len() < 12 { return None; }
+    if data.len() < 12 {
+        return None;
+    }
     let num_tables = u16::from_be_bytes([data[4], data[5]]);
     let mut offset: usize = 12;
     for _ in 0..num_tables {
-        if offset + 16 > data.len() { return None; }
-        let tag = u32::from_be_bytes([data[offset], data[offset+1], data[offset+2], data[offset+3]]);
-        let _length = u32::from_be_bytes([data[offset+4], data[offset+5], data[offset+6], data[offset+7]]) as usize;
-        let toff = u32::from_be_bytes([data[offset+8], data[offset+9], data[offset+10], data[offset+11]]) as usize;
-        if tag == 0x6D617870 { // 'maxp'
-            if toff + 14 > data.len() { return None; }
-            let num_glyphs = u16::from_be_bytes([data[toff+4], data[toff+5]]);
+        if offset + 16 > data.len() {
+            return None;
+        }
+        let tag = u32::from_be_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ]);
+        let _length = u32::from_be_bytes([
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
+        ]) as usize;
+        let toff = u32::from_be_bytes([
+            data[offset + 8],
+            data[offset + 9],
+            data[offset + 10],
+            data[offset + 11],
+        ]) as usize;
+        if tag == 0x6D617870 {
+            // 'maxp'
+            if toff + 14 > data.len() {
+                return None;
+            }
+            let num_glyphs = u16::from_be_bytes([data[toff + 4], data[toff + 5]]);
             return Some(num_glyphs);
         }
         offset += 16;
@@ -424,9 +486,12 @@ fn try_subset_font(
 
     // Find the embedded font stream reference.
     let (font_file_key, font_file_id) = {
-        if let Some(CosObject::Reference(id)) = font_dict.get(&CosName::new(b"FontFile2".to_vec())) {
+        if let Some(CosObject::Reference(id)) = font_dict.get(&CosName::new(b"FontFile2".to_vec()))
+        {
             (CosName::new(b"FontFile2".to_vec()), *id)
-        } else if let Some(CosObject::Reference(id)) = font_dict.get(&CosName::new(b"FontFile3".to_vec())) {
+        } else if let Some(CosObject::Reference(id)) =
+            font_dict.get(&CosName::new(b"FontFile3".to_vec()))
+        {
             (CosName::new(b"FontFile3".to_vec()), *id)
         } else {
             return Ok(0); // not an embedded font
@@ -453,7 +518,7 @@ fn try_subset_font(
 
     // Build the glyph remapper and subset.
     let subset_result = {
-        use subsetter::{subset, GlyphRemapper};
+        use subsetter::{GlyphRemapper, subset};
         let mut remapper = GlyphRemapper::new();
         let mut sorted: Vec<u16> = active_glyphs.iter().copied().collect();
         sorted.sort_unstable();
@@ -514,10 +579,14 @@ fn try_subset_font(
     });
 
     // Also update /FontDescriptor → /FontName
-    if let Some(CosObject::Reference(desc_id)) = font_dict.get(&CosName::new(b"FontDescriptor".to_vec())) {
+    if let Some(CosObject::Reference(desc_id)) =
+        font_dict.get(&CosName::new(b"FontDescriptor".to_vec()))
+    {
         doc.mutate_object(*desc_id, |obj| {
             if let CosObject::Dictionary(desc_dict) = obj {
-                if let Some(CosObject::Name(font_name)) = desc_dict.get(&CosName::new(b"FontName".to_vec())) {
+                if let Some(CosObject::Name(font_name)) =
+                    desc_dict.get(&CosName::new(b"FontName".to_vec()))
+                {
                     if let Some(name_str) = font_name.as_str() {
                         if !name_str.starts_with("AAAAAA+") {
                             let new_name = format!("AAAAAA+{}", name_str);
@@ -529,13 +598,175 @@ fn try_subset_font(
                     }
                 }
                 // Replace the FontFile stream reference
-                desc_dict.set(
-                    font_file_key,
-                    CosObject::Reference(font_file_id),
-                );
+                desc_dict.set(font_file_key, CosObject::Reference(font_file_id));
             }
         });
     }
 
     Ok(saved)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── simple_tokenise ────────────────────────────────────────────────────
+
+    #[test]
+    fn simple_tokenise_basic() {
+        let tokens = simple_tokenise(b"BT /F1 12 Tf ET");
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[0], b"BT");
+        assert_eq!(tokens[1], b"/F1");
+        assert_eq!(tokens[3], b"Tf");
+    }
+
+    #[test]
+    fn simple_tokenise_empty() {
+        assert!(simple_tokenise(b"").is_empty());
+    }
+
+    #[test]
+    fn simple_tokenise_skips_comments() {
+        let tokens = simple_tokenise(b"BT % this is a comment\nET");
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0], b"BT");
+        assert_eq!(tokens[1], b"ET");
+    }
+
+    #[test]
+    fn simple_tokenise_delimiters() {
+        let tokens = simple_tokenise(b"(Hello World)");
+        assert_eq!(tokens.len(), 1); // whole string as one token
+        assert_eq!(tokens[0], b"(Hello World)");
+    }
+
+    // ── parse_pdf_literal ──────────────────────────────────────────────────
+
+    #[test]
+    fn parse_pdf_literal_simple() {
+        let result = parse_pdf_literal(b"(Hello)").unwrap();
+        assert_eq!(result, b"Hello");
+    }
+
+    #[test]
+    fn parse_pdf_literal_empty() {
+        let result = parse_pdf_literal(b"()").unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn parse_pdf_literal_escape_n() {
+        let result = parse_pdf_literal(b"(Line1\\nLine2)").unwrap();
+        assert_eq!(result, b"Line1\nLine2");
+    }
+
+    #[test]
+    fn parse_pdf_literal_escape_paren() {
+        let result = parse_pdf_literal(b"(Say \\(hello\\))").unwrap();
+        assert_eq!(result, b"Say (hello)");
+    }
+
+    #[test]
+    fn parse_pdf_literal_escape_backslash() {
+        let result = parse_pdf_literal(b"(C:\\\\Users)").unwrap();
+        assert_eq!(result, b"C:\\Users");
+    }
+
+    #[test]
+    fn parse_pdf_literal_nested_parens() {
+        let result = parse_pdf_literal(b"(Outer (Inner) still)").unwrap();
+        assert_eq!(result, b"Outer (Inner) still");
+    }
+
+    #[test]
+    fn parse_pdf_literal_octal() {
+        let result = parse_pdf_literal(b"(\\101\\102\\103)").unwrap();
+        assert_eq!(result, b"ABC");
+    }
+
+    #[test]
+    fn parse_pdf_literal_not_starting_with_paren() {
+        assert!(parse_pdf_literal(b"no-paren").is_none());
+    }
+
+    #[test]
+    fn parse_pdf_literal_empty_token() {
+        assert!(parse_pdf_literal(b"").is_none());
+    }
+
+    // ── try_unwrap_array ───────────────────────────────────────────────────
+
+    #[test]
+    fn try_unwrap_array_simple() {
+        let inner = try_unwrap_array(b"[(Hello) 12]");
+        assert_eq!(inner.len(), 2);
+    }
+
+    #[test]
+    fn try_unwrap_array_empty() {
+        let inner = try_unwrap_array(b"[]");
+        assert!(inner.is_empty());
+    }
+
+    #[test]
+    fn try_unwrap_array_not_array() {
+        assert!(try_unwrap_array(b"not-array").is_empty());
+    }
+
+    #[test]
+    fn try_unwrap_array_empty_bytes() {
+        assert!(try_unwrap_array(b"").is_empty());
+    }
+
+    // ── parse_text_operators ───────────────────────────────────────────────
+
+    #[test]
+    fn parse_text_operators_empty() {
+        let ops = parse_text_operators(b"");
+        assert!(ops.is_empty());
+    }
+
+    #[test]
+    fn parse_text_operators_no_text() {
+        let ops = parse_text_operators(b"BT 1 0 0 1 0 0 cm ET");
+        assert!(ops.is_empty());
+    }
+
+    #[test]
+    fn parse_text_operators_tj() {
+        let ops = parse_text_operators(b"(Hello World) Tj");
+        assert_eq!(ops.len(), 1);
+        match &ops[0] {
+            TextOp::Show(s) => assert_eq!(s, b"Hello World"),
+            _ => panic!("expected Show"),
+        }
+    }
+
+    #[test]
+    fn parse_text_operators_tj_array() {
+        // Note: keep-as-one-token input for try_unwrap_array compatibility
+        let ops = parse_text_operators(b"[ (Hello) 12 (World) ] TJ");
+        assert_eq!(ops.len(), 1);
+        match &ops[0] {
+            TextOp::ShowArray(arr) => {
+                assert_eq!(arr.len(), 2);
+                assert_eq!(arr[0], b"Hello");
+                assert_eq!(arr[1], b"World");
+            }
+            _ => panic!("expected ShowArray"),
+        }
+    }
+
+    // ── guess_glyph_count ──────────────────────────────────────────────────
+
+    #[test]
+    fn guess_glyph_count_too_short() {
+        assert!(guess_glyph_count(&[0; 11]).is_none());
+    }
+
+    #[test]
+    fn guess_glyph_count_no_tables() {
+        assert!(guess_glyph_count(&[0; 12]).is_none());
+    }
 }

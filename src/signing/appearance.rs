@@ -25,8 +25,8 @@
 
 use std::path::Path;
 
-use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
 use crate::PdfError;
+use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
 
 // ─── Public return type ───────────────────────────────────────────────────────
 
@@ -35,23 +35,23 @@ use crate::PdfError;
 /// `mod.rs` inserts all of these into the incremental `changed` map.
 pub struct AppearanceObjects {
     /// Outer AP/N Form XObject (`q /n0 Do Q  q /n2 Do Q`).
-    pub ap_id:   ObjectId,
-    pub ap_obj:  CosObject,
+    pub ap_id: ObjectId,
+    pub ap_obj: CosObject,
 
     /// `/n0` — empty background sub-Form ("% DSBlank").
-    pub n0_id:   ObjectId,
-    pub n0_obj:  CosObject,
+    pub n0_id: ObjectId,
+    pub n0_obj: CosObject,
 
     /// `/n2` — foreground sub-Form (image or text).
-    pub n2_id:   ObjectId,
-    pub n2_obj:  CosObject,
+    pub n2_id: ObjectId,
+    pub n2_obj: CosObject,
 
     /// Image XObject (present only in image mode).
-    pub img_id:  Option<ObjectId>,
+    pub img_id: Option<ObjectId>,
     pub img_obj: Option<CosObject>,
 
     /// Helvetica font resource (present only in text-only mode).
-    pub font_id:  ObjectId,
+    pub font_id: ObjectId,
     pub font_obj: CosObject,
 }
 
@@ -72,18 +72,17 @@ pub struct AppearanceObjects {
 /// ```
 #[allow(clippy::too_many_arguments)]
 pub fn build_appearance(
-    rect:        [f64; 4],
-    image_path:  Option<&Path>,
+    rect: [f64; 4],
+    image_path: Option<&Path>,
     signer_name: &str,
-    reason:      &str,
-    date_str:    &str,
-    ap_id:       ObjectId,
-    n0_id:       ObjectId,
-    n2_id:       ObjectId,
-    img_id:      ObjectId,
-    font_id:     ObjectId,
+    reason: &str,
+    date_str: &str,
+    ap_id: ObjectId,
+    n0_id: ObjectId,
+    n2_id: ObjectId,
+    img_id: ObjectId,
+    font_id: ObjectId,
 ) -> Result<AppearanceObjects, PdfError> {
-
     let w = (rect[2] - rect[0]).abs();
     let h = (rect[3] - rect[1]).abs();
 
@@ -112,40 +111,70 @@ pub fn build_appearance(
     outer_res.set(CosName::new(b"XObject"), CosObject::Dictionary(outer_xobj));
 
     let outer_bytes = b"q /n0 Do Q\nq /n2 Do Q\n".to_vec();
-    let outer_len   = outer_bytes.len() as i64;
+    let outer_len = outer_bytes.len() as i64;
 
     let mut ap_dict = CosDictionary::new();
-    ap_dict.set(CosName::type_name(),     CosObject::Name(CosName::new(b"XObject")));
-    ap_dict.set(CosName::new(b"Subtype"),  CosObject::Name(CosName::new(b"Form")));
+    ap_dict.set(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"XObject")),
+    );
+    ap_dict.set(
+        CosName::new(b"Subtype"),
+        CosObject::Name(CosName::new(b"Form")),
+    );
     ap_dict.set(CosName::new(b"FormType"), CosObject::Integer(1));
-    ap_dict.set(CosName::new(b"Matrix"),   CosObject::Array(vec![
-        CosObject::Integer(1), CosObject::Integer(0),
-        CosObject::Integer(0), CosObject::Integer(1),
-        CosObject::Integer(0), CosObject::Integer(0),
-    ]));
-    ap_dict.set(CosName::new(b"BBox"), CosObject::Array(vec![
-        CosObject::Real(0.0), CosObject::Real(0.0),
-        CosObject::Real(w),   CosObject::Real(h),
-    ]));
+    ap_dict.set(
+        CosName::new(b"Matrix"),
+        CosObject::Array(vec![
+            CosObject::Integer(1),
+            CosObject::Integer(0),
+            CosObject::Integer(0),
+            CosObject::Integer(1),
+            CosObject::Integer(0),
+            CosObject::Integer(0),
+        ]),
+    );
+    ap_dict.set(
+        CosName::new(b"BBox"),
+        CosObject::Array(vec![
+            CosObject::Real(0.0),
+            CosObject::Real(0.0),
+            CosObject::Real(w),
+            CosObject::Real(h),
+        ]),
+    );
     ap_dict.set(CosName::new(b"Resources"), CosObject::Dictionary(outer_res));
-    ap_dict.set(CosName::new(b"Length"),    CosObject::Integer(outer_len));
+    ap_dict.set(CosName::new(b"Length"), CosObject::Integer(outer_len));
     let ap_obj = CosObject::Stream(CosStream::new(ap_dict, outer_bytes));
 
     // ── Helvetica font resource (text-only mode) ──────────────────────────
     let mut font_dict = CosDictionary::new();
-    font_dict.set(CosName::type_name(),      CosObject::Name(CosName::new(b"Font")));
-    font_dict.set(CosName::new(b"Subtype"),  CosObject::Name(CosName::new(b"Type1")));
-    font_dict.set(CosName::new(b"BaseFont"), CosObject::Name(CosName::new(b"Helvetica")));
-    font_dict.set(CosName::new(b"Encoding"), CosObject::Name(CosName::new(b"WinAnsiEncoding")));
+    font_dict.set(CosName::type_name(), CosObject::Name(CosName::new(b"Font")));
+    font_dict.set(
+        CosName::new(b"Subtype"),
+        CosObject::Name(CosName::new(b"Type1")),
+    );
+    font_dict.set(
+        CosName::new(b"BaseFont"),
+        CosObject::Name(CosName::new(b"Helvetica")),
+    );
+    font_dict.set(
+        CosName::new(b"Encoding"),
+        CosObject::Name(CosName::new(b"WinAnsiEncoding")),
+    );
     let font_obj = CosObject::Dictionary(font_dict);
 
     Ok(AppearanceObjects {
-        ap_id,  ap_obj,
-        n0_id,  n0_obj,
-        n2_id,  n2_obj,
-        img_id:  image_result.as_ref().map(|_| img_id),
+        ap_id,
+        ap_obj,
+        n0_id,
+        n0_obj,
+        n2_id,
+        n2_obj,
+        img_id: image_result.as_ref().map(|_| img_id),
         img_obj: image_result,
-        font_id, font_obj,
+        font_id,
+        font_obj,
     })
 }
 
@@ -154,24 +183,35 @@ pub fn build_appearance(
 fn make_form_xobj(w: f64, h: f64, data: Vec<u8>, resources: CosDictionary) -> CosObject {
     let len = data.len() as i64;
     let mut d = CosDictionary::new();
-    d.set(CosName::type_name(),     CosObject::Name(CosName::new(b"XObject")));
-    d.set(CosName::new(b"Subtype"), CosObject::Name(CosName::new(b"Form")));
-    d.set(CosName::new(b"FormType"),CosObject::Integer(1));
-    d.set(CosName::new(b"BBox"),    CosObject::Array(vec![
-        CosObject::Real(0.0), CosObject::Real(0.0),
-        CosObject::Real(w),   CosObject::Real(h),
-    ]));
+    d.set(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"XObject")),
+    );
+    d.set(
+        CosName::new(b"Subtype"),
+        CosObject::Name(CosName::new(b"Form")),
+    );
+    d.set(CosName::new(b"FormType"), CosObject::Integer(1));
+    d.set(
+        CosName::new(b"BBox"),
+        CosObject::Array(vec![
+            CosObject::Real(0.0),
+            CosObject::Real(0.0),
+            CosObject::Real(w),
+            CosObject::Real(h),
+        ]),
+    );
     d.set(CosName::new(b"Resources"), CosObject::Dictionary(resources));
-    d.set(CosName::new(b"Length"),    CosObject::Integer(len));
+    d.set(CosName::new(b"Length"), CosObject::Integer(len));
     CosObject::Stream(CosStream::new(d, data))
 }
 
 // ─── Image layer (/n2 content) ────────────────────────────────────────────────
 
 struct RawImage {
-    width:  u32,
+    width: u32,
     height: u32,
-    rgb:    Vec<u8>,
+    rgb: Vec<u8>,
 }
 
 fn load_image(path: &Path) -> Result<RawImage, PdfError> {
@@ -181,14 +221,18 @@ fn load_image(path: &Path) -> Result<RawImage, PdfError> {
     })?;
     let rgb = img.to_rgb8();
     let (w, h) = rgb.dimensions();
-    Ok(RawImage { width: w, height: h, rgb: rgb.into_raw() })
+    Ok(RawImage {
+        width: w,
+        height: h,
+        rgb: rgb.into_raw(),
+    })
 }
 
 /// Returns `(n2_stream_bytes, n2_resources, image_xobject)`.
 fn build_image_layer(
     bbox_w: f64,
     bbox_h: f64,
-    img:    &RawImage,
+    img: &RawImage,
     img_id: ObjectId,
 ) -> (Vec<u8>, CosDictionary, CosObject) {
     // Fit image inside bbox preserving aspect ratio, centre
@@ -204,13 +248,25 @@ fn build_image_layer(
     // Image XObject
     let img_len = img.rgb.len() as i64;
     let mut id = CosDictionary::new();
-    id.set(CosName::type_name(),             CosObject::Name(CosName::new(b"XObject")));
-    id.set(CosName::new(b"Subtype"),          CosObject::Name(CosName::new(b"Image")));
-    id.set(CosName::new(b"Width"),            CosObject::Integer(img.width  as i64));
-    id.set(CosName::new(b"Height"),           CosObject::Integer(img.height as i64));
-    id.set(CosName::new(b"ColorSpace"),       CosObject::Name(CosName::new(b"DeviceRGB")));
+    id.set(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"XObject")),
+    );
+    id.set(
+        CosName::new(b"Subtype"),
+        CosObject::Name(CosName::new(b"Image")),
+    );
+    id.set(CosName::new(b"Width"), CosObject::Integer(img.width as i64));
+    id.set(
+        CosName::new(b"Height"),
+        CosObject::Integer(img.height as i64),
+    );
+    id.set(
+        CosName::new(b"ColorSpace"),
+        CosObject::Name(CosName::new(b"DeviceRGB")),
+    );
     id.set(CosName::new(b"BitsPerComponent"), CosObject::Integer(8));
-    id.set(CosName::new(b"Length"),           CosObject::Integer(img_len));
+    id.set(CosName::new(b"Length"), CosObject::Integer(img_len));
     let img_obj = CosObject::Stream(CosStream::new(id, img.rgb.clone()));
 
     // /n2 resources: /XObject << /Img <img_id> >>
@@ -227,14 +283,18 @@ fn build_image_layer(
 // ─── Text layer (/n2 content) ─────────────────────────────────────────────────
 
 fn build_text_layer(
-    _w:          f64,
-    h:           f64,
+    _w: f64,
+    h: f64,
     signer_name: &str,
-    reason:      &str,
-    date_str:    &str,
-    font_id:     ObjectId,
+    reason: &str,
+    date_str: &str,
+    font_id: ObjectId,
 ) -> (Vec<u8>, CosDictionary) {
-    let esc = |s: &str| s.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
+    let esc = |s: &str| {
+        s.replace('\\', "\\\\")
+            .replace('(', "\\(")
+            .replace(')', "\\)")
+    };
 
     let mut lines: Vec<String> = Vec::new();
     if !signer_name.is_empty() {
@@ -245,9 +305,15 @@ fn build_text_layer(
     }
     if !date_str.is_empty() {
         let readable = if date_str.starts_with("D:") && date_str.len() >= 16 {
-            format!("Date: {}-{}-{} {}:{}:{}",
-                &date_str[2..6], &date_str[6..8], &date_str[8..10],
-                &date_str[10..12], &date_str[12..14], &date_str[14..16])
+            format!(
+                "Date: {}-{}-{} {}:{}:{}",
+                &date_str[2..6],
+                &date_str[6..8],
+                &date_str[8..10],
+                &date_str[10..12],
+                &date_str[12..14],
+                &date_str[14..16]
+            )
         } else {
             date_str.to_string()
         };
@@ -256,8 +322,8 @@ fn build_text_layer(
     lines.push("Digitally Signed".into());
 
     let font_size = (h / (lines.len() as f64 + 1.0) * 0.85).max(5.0).min(12.0);
-    let line_gap  = font_size * 1.35;
-    let text_top  = h - font_size * 0.8;
+    let line_gap = font_size * 1.35;
+    let text_top = h - font_size * 0.8;
 
     let mut content = String::new();
     content.push_str("BT\n");
@@ -281,3 +347,95 @@ fn build_text_layer(
     (content.into_bytes(), res)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+
+    #[test]
+    fn test_make_form_xobj_basic() {
+        let res = CosDictionary::new();
+        let obj = make_form_xobj(200.0, 100.0, b"q 1 0 0 1 0 0 cm Q\n".to_vec(), res);
+        let stream = obj.as_stream().unwrap();
+        let dict = &stream.dictionary;
+        assert_eq!(
+            dict.get(&CosName::new(b"Subtype"))
+                .and_then(|v| v.as_name())
+                .map(|n| n.as_bytes()),
+            Some(b"Form" as &[u8])
+        );
+        assert_eq!(
+            dict.get(&CosName::new(b"FormType"))
+                .and_then(|v| v.as_integer()),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn test_build_text_layer_simple() {
+        let font_id = ObjectId::new(1, 0);
+        let (bytes, res) = build_text_layer(200.0, 100.0, "Alice", "Approved", "D:20260730120000+07", font_id);
+        let content = String::from_utf8_lossy(&bytes);
+        assert!(content.contains("BT"));
+        assert!(content.contains("ET"));
+        assert!(content.contains("/F1"));
+        // Should include signer name with "Signer:" prefix
+        assert!(content.contains("Signer: Alice") || bytes.windows(12).any(|w| w == b"Alice"));
+        assert!(content.contains("Approved"));
+        assert!(content.contains("2026"));
+        // Resources should contain /Font
+        assert!(res.get(&CosName::new(b"Font")).is_some());
+    }
+
+    #[test]
+    fn test_build_text_layer_empty_signer() {
+        let font_id = ObjectId::new(1, 0);
+        let (bytes, _res) = build_text_layer(200.0, 100.0, "", "Test", "D:20260730120000+07", font_id);
+        let content = String::from_utf8_lossy(&bytes);
+        assert!(content.contains("BT"));
+        assert!(content.contains("ET"));
+    }
+
+    #[test]
+    fn test_build_text_layer_date_parse() {
+        let font_id = ObjectId::new(1, 0);
+        let (bytes, _res) = build_text_layer(200.0, 100.0, "Bob", "OK", "D:20260730120000+07", font_id);
+        let content = String::from_utf8_lossy(&bytes);
+        // Date should be parsed into readable format
+        assert!(content.contains("2026-07-30"));
+    }
+
+    #[test]
+    fn test_build_text_layer_invalid_date() {
+        let font_id = ObjectId::new(1, 0);
+        let (bytes, _res) = build_text_layer(200.0, 100.0, "Charlie", "Done", "invalid", font_id);
+        let content = String::from_utf8_lossy(&bytes);
+        // Invalid date passes through as-is
+        assert!(content.contains("invalid"));
+    }
+
+    #[test]
+    fn test_make_form_xobj_includes_bbox() {
+        let res = CosDictionary::new();
+        let obj = make_form_xobj(612.0, 792.0, vec![], res);
+        let stream = obj.as_stream().unwrap();
+        let dict = &stream.dictionary;
+        let bbox_arr = dict.get(&CosName::new(b"BBox")).unwrap().as_array().unwrap();
+        assert_eq!(bbox_arr.len(), 4);
+        assert_eq!(bbox_arr[2].as_real(), Some(612.0));
+        assert_eq!(bbox_arr[3].as_real(), Some(792.0));
+    }
+
+    #[test]
+    fn test_escape_parentheses() {
+        // Test the escape closure logic used in build_text_layer
+        let esc = |s: &str| {
+            s.replace('\\', "\\\\")
+                .replace('(', "\\(")
+                .replace(')', "\\)")
+        };
+        assert_eq!(esc("hello"), "hello");
+        assert_eq!(esc("a(b)c"), "a\\(b\\)c");
+        assert_eq!(esc("a\\b"), "a\\\\b");
+    }
+}

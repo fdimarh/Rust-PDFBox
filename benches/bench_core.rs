@@ -11,10 +11,10 @@
 //! - Incremental save speed
 //! - Decoded stream cache sizing (StreamCache peak memory)
 
-use rust_pdfbox::cos::{CosObject, ObjectId};
-use rust_pdfbox::content::parse_content_stream;
-use rust_pdfbox::text::extract_text;
 use rust_pdfbox::Document;
+use rust_pdfbox::content::parse_content_stream;
+use rust_pdfbox::cos::{CosObject, ObjectId};
+use rust_pdfbox::text::extract_text;
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -38,8 +38,10 @@ fn two_page_pdf() -> Vec<u8> {
     let e3 = format!("{:010} 00000 n \r\n", p1_off);
     let e4 = format!("{:010} 00000 n \r\n", p2_off);
     pdf.extend_from_slice(b"xref\n0 5\n0000000000 65535 f \r\n");
-    pdf.extend_from_slice(e1.as_bytes()); pdf.extend_from_slice(e2.as_bytes());
-    pdf.extend_from_slice(e3.as_bytes()); pdf.extend_from_slice(e4.as_bytes());
+    pdf.extend_from_slice(e1.as_bytes());
+    pdf.extend_from_slice(e2.as_bytes());
+    pdf.extend_from_slice(e3.as_bytes());
+    pdf.extend_from_slice(e4.as_bytes());
     pdf.extend_from_slice(b"trailer\n<< /Size 5 /Root 1 0 R >>\n");
     pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
     pdf
@@ -53,14 +55,15 @@ fn n_page_pdf(n: usize) -> Vec<u8> {
     for i in 0..n {
         page_offsets.push(pdf.len() as u64);
         let obj_num = i + 3;
-        let body = format!(
-            "{obj_num} 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] >>\nendobj\n"
-        );
+        let body = format!("{obj_num} 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] >>\nendobj\n");
         pdf.extend_from_slice(body.as_bytes());
     }
     // Pages dict (obj 2)
     let pages_off = pdf.len() as u64;
-    let kids: String = (3..3 + n).map(|i| format!("{i} 0 R")).collect::<Vec<_>>().join(" ");
+    let kids: String = (3..3 + n)
+        .map(|i| format!("{i} 0 R"))
+        .collect::<Vec<_>>()
+        .join(" ");
     pdf.extend_from_slice(
         format!("2 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {n} >>\nendobj\n").as_bytes(),
     );
@@ -99,10 +102,7 @@ fn heavy_content_stream(line_count: usize) -> Vec<u8> {
 /// Try to load the real PDFBox-generated fixture from disk; fall back to
 /// the in-memory generator if the file is absent.
 fn fixture_bytes(path: &str) -> Vec<u8> {
-    let full = format!(
-        "{}/tests/fixtures/{path}",
-        env!("CARGO_MANIFEST_DIR")
-    );
+    let full = format!("{}/tests/fixtures/{path}", env!("CARGO_MANIFEST_DIR"));
     std::fs::read(&full).unwrap_or_else(|_| {
         // Derive page count from path suffix (e.g. "large/200_pages.pdf" → 200)
         if let Some(n) = path
@@ -133,10 +133,7 @@ struct BenchResult {
 impl BenchResult {
     fn print(&self) {
         let per_us = self.per_iter_ns / 1_000.0;
-        let tp = self
-            .throughput
-            .as_deref()
-            .unwrap_or("");
+        let tp = self.throughput.as_deref().unwrap_or("");
         println!(
             "  {:<50} {:>6} iters  {:>8.2} µs/iter  {:>8.2} ms total  {}",
             self.name, self.iters, per_us, self.total_ms, tp
@@ -171,8 +168,7 @@ fn bench_throughput<F: Fn()>(
     f: F,
 ) -> BenchResult {
     let mut r = bench(name, iterations, f);
-    let bytes_per_sec =
-        (bytes_per_iter as f64 * iterations as f64) / (r.total_ms / 1_000.0);
+    let bytes_per_sec = (bytes_per_iter as f64 * iterations as f64) / (r.total_ms / 1_000.0);
     r.throughput = Some(format!("{:.1} MB/s", bytes_per_sec / 1_048_576.0));
     r
 }
@@ -227,14 +223,21 @@ fn main() {
                 .to_owned()
                 .pipe_or(|| n_page_pdf(page_count));
             // Use in-memory generator for "fifty" naming mismatch
-            let pdf = if pdf.is_empty() { n_page_pdf(page_count) } else { pdf };
+            let pdf = if pdf.is_empty() {
+                n_page_pdf(page_count)
+            } else {
+                pdf
+            };
             let iters = match page_count {
                 200 => 500,
                 100 => 1_000,
                 _ => 2_000,
             };
             let r = bench_throughput(
-                &format!("load_from_bytes ({page_count:>3}-page PDF, {} KB)", pdf.len() / 1024),
+                &format!(
+                    "load_from_bytes ({page_count:>3}-page PDF, {} KB)",
+                    pdf.len() / 1024
+                ),
                 iters,
                 pdf.len(),
                 || {
@@ -286,42 +289,30 @@ fn main() {
         let large_doc = Document::load_from_bytes(&large_pdf).unwrap();
 
         // Full rewrite — small
-        let r = bench(
-            "save_to full-rewrite (2-page PDF)",
-            10_000,
-            || {
-                let mut buf = std::io::Cursor::new(Vec::with_capacity(2048));
-                black_box(small_doc.save_to(black_box(&mut buf)).unwrap());
-            },
-        );
+        let r = bench("save_to full-rewrite (2-page PDF)", 10_000, || {
+            let mut buf = std::io::Cursor::new(Vec::with_capacity(2048));
+            black_box(small_doc.save_to(black_box(&mut buf)).unwrap());
+        });
         r.print();
 
         // Full rewrite — large
-        let r = bench(
-            "save_to full-rewrite (100-page PDF)",
-            1_000,
-            || {
-                let mut buf = std::io::Cursor::new(Vec::with_capacity(large_pdf.len() + 4096));
-                black_box(large_doc.save_to(black_box(&mut buf)).unwrap());
-            },
-        );
+        let r = bench("save_to full-rewrite (100-page PDF)", 1_000, || {
+            let mut buf = std::io::Cursor::new(Vec::with_capacity(large_pdf.len() + 4096));
+            black_box(large_doc.save_to(black_box(&mut buf)).unwrap());
+        });
         r.print();
 
         // Incremental save — small
         let mut changed_small = std::collections::BTreeMap::new();
         changed_small.insert(ObjectId::new(5, 0), CosObject::Integer(42));
-        let r = bench(
-            "save_incremental (2-page + 1 changed obj)",
-            10_000,
-            || {
-                let mut out = Vec::with_capacity(small_pdf.len() + 512);
-                black_box(
-                    small_doc
-                        .save_incremental(black_box(&small_pdf), black_box(&changed_small), &mut out)
-                        .unwrap(),
-                );
-            },
-        );
+        let r = bench("save_incremental (2-page + 1 changed obj)", 10_000, || {
+            let mut out = Vec::with_capacity(small_pdf.len() + 512);
+            black_box(
+                small_doc
+                    .save_incremental(black_box(&small_pdf), black_box(&changed_small), &mut out)
+                    .unwrap(),
+            );
+        });
         r.print();
 
         // Incremental save — large
@@ -336,7 +327,11 @@ fn main() {
                 let mut out = Vec::with_capacity(large_pdf.len() + 4096);
                 black_box(
                     large_doc
-                        .save_incremental(black_box(&large_pdf), black_box(&changed_large), &mut out)
+                        .save_incremental(
+                            black_box(&large_pdf),
+                            black_box(&changed_large),
+                            &mut out,
+                        )
                         .unwrap(),
                 );
             },
@@ -352,8 +347,7 @@ fn main() {
         let content = b"BT /F1 12 Tf 72 720 Td (Cache benchmark content) Tj ET";
         let mut pdf = b"%PDF-1.4\n".to_vec();
         let stream_off = pdf.len() as u64;
-        let stream_hdr =
-            format!("5 0 obj\n<< /Length {} >>\nstream\n", content.len());
+        let stream_hdr = format!("5 0 obj\n<< /Length {} >>\nstream\n", content.len());
         pdf.extend_from_slice(stream_hdr.as_bytes());
         pdf.extend_from_slice(content);
         pdf.extend_from_slice(b"\nendstream\nendobj\n");
@@ -362,9 +356,7 @@ fn main() {
             b"3 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] /Contents 5 0 R >>\nendobj\n",
         );
         let pages_off = pdf.len() as u64;
-        pdf.extend_from_slice(
-            b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-        );
+        pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
         let cat_off = pdf.len() as u64;
         pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
         let xref_off = pdf.len();
@@ -403,21 +395,15 @@ fn main() {
         r.print();
 
         // source_bytes Arc clone cost
-        let r = bench(
-            "Document::source_bytes() Arc clone",
-            200_000,
-            || {
-                black_box(doc.source_bytes());
-            },
-        );
+        let r = bench("Document::source_bytes() Arc clone", 200_000, || {
+            black_box(doc.source_bytes());
+        });
         r.print();
 
         // Report cache occupancy
         let count = doc.cached_stream_count();
         let arc_bytes = content.len();
-        println!(
-            "  Cache occupancy: {count} stream(s), ~{arc_bytes} bytes decoded content"
-        );
+        println!("  Cache occupancy: {count} stream(s), ~{arc_bytes} bytes decoded content");
     }
 
     // ── Page tree traversal ───────────────────────────────────────────────────

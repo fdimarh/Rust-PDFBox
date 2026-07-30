@@ -7,8 +7,8 @@
 //!
 //! PDF §9.7.
 
-use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 use super::cmap::{ToUnicodeCMap, parse_to_unicode_cmap};
+use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 
 // ---------------------------------------------------------------------------
 // CIDFont type
@@ -60,7 +60,11 @@ impl CidSystemInfo {
         let supplement = dict
             .get_int(&CosName::new(b"Supplement".to_vec()))
             .unwrap_or(0) as i32;
-        Self { registry, ordering, supplement }
+        Self {
+            registry,
+            ordering,
+            supplement,
+        }
     }
 
     /// Returns `"Registry-Ordering-Supplement"` identifier.
@@ -89,11 +93,15 @@ pub struct DescendantFont {
 }
 
 impl DescendantFont {
-    pub fn from_dict(dict: &CosDictionary, _get_object: &dyn Fn(ObjectId) -> Option<CosObject>) -> Option<Self> {
+    pub fn from_dict(
+        dict: &CosDictionary,
+        _get_object: &dyn Fn(ObjectId) -> Option<CosObject>,
+    ) -> Option<Self> {
         let subtype = dict.get_name(&CosName::subtype())?;
         let cid_font_type = CidFontType::from_name(subtype.as_bytes())?;
 
-        let base_font = dict.get_name(&CosName::new(b"BaseFont".to_vec()))
+        let base_font = dict
+            .get_name(&CosName::new(b"BaseFont".to_vec()))
             .map(|n| String::from_utf8_lossy(n.as_bytes()).to_string())
             .unwrap_or_default();
 
@@ -114,10 +122,15 @@ impl DescendantFont {
             while j < w_arr.len() {
                 let start_cid = match w_arr[j].as_integer() {
                     Some(n) => n as u32,
-                    None => { j += 1; continue; }
+                    None => {
+                        j += 1;
+                        continue;
+                    }
                 };
                 j += 1;
-                if j >= w_arr.len() { break; }
+                if j >= w_arr.len() {
+                    break;
+                }
                 match &w_arr[j] {
                     CosObject::Array(sub) => {
                         // [cid [w0 w1 ...]] form
@@ -141,12 +154,20 @@ impl DescendantFont {
                             j += 1;
                         }
                     }
-                    _ => { j += 1; }
+                    _ => {
+                        j += 1;
+                    }
                 }
             }
         }
 
-        Some(Self { cid_font_type, base_font, cid_system_info, default_width, widths })
+        Some(Self {
+            cid_font_type,
+            base_font,
+            cid_system_info,
+            default_width,
+            widths,
+        })
     }
 
     /// Get horizontal advance width for a CID (in 1/1000 units).
@@ -180,11 +201,13 @@ impl Type0Font {
         dict: &CosDictionary,
         get_object: &dyn Fn(ObjectId) -> Option<CosObject>,
     ) -> Option<Self> {
-        let base_font = dict.get_name(&CosName::new(b"BaseFont".to_vec()))
+        let base_font = dict
+            .get_name(&CosName::new(b"BaseFont".to_vec()))
             .map(|n| String::from_utf8_lossy(n.as_bytes()).to_string())
             .unwrap_or_default();
 
-        let encoding_name = dict.get_name(&CosName::new(b"Encoding".to_vec()))
+        let encoding_name = dict
+            .get_name(&CosName::new(b"Encoding".to_vec()))
             .map(|n| String::from_utf8_lossy(n.as_bytes()).to_string())
             .unwrap_or_else(|| "Identity-H".to_string());
 
@@ -208,12 +231,21 @@ impl Type0Font {
                 CosObject::Stream(s) => Some(parse_to_unicode_cmap(&s.data)),
                 CosObject::Reference(id) => {
                     let obj = get_object(*id)?;
-                    if let CosObject::Stream(s) = obj { Some(parse_to_unicode_cmap(&s.data)) } else { None }
+                    if let CosObject::Stream(s) = obj {
+                        Some(parse_to_unicode_cmap(&s.data))
+                    } else {
+                        None
+                    }
                 }
                 _ => None,
             });
 
-        Some(Self { base_font, encoding_name, descendant, to_unicode })
+        Some(Self {
+            base_font,
+            encoding_name,
+            descendant,
+            to_unicode,
+        })
     }
 
     /// Decode a 2-byte big-endian CID to Unicode using the ToUnicode CMap.
@@ -226,9 +258,12 @@ impl Type0Font {
             while i < bytes.len() {
                 let code = if i + 1 < bytes.len() {
                     let c = u32::from(bytes[i]) << 8 | u32::from(bytes[i + 1]);
-                    i += 2; c
+                    i += 2;
+                    c
                 } else {
-                    let c = u32::from(bytes[i]); i += 1; c
+                    let c = u32::from(bytes[i]);
+                    i += 1;
+                    c
                 };
                 if let Some(s) = cmap.to_unicode(code) {
                     out.push_str(&s);
@@ -244,7 +279,9 @@ impl Type0Font {
         let mut i = 0;
         while i + 1 < bytes.len() {
             let code = u32::from(bytes[i]) << 8 | u32::from(bytes[i + 1]);
-            if let Some(c) = char::from_u32(code) { out.push(c); }
+            if let Some(c) = char::from_u32(code) {
+                out.push(c);
+            }
             i += 2;
         }
         out
@@ -265,30 +302,61 @@ mod tests {
     use super::*;
     use crate::cos::{CosDictionary, CosName, CosObject, CosStream};
 
-    fn no_object(_: ObjectId) -> Option<CosObject> { None }
+    fn no_object(_: ObjectId) -> Option<CosObject> {
+        None
+    }
 
     fn make_descendant_dict(base_font: &str) -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.set(CosName::subtype(), CosObject::Name(CosName::new(b"CIDFontType2".to_vec())));
-        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(base_font.as_bytes().to_vec())));
+        d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"CIDFontType2".to_vec())),
+        );
+        d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(base_font.as_bytes().to_vec())),
+        );
         let mut csi = CosDictionary::new();
-        csi.set(CosName::new(b"Registry".to_vec()), CosObject::String(b"Adobe".to_vec()));
-        csi.set(CosName::new(b"Ordering".to_vec()), CosObject::String(b"Identity".to_vec()));
+        csi.set(
+            CosName::new(b"Registry".to_vec()),
+            CosObject::String(b"Adobe".to_vec()),
+        );
+        csi.set(
+            CosName::new(b"Ordering".to_vec()),
+            CosObject::String(b"Identity".to_vec()),
+        );
         csi.set(CosName::new(b"Supplement".to_vec()), CosObject::Integer(0));
-        d.set(CosName::new(b"CIDSystemInfo".to_vec()), CosObject::Dictionary(csi));
+        d.set(
+            CosName::new(b"CIDSystemInfo".to_vec()),
+            CosObject::Dictionary(csi),
+        );
         d.set(CosName::new(b"DW".to_vec()), CosObject::Integer(1000));
         d
     }
 
     fn make_type0_dict() -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.set(CosName::type_name(), CosObject::Name(CosName::new(b"Font".to_vec())));
-        d.set(CosName::subtype(), CosObject::Name(CosName::new(b"Type0".to_vec())));
-        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Arial-Bold".to_vec())));
-        d.set(CosName::new(b"Encoding".to_vec()), CosObject::Name(CosName::new(b"Identity-H".to_vec())));
+        d.set(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Font".to_vec())),
+        );
+        d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"Type0".to_vec())),
+        );
+        d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(b"Arial-Bold".to_vec())),
+        );
+        d.set(
+            CosName::new(b"Encoding".to_vec()),
+            CosObject::Name(CosName::new(b"Identity-H".to_vec())),
+        );
         let desc_dict = make_descendant_dict("Arial-Bold");
-        d.set(CosName::new(b"DescendantFonts".to_vec()),
-            CosObject::Array(vec![CosObject::Dictionary(desc_dict)]));
+        d.set(
+            CosName::new(b"DescendantFonts".to_vec()),
+            CosObject::Array(vec![CosObject::Dictionary(desc_dict)]),
+        );
         d
     }
 
@@ -337,15 +405,20 @@ mod tests {
         let desc_d = {
             let mut dd = make_descendant_dict("Test");
             // [10 12 600] — CIDs 10,11,12 all have width 600
-            dd.set(CosName::new(b"W".to_vec()), CosObject::Array(vec![
-                CosObject::Integer(10),
-                CosObject::Integer(12),
-                CosObject::Integer(600),
-            ]));
+            dd.set(
+                CosName::new(b"W".to_vec()),
+                CosObject::Array(vec![
+                    CosObject::Integer(10),
+                    CosObject::Integer(12),
+                    CosObject::Integer(600),
+                ]),
+            );
             dd
         };
-        d.set(CosName::new(b"DescendantFonts".to_vec()),
-            CosObject::Array(vec![CosObject::Dictionary(desc_d)]));
+        d.set(
+            CosName::new(b"DescendantFonts".to_vec()),
+            CosObject::Array(vec![CosObject::Dictionary(desc_d)]),
+        );
         let font = Type0Font::from_dict(&d, &no_object).unwrap();
         let desc = font.descendant.unwrap();
         assert_eq!(desc.width_for_cid(10), 600.0);
@@ -359,18 +432,23 @@ mod tests {
         let desc_d = {
             let mut dd = make_descendant_dict("Test");
             // [5 [400 500 600]] — CIDs 5→400, 6→500, 7→600
-            dd.set(CosName::new(b"W".to_vec()), CosObject::Array(vec![
-                CosObject::Integer(5),
+            dd.set(
+                CosName::new(b"W".to_vec()),
                 CosObject::Array(vec![
-                    CosObject::Integer(400),
-                    CosObject::Integer(500),
-                    CosObject::Integer(600),
+                    CosObject::Integer(5),
+                    CosObject::Array(vec![
+                        CosObject::Integer(400),
+                        CosObject::Integer(500),
+                        CosObject::Integer(600),
+                    ]),
                 ]),
-            ]));
+            );
             dd
         };
-        d.set(CosName::new(b"DescendantFonts".to_vec()),
-            CosObject::Array(vec![CosObject::Dictionary(desc_d)]));
+        d.set(
+            CosName::new(b"DescendantFonts".to_vec()),
+            CosObject::Array(vec![CosObject::Dictionary(desc_d)]),
+        );
         let font = Type0Font::from_dict(&d, &no_object).unwrap();
         let desc = font.descendant.unwrap();
         assert_eq!(desc.width_for_cid(5), 400.0);
@@ -394,8 +472,10 @@ mod tests {
 
     #[test]
     fn cid_font_type_from_name() {
-        assert_eq!(CidFontType::from_name(b"CIDFontType2"), Some(CidFontType::CidFontType2));
+        assert_eq!(
+            CidFontType::from_name(b"CIDFontType2"),
+            Some(CidFontType::CidFontType2)
+        );
         assert_eq!(CidFontType::from_name(b"Unknown"), None);
     }
 }
-

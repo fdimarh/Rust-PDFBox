@@ -9,8 +9,8 @@
 //!
 //! All fixtures are generated in-memory (no binary files required).
 
-use rust_pdfbox::{Document, RecoveryReport};
 use rust_pdfbox::cos::{CosObject, ObjectId};
+use rust_pdfbox::{Document, RecoveryReport};
 
 // ===========================================================================
 // Helpers
@@ -21,8 +21,7 @@ fn single_page_pdf(width: f64, height: f64) -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
     let p1_off = pdf.len() as u64;
     pdf.extend_from_slice(
-        format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n")
-            .as_bytes(),
+        format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes(),
     );
     let pages_off = pdf.len() as u64;
     pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
@@ -48,10 +47,8 @@ fn n_page_pdf(n: usize) -> Vec<u8> {
         let off = pdf.len() as u64;
         page_offsets.push(off);
         pdf.extend_from_slice(
-            format!(
-                "{obj_num} 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] >>\nendobj\n"
-            )
-            .as_bytes(),
+            format!("{obj_num} 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] >>\nendobj\n")
+                .as_bytes(),
         );
     }
 
@@ -62,19 +59,15 @@ fn n_page_pdf(n: usize) -> Vec<u8> {
     let pages_off = pdf.len() as u64;
     let pages_obj = n + 2; // Pages is obj n+2
     pdf.extend_from_slice(
-        format!(
-            "{pages_obj} 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {n} >>\nendobj\n"
-        )
-        .as_bytes(),
+        format!("{pages_obj} 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {n} >>\nendobj\n")
+            .as_bytes(),
     );
 
     let cat_off = pdf.len() as u64;
     let cat_obj = n + 3;
     pdf.extend_from_slice(
-        format!(
-            "{cat_obj} 0 obj\n<< /Type /Catalog /Pages {pages_obj} 0 R >>\nendobj\n"
-        )
-        .as_bytes(),
+        format!("{cat_obj} 0 obj\n<< /Type /Catalog /Pages {pages_obj} 0 R >>\nendobj\n")
+            .as_bytes(),
     );
 
     let xref_off = pdf.len();
@@ -87,12 +80,7 @@ fn n_page_pdf(n: usize) -> Vec<u8> {
     }
     pdf.extend_from_slice(format!("{:010} 00000 n \r\n", pages_off).as_bytes());
     pdf.extend_from_slice(format!("{:010} 00000 n \r\n", cat_off).as_bytes());
-    pdf.extend_from_slice(
-        format!(
-            "trailer\n<< /Size {total} /Root {cat_obj} 0 R >>\n"
-        )
-        .as_bytes(),
-    );
+    pdf.extend_from_slice(format!("trailer\n<< /Size {total} /Root {cat_obj} 0 R >>\n").as_bytes());
     pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
     pdf
 }
@@ -210,7 +198,10 @@ fn smoke_incremental_save() {
     doc.save_incremental(&pdf, &changed, &mut out).unwrap();
     let updated = Document::load_from_bytes(&out).unwrap();
     assert_eq!(updated.page_count(), 1);
-    assert_eq!(updated.objects.get(&ObjectId::new(99, 0)), Some(&CosObject::Bool(true)));
+    assert_eq!(
+        updated.objects.get(&ObjectId::new(99, 0)),
+        Some(&CosObject::Bool(true))
+    );
 }
 
 // ===========================================================================
@@ -228,7 +219,8 @@ fn malformed_missing_header_lenient_recovers() {
     assert!(!report.is_clean(), "expected warnings for missing header");
     assert!(
         report.warnings.iter().any(|w| w.contains("header")),
-        "expected header warning, got: {:?}", report.warnings
+        "expected header warning, got: {:?}",
+        report.warnings
     );
     // Document is still returned (may have 0 objects due to broken xref)
     let _ = doc.page_count(); // must not panic
@@ -347,7 +339,10 @@ fn font_heavy_content_stream_accessible() {
     // Content stream object must be present
     let stream_id = ObjectId::new(4, 0);
     let stream_obj = doc.objects.get(&stream_id);
-    assert!(stream_obj.is_some(), "content stream object must be present");
+    assert!(
+        stream_obj.is_some(),
+        "content stream object must be present"
+    );
 }
 
 #[test]
@@ -357,14 +352,16 @@ fn font_heavy_text_extraction_from_stream() {
     let stream_id = ObjectId::new(4, 0);
     if let Some(CosObject::Stream(s)) = doc.objects.get(&stream_id) {
         let text = rust_pdfbox::text::extract_text(&s.data, None);
-        assert!(text.contains("TestText"), "expected 'TestText' in: {text:?}");
+        assert!(
+            text.contains("TestText"),
+            "expected 'TestText' in: {text:?}"
+        );
     }
 }
 
 #[test]
 fn font_heavy_multiline_content_stream() {
-    let content =
-        "BT /F1 12 Tf 72 720 Td (Line one) Tj 0 -14 Td (Line two) Tj ET";
+    let content = "BT /F1 12 Tf 72 720 Td (Line one) Tj 0 -14 Td (Line two) Tj ET";
     let mut pdf = b"%PDF-1.4\n".to_vec();
     let stream_off = pdf.len() as u64;
     pdf.extend_from_slice(
@@ -394,8 +391,14 @@ fn font_heavy_multiline_content_stream() {
     let doc = Document::load_from_bytes(&pdf).unwrap();
     if let Some(CosObject::Stream(s)) = doc.objects.get(&ObjectId::new(4, 0)) {
         let text = rust_pdfbox::text::extract_text(&s.data, None);
-        assert!(text.contains("Line one"), "expected 'Line one' in: {text:?}");
-        assert!(text.contains("Line two"), "expected 'Line two' in: {text:?}");
+        assert!(
+            text.contains("Line one"),
+            "expected 'Line one' in: {text:?}"
+        );
+        assert!(
+            text.contains("Line two"),
+            "expected 'Line two' in: {text:?}"
+        );
     }
 }
 
@@ -462,6 +465,8 @@ fn encrypted_standard_handler_key_derivation_deterministic() {
         u_entry: vec![0u8; 32],
         permissions: Permissions::all_allowed(),
         crypt_filter: None,
+        oe_entry: vec![],
+        ue_entry: vec![],
     };
     let fid = b"testfileid000000";
     let k1 = StandardSecurityHandler::compute_encryption_key(&enc, b"pass", fid);
@@ -521,7 +526,8 @@ fn large_many_small_objects() {
     pdf.extend_from_slice(
         format!(
             "{} 0 obj\n<< /Type /Catalog /Pages {} 0 R >>\nendobj\n",
-            n + 1, n + 2
+            n + 1,
+            n + 2
         )
         .as_bytes(),
     );
@@ -542,17 +548,15 @@ fn large_many_small_objects() {
     }
     pdf.extend_from_slice(format!("{:010} 00000 n \r\n", cat_off).as_bytes());
     pdf.extend_from_slice(format!("{:010} 00000 n \r\n", pages_off).as_bytes());
-    pdf.extend_from_slice(
-        format!(
-            "trailer\n<< /Size {total} /Root {} 0 R >>\n",
-            n + 1
-        )
-        .as_bytes(),
-    );
+    pdf.extend_from_slice(format!("trailer\n<< /Size {total} /Root {} 0 R >>\n", n + 1).as_bytes());
     pdf.extend_from_slice(format!("startxref\n{xref_off}\n%%EOF\n").as_bytes());
 
     let doc = Document::load_from_bytes(&pdf).unwrap();
-    assert!(doc.object_count() >= n, "expected ≥{n} objects, got {}", doc.object_count());
+    assert!(
+        doc.object_count() >= n,
+        "expected ≥{n} objects, got {}",
+        doc.object_count()
+    );
     // Spot-check a few integer objects
     for i in [1usize, 50, 100, 200] {
         let id = ObjectId::new(i as u32, 0);
@@ -593,5 +597,3 @@ fn recovery_report_valid_pdf_is_clean() {
         report.warnings
     );
 }
-
-

@@ -285,20 +285,22 @@ impl<'a> Parser<'a> {
             ParseError::unexpected_eof("indirect object generation", self.lexer.position())
         })?;
         let Token::Integer(generation) = tok2 else {
-            return Err(ParseError::expected("generation number", &tok2, self.lexer.position()));
+            return Err(ParseError::expected(
+                "generation number",
+                &tok2,
+                self.lexer.position(),
+            ));
         };
 
-        let (tok3, pos3) = self.next_token()?.ok_or_else(|| {
-            ParseError::unexpected_eof("obj keyword", self.lexer.position())
-        })?;
+        let (tok3, pos3) = self
+            .next_token()?
+            .ok_or_else(|| ParseError::unexpected_eof("obj keyword", self.lexer.position()))?;
         if !tok3.is_keyword(b"obj") {
             return Err(ParseError::expected("'obj' keyword", &tok3, pos3));
         }
 
         let id = ObjectId::new(obj_num as u32, generation as u16);
-        let value = self
-            .parse_object()?
-            .unwrap_or(CosObject::Null);
+        let value = self.parse_object()?.unwrap_or(CosObject::Null);
 
         // Consume optional `endobj`.
         // Use `ok()` to ignore lexer errors — if the object body is a stream
@@ -356,10 +358,7 @@ mod tests {
 
     #[test]
     fn parse_literal_string() {
-        assert_eq!(
-            parse_one(b"(hello)"),
-            CosObject::String(b"hello".to_vec())
-        );
+        assert_eq!(parse_one(b"(hello)"), CosObject::String(b"hello".to_vec()));
     }
 
     #[test]
@@ -422,10 +421,7 @@ mod tests {
         let inner = dict
             .get_dictionary(&CosName::new(b"Inner".to_vec()))
             .unwrap();
-        assert_eq!(
-            inner.get_int(&CosName::new(b"Key".to_vec())),
-            Some(42)
-        );
+        assert_eq!(inner.get_int(&CosName::new(b"Key".to_vec())), Some(42));
     }
 
     #[test]
@@ -504,4 +500,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-

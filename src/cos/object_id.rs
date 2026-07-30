@@ -65,5 +65,38 @@ mod tests {
         assert!(a < b);
         assert!(b < c);
     }
-}
 
+    #[test]
+    fn debug_format() {
+        let id = ObjectId::new(12, 0);
+        let _ = format!("{:?}", id);
+    }
+
+    #[test]
+    fn large_object_number() {
+        let id = ObjectId::new(999999, 65535);
+        assert_eq!(id.object_number, 999999);
+        assert_eq!(id.generation, 65535);
+    }
+
+    #[test]
+    fn zero_object_id() {
+        let id = ObjectId::new(0, 0);
+        assert_eq!(id.object_number, 0);
+        assert_eq!(id.generation, 0);
+    }
+
+    #[test]
+    fn copy_semantics() {
+        let a = ObjectId::new(5, 2);
+        let b = a;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn display_uses_r_format() {
+        let id = ObjectId::new(1, 0);
+        let s = id.to_string();
+        assert!(s.ends_with(" R"));
+    }
+}

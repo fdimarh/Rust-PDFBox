@@ -103,7 +103,7 @@ impl LzwDecoder {
 
         for _ in 0..decoder.code_size {
             let byte_pos = *bit_pos / 8;
-            let bit_offset = 7 - (*bit_pos % 8);  // MSB first
+            let bit_offset = 7 - (*bit_pos % 8); // MSB first
 
             if byte_pos >= data.len() {
                 return None;
@@ -145,7 +145,7 @@ mod tests {
     fn lzw_reset_code() {
         // Data: [256 (reset), 257 (eoi)]
         // This should reset the table without error
-        let data = vec![0x80, 0x02];  // 256 (9 bits: 100000000), 257 (9 bits: 100000001)
+        let data = vec![0x80, 0x02]; // 256 (9 bits: 100000000), 257 (9 bits: 100000001)
         match LzwDecoder::decode(&data) {
             Ok(out) => assert!(out.is_empty()),
             Err(e) => panic!("Expected empty output, got error: {}", e),
@@ -157,12 +157,12 @@ mod tests {
         // Code for byte 'A' (65) followed by EOI (257)
         // 65 = 001000001 (9 bits)
         // 257 = 100000001 (9 bits)
-        let data = vec![0x10, 0x04];  // Roughly correct binary for 65 then 257
+        let data = vec![0x10, 0x04]; // Roughly correct binary for 65 then 257
         match LzwDecoder::decode(&data) {
             Ok(out) => {
                 // Should have decoded at least something
-                assert!(!out.is_empty() || out.is_empty());  // Either way is valid for small data
-            },
+                assert!(!out.is_empty() || out.is_empty()); // Either way is valid for small data
+            }
             Err(_) => {
                 // Also acceptable if decoding fails on malformed data
             }
@@ -178,11 +178,11 @@ mod tests {
 
         // Code 65 ('A'), 66 ('B'), 258 (new entry for "AB"), 65 ('A'), 257 (EOI)
         // Simplified bit pattern
-        data.push(0x40);  // Start with some bits
+        data.push(0x40); // Start with some bits
 
         match LzwDecoder::decode(&data) {
-            Ok(_) => {},  // Success
-            Err(_) => {},  // Also OK — malformed data is handled gracefully
+            Ok(_) => {}  // Success
+            Err(_) => {} // Also OK — malformed data is handled gracefully
         }
     }
 
@@ -192,7 +192,7 @@ mod tests {
         // This is tested implicitly by handling codes > 255
         let decoder = LzwDecoder::new();
         assert_eq!(decoder.code_size, 9);
-        assert_eq!(decoder.table.len(), 256);  // Initial 256 single-byte codes
+        assert_eq!(decoder.table.len(), 256); // Initial 256 single-byte codes
     }
 
     #[test]
@@ -205,11 +205,10 @@ mod tests {
     #[test]
     fn lzw_invalid_code_too_early() {
         // Code larger than what's in table without EOI
-        let data = vec![0xFF, 0xFF];  // High bits that might exceed table
+        let data = vec![0xFF, 0xFF]; // High bits that might exceed table
         match LzwDecoder::decode(&data) {
-            Ok(_) => {},  // May succeed if bits happen to be valid
-            Err(_) => {},  // Or fail gracefully
+            Ok(_) => {}  // May succeed if bits happen to be valid
+            Err(_) => {} // Or fail gracefully
         }
     }
 }
-

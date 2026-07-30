@@ -121,4 +121,3 @@ fn flatten_annotation_appends_do_operator() -> PdfResult<()> {
 
     Ok(())
 }
-

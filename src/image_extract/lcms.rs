@@ -4,7 +4,7 @@
 //! Maps to PDFBox's color management pipeline.
 
 use image::RgbaImage;
-use lcms2::{Profile, Transform, PixelFormat};
+use lcms2::{PixelFormat, Profile, Transform};
 
 /// Applies an ICC color profile to raw pixel data to convert it into accurate sRGB.
 pub fn apply_icc_profile(
@@ -38,14 +38,20 @@ pub fn apply_icc_profile(
     let out_format = PixelFormat::RGBA_8;
 
     // 3. Create Color Transform
-    let transform = match Transform::new(&source_profile, in_format, &srgb_profile, out_format, lcms2::Intent::Perceptual) {
+    let transform = match Transform::new(
+        &source_profile,
+        in_format,
+        &srgb_profile,
+        out_format,
+        lcms2::Intent::Perceptual,
+    ) {
         Ok(t) => t,
         Err(_) => return img,
     };
 
     // 4. Transform data into output buffer
     let mut srgb_buffer = vec![0u8; (width * height * 4) as usize];
-    
+
     // LCMS expects chunks of pixels based on component count
     // So we pad or slice the input raw_pixels to ensure proper boundaries
     let total_expected_bytes = (width * height) as usize * components;
@@ -72,4 +78,42 @@ pub fn apply_icc_profile(
     }
 
     img
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn apply_icc_corrupted_profile_returns_blank() {
+        // Invalid/corrupted ICC profile data should trigger the error path
+        let img = apply_icc_profile(&[0u8; 400], b"not-an-icc-profile", 10, 10, 3);
+        assert_eq!(img.width(), 10);
+        assert_eq!(img.height(), 10);
+        // All pixels must be zero (blank)
+        for pixel in img.pixels() {
+            assert_eq!(pixel.0, [0, 0, 0, 0]);
+        }
+    }
+
+    #[test]
+    fn apply_icc_empty_pixels_returns_blank() {
+        let img = apply_icc_profile(&[], b"", 1, 1, 3);
+        assert_eq!(img.width(), 1);
+        assert_eq!(img.height(), 1);
+    }
+
+    #[test]
+    fn apply_icc_small_profile_no_panic() {
+        // A valid ICC profile header is at least 128 bytes; a small garbage profile should still not panic
+        let img = apply_icc_profile(&[128u8; 200], b"x", 2, 2, 3);
+        assert_eq!(img.width(), 2);
+    }
+
+    #[test]
+    fn apply_icc_zero_sized_no_panic() {
+        let img = apply_icc_profile(&[], b"", 0, 0, 3);
+        assert_eq!(img.width(), 0);
+        assert_eq!(img.height(), 0);
+    }
 }

@@ -21,7 +21,12 @@ struct PageSnap {
 }
 
 #[derive(Debug, Clone)]
-struct PermSnap { print: bool, copy: bool, modify: bool, annotate: bool }
+struct PermSnap {
+    print: bool,
+    copy: bool,
+    modify: bool,
+    annotate: bool,
+}
 
 #[derive(Debug)]
 struct Snapshot {
@@ -37,19 +42,27 @@ struct Snapshot {
 
 fn xstr(s: &str, key: &str) -> String {
     let needle = format!("\"{}\"", key);
-    let pos = match s.find(&needle) { Some(p) => p, None => return String::new() };
+    let pos = match s.find(&needle) {
+        Some(p) => p,
+        None => return String::new(),
+    };
     let after = &s[pos + needle.len()..];
     let colon = after.find(':').unwrap_or(0);
     let v = after[colon + 1..].trim_start();
     if v.starts_with('"') {
         let end = v[1..].find('"').unwrap_or(v.len() - 1);
         v[1..end + 1].to_string()
-    } else { String::new() }
+    } else {
+        String::new()
+    }
 }
 
 fn xusize(s: &str, key: &str) -> usize {
     let needle = format!("\"{}\"", key);
-    let pos = match s.find(&needle) { Some(p) => p, None => return 0 };
+    let pos = match s.find(&needle) {
+        Some(p) => p,
+        None => return 0,
+    };
     let after = &s[pos + needle.len()..];
     let colon = after.find(':').unwrap_or(0);
     let v = after[colon + 1..].trim_start();
@@ -59,27 +72,40 @@ fn xusize(s: &str, key: &str) -> usize {
 
 fn xf64(s: &str, key: &str) -> f64 {
     let needle = format!("\"{}\"", key);
-    let pos = match s.find(&needle) { Some(p) => p, None => return 0.0 };
+    let pos = match s.find(&needle) {
+        Some(p) => p,
+        None => return 0.0,
+    };
     let after = &s[pos + needle.len()..];
     let colon = after.find(':').unwrap_or(0);
     let v = after[colon + 1..].trim_start();
-    let end = v.find(|c: char| !c.is_ascii_digit() && c != '.' && c != '-').unwrap_or(v.len());
+    let end = v
+        .find(|c: char| !c.is_ascii_digit() && c != '.' && c != '-')
+        .unwrap_or(v.len());
     v[..end].parse().unwrap_or(0.0)
 }
 
 fn xi64(s: &str, key: &str) -> i64 {
     let needle = format!("\"{}\"", key);
-    let pos = match s.find(&needle) { Some(p) => p, None => return 0 };
+    let pos = match s.find(&needle) {
+        Some(p) => p,
+        None => return 0,
+    };
     let after = &s[pos + needle.len()..];
     let colon = after.find(':').unwrap_or(0);
     let v = after[colon + 1..].trim_start();
-    let end = v.find(|c: char| !c.is_ascii_digit() && c != '-').unwrap_or(v.len());
+    let end = v
+        .find(|c: char| !c.is_ascii_digit() && c != '-')
+        .unwrap_or(v.len());
     v[..end].parse().unwrap_or(0)
 }
 
 fn xbool(s: &str, key: &str) -> bool {
     let needle = format!("\"{}\"", key);
-    let pos = match s.find(&needle) { Some(p) => p, None => return false };
+    let pos = match s.find(&needle) {
+        Some(p) => p,
+        None => return false,
+    };
     let after = &s[pos + needle.len()..];
     let colon = after.find(':').unwrap_or(0);
     after[colon + 1..].trim_start().starts_with("true")
@@ -88,9 +114,15 @@ fn xbool(s: &str, key: &str) -> bool {
 fn xstrarray(json: &str, key: &str) -> Vec<String> {
     let mut out = Vec::new();
     let needle = format!("\"{}\"", key);
-    let pos = match json.find(&needle) { Some(p) => p, None => return out };
+    let pos = match json.find(&needle) {
+        Some(p) => p,
+        None => return out,
+    };
     let after = &json[pos + needle.len()..];
-    let arr_start = match after.find('[') { Some(p) => p + 1, None => return out };
+    let arr_start = match after.find('[') {
+        Some(p) => p + 1,
+        None => return out,
+    };
     let arr = &after[arr_start..];
     let mut i = 0;
     while i < arr.len() {
@@ -100,37 +132,53 @@ fn xstrarray(json: &str, key: &str) -> Vec<String> {
                 let from = i + qs + 1;
                 match arr[from..].find('"') {
                     None => break,
-                    Some(qe) => { out.push(arr[from..from + qe].to_string()); i = from + qe + 1; }
+                    Some(qe) => {
+                        out.push(arr[from..from + qe].to_string());
+                        i = from + qe + 1;
+                    }
                 }
             }
         }
-        if arr[i..].starts_with(']') { break; }
+        if arr[i..].starts_with(']') {
+            break;
+        }
     }
     out
 }
 
 fn parse_pages(json: &str) -> Vec<PageSnap> {
     let mut pages = Vec::new();
-    let start = match json.find("\"pages\"") { Some(p) => p, None => return pages };
-    let arr_start = match json[start..].find('[') { Some(p) => start + p + 1, None => return pages };
+    let start = match json.find("\"pages\"") {
+        Some(p) => p,
+        None => return pages,
+    };
+    let arr_start = match json[start..].find('[') {
+        Some(p) => start + p + 1,
+        None => return pages,
+    };
     let arr = &json[arr_start..];
     let mut depth = 0i32;
     let mut obj_start: Option<usize> = None;
     for (i, ch) in arr.char_indices() {
         match ch {
-            '{' => { if depth == 0 { obj_start = Some(i); } depth += 1; }
+            '{' => {
+                if depth == 0 {
+                    obj_start = Some(i);
+                }
+                depth += 1;
+            }
             '}' => {
                 depth -= 1;
                 if depth == 0 {
                     if let Some(s) = obj_start {
                         let obj = &arr[s..=i];
                         pages.push(PageSnap {
-                            index:         xusize(obj, "index"),
-                            width:         xf64(obj, "width"),
-                            height:        xf64(obj, "height"),
-                            rotation:      xi64(obj, "rotation"),
-                            text_len_min:  xusize(obj, "text_len_min"),
-                            text_len_max:  xusize(obj, "text_len_max"),
+                            index: xusize(obj, "index"),
+                            width: xf64(obj, "width"),
+                            height: xf64(obj, "height"),
+                            rotation: xi64(obj, "rotation"),
+                            text_len_min: xusize(obj, "text_len_min"),
+                            text_len_max: xusize(obj, "text_len_max"),
                             text_contains: xstrarray(obj, "text_contains"),
                         });
                     }
@@ -145,19 +193,22 @@ fn parse_pages(json: &str) -> Vec<PageSnap> {
 }
 
 fn parse_snapshot(json: &str) -> Snapshot {
-    let pb  = json.find("\"permissions\"").unwrap_or(0);
+    let pb = json.find("\"permissions\"").unwrap_or(0);
     let pb2 = json[pb..].find('{').map(|p| pb + p).unwrap_or(pb);
-    let pb3 = json[pb2..].find('}').map(|p| pb2 + p + 1).unwrap_or(json.len());
+    let pb3 = json[pb2..]
+        .find('}')
+        .map(|p| pb2 + p + 1)
+        .unwrap_or(json.len());
     let perm = &json[pb2..pb3];
     Snapshot {
-        file:        xstr(json, "file"),
+        file: xstr(json, "file"),
         pdf_version: xstr(json, "pdf_version"),
-        page_count:  xusize(json, "page_count"),
-        pages:       parse_pages(json),
+        page_count: xusize(json, "page_count"),
+        pages: parse_pages(json),
         permissions: PermSnap {
-            print:    xbool(perm, "print"),
-            copy:     xbool(perm, "copy"),
-            modify:   xbool(perm, "modify"),
+            print: xbool(perm, "print"),
+            copy: xbool(perm, "copy"),
+            modify: xbool(perm, "modify"),
             annotate: xbool(perm, "annotate"),
         },
         fonts: xstrarray(json, "fonts"),
@@ -167,22 +218,44 @@ fn parse_snapshot(json: &str) -> Snapshot {
 // ── Validation engine ────────────────────────────────────────────────────────
 
 #[derive(Debug, PartialEq)]
-enum Check { Pass, Fail(String), Skip(String) }
+enum Check {
+    Pass,
+    Fail(String),
+    Skip(String),
+}
 
-struct VResult { file: String, checks: Vec<(String, Check)> }
+struct VResult {
+    file: String,
+    checks: Vec<(String, Check)>,
+}
 
 impl VResult {
-    fn new(f: &str) -> Self { Self { file: f.to_string(), checks: Vec::new() } }
-    fn pass(&mut self, n: &str) { self.checks.push((n.into(), Check::Pass)); }
-    fn fail(&mut self, n: &str, m: impl Into<String>) { self.checks.push((n.into(), Check::Fail(m.into()))); }
-    fn skip(&mut self, n: &str, m: impl Into<String>) { self.checks.push((n.into(), Check::Skip(m.into()))); }
-    fn is_ok(&self) -> bool { self.checks.iter().all(|(_, c)| !matches!(c, Check::Fail(_))) }
+    fn new(f: &str) -> Self {
+        Self {
+            file: f.to_string(),
+            checks: Vec::new(),
+        }
+    }
+    fn pass(&mut self, n: &str) {
+        self.checks.push((n.into(), Check::Pass));
+    }
+    fn fail(&mut self, n: &str, m: impl Into<String>) {
+        self.checks.push((n.into(), Check::Fail(m.into())));
+    }
+    fn skip(&mut self, n: &str, m: impl Into<String>) {
+        self.checks.push((n.into(), Check::Skip(m.into())));
+    }
+    fn is_ok(&self) -> bool {
+        self.checks
+            .iter()
+            .all(|(_, c)| !matches!(c, Check::Fail(_)))
+    }
     fn summary(&self) -> String {
         let status = if self.is_ok() { "PASS" } else { "FAIL" };
         let mut s = format!("\n=== {} --- {} ===\n", self.file, status);
         for (n, c) in &self.checks {
             match c {
-                Check::Pass    => s.push_str(&format!("  OK   {}\n", n)),
+                Check::Pass => s.push_str(&format!("  OK   {}\n", n)),
                 Check::Fail(m) => s.push_str(&format!("  FAIL {} -- {}\n", n, m)),
                 Check::Skip(m) => s.push_str(&format!("  SKIP {} ({})\n", n, m)),
             }
@@ -196,18 +269,27 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
 
     // page count
     let pc = doc.page_count();
-    if pc == snap.page_count { r.pass("page_count"); }
-    else { r.fail("page_count", format!("expected {}, got {}", snap.page_count, pc)); }
+    if pc == snap.page_count {
+        r.pass("page_count");
+    } else {
+        r.fail(
+            "page_count",
+            format!("expected {}, got {}", snap.page_count, pc),
+        );
+    }
 
     // pdf version — not directly exposed; skip gracefully
     r.skip("pdf_version", "version not exposed via API");
 
     // permissions — structural check (not encrypted in our test fixtures)
-    r.skip("permissions", "encryption handler not used for these fixtures");
+    r.skip(
+        "permissions",
+        "encryption handler not used for these fixtures",
+    );
 
     // page tree — only needed when the snapshot requires per-page checks
     let pages = match doc.pages() {
-        Ok(p)  => Some(p),
+        Ok(p) => Some(p),
         Err(e) => {
             if snap.pages.is_empty() {
                 // Malformed / empty fixture — page tree inaccessible is expected
@@ -219,12 +301,18 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
             }
         }
     };
-    let pages = match pages { Some(p) => p, None => return r };
+    let pages = match pages {
+        Some(p) => p,
+        None => return r,
+    };
 
     for ps in &snap.pages {
         let page = match pages.get(ps.index) {
             Some(p) => p,
-            None    => { r.fail(&format!("page[{}]", ps.index), "page not found"); continue; }
+            None => {
+                r.fail(&format!("page[{}]", ps.index), "page not found");
+                continue;
+            }
         };
 
         // dimensions
@@ -234,7 +322,10 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
             if (w - ps.width).abs() <= 0.5 && (h - ps.height).abs() <= 0.5 {
                 r.pass(&dname);
             } else {
-                r.fail(&dname, format!("expected {}x{} got {}x{}", ps.width, ps.height, w, h));
+                r.fail(
+                    &dname,
+                    format!("expected {}x{} got {}x{}", ps.width, ps.height, w, h),
+                );
             }
         } else {
             r.skip(&dname, "no MediaBox");
@@ -242,8 +333,14 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
 
         // rotation
         let rname = format!("page[{}]_rotation", ps.index);
-        if page.rotation() == ps.rotation { r.pass(&rname); }
-        else { r.fail(&rname, format!("expected {}, got {}", ps.rotation, page.rotation())); }
+        if page.rotation() == ps.rotation {
+            r.pass(&rname);
+        } else {
+            r.fail(
+                &rname,
+                format!("expected {}, got {}", ps.rotation, page.rotation()),
+            );
+        }
 
         // text
         let tname = format!("page[{}]_text", ps.index);
@@ -259,7 +356,9 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
 
             // Helper: get decoded bytes from a stream object (apply /Filter if present).
             let decode_stream_obj = |stream: &rust_pdfbox::cos::CosStream| -> Vec<u8> {
-                let filter = stream.dictionary.get(&rust_pdfbox::cos::CosName::new(b"Filter".to_vec()));
+                let filter = stream
+                    .dictionary
+                    .get(&rust_pdfbox::cos::CosName::new(b"Filter".to_vec()));
                 decode_stream(&stream.data, filter).unwrap_or_else(|_| stream.data.clone())
             };
 
@@ -267,7 +366,8 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
                 if let Some(s) = contents.as_stream() {
                     decode_stream_obj(s)
                 } else if let Some(refid) = contents.as_reference() {
-                    doc.objects.get(&refid)
+                    doc.objects
+                        .get(&refid)
                         .and_then(|o| o.as_stream())
                         .map(|s| decode_stream_obj(s))
                         .unwrap_or_default()
@@ -281,9 +381,15 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
             let text = extract_text(&content_bytes, None);
             let tl = text.len();
             if tl < ps.text_len_min {
-                r.fail(&tname, format!("text too short: {} < {}", tl, ps.text_len_min));
+                r.fail(
+                    &tname,
+                    format!("text too short: {} < {}", tl, ps.text_len_min),
+                );
             } else if tl > ps.text_len_max {
-                r.fail(&tname, format!("text too long: {} > {}", tl, ps.text_len_max));
+                r.fail(
+                    &tname,
+                    format!("text too long: {} > {}", tl, ps.text_len_max),
+                );
             } else {
                 let mut ok = true;
                 for req in &ps.text_contains {
@@ -293,7 +399,9 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
                         break;
                     }
                 }
-                if ok { r.pass(&tname); }
+                if ok {
+                    r.pass(&tname);
+                }
             }
         }
         #[cfg(not(feature = "text"))]
@@ -308,7 +416,9 @@ fn validate(doc: &Document, snap: &Snapshot) -> VResult {
 fn single_page_pdf(width: f64, height: f64) -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
     let p1_off = pdf.len() as u64;
-    pdf.extend_from_slice(format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes());
+    pdf.extend_from_slice(
+        format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes(),
+    );
     let pages_off = pdf.len() as u64;
     pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
     let cat_off = pdf.len() as u64;
@@ -326,7 +436,9 @@ fn single_page_pdf(width: f64, height: f64) -> Vec<u8> {
 fn single_page_pdf_version(version: &str, width: f64, height: f64) -> Vec<u8> {
     let mut pdf = format!("%PDF-{version}\n").into_bytes();
     let p1_off = pdf.len() as u64;
-    pdf.extend_from_slice(format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes());
+    pdf.extend_from_slice(
+        format!("2 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes(),
+    );
     let pages_off = pdf.len() as u64;
     pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
     let cat_off = pdf.len() as u64;
@@ -380,15 +492,29 @@ fn n_page_pdf(n: usize, width: f64, height: f64) -> Vec<u8> {
     for i in 0..n {
         let obj_num = i + 2;
         page_offsets.push(pdf.len() as u64);
-        pdf.extend_from_slice(format!("{obj_num} 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n").as_bytes());
+        pdf.extend_from_slice(
+            format!(
+                "{obj_num} 0 obj\n<< /Type /Page /MediaBox [0 0 {width} {height}] >>\nendobj\n"
+            )
+            .as_bytes(),
+        );
     }
     let pages_obj = n + 2;
     let pages_off = pdf.len() as u64;
-    let kids: String = (0..n).map(|i| format!("{} 0 R", i + 2)).collect::<Vec<_>>().join(" ");
-    pdf.extend_from_slice(format!("{pages_obj} 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {n} >>\nendobj\n").as_bytes());
+    let kids: String = (0..n)
+        .map(|i| format!("{} 0 R", i + 2))
+        .collect::<Vec<_>>()
+        .join(" ");
+    pdf.extend_from_slice(
+        format!("{pages_obj} 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {n} >>\nendobj\n")
+            .as_bytes(),
+    );
     let cat_obj = n + 3;
     let cat_off = pdf.len() as u64;
-    pdf.extend_from_slice(format!("{cat_obj} 0 obj\n<< /Type /Catalog /Pages {pages_obj} 0 R >>\nendobj\n").as_bytes());
+    pdf.extend_from_slice(
+        format!("{cat_obj} 0 obj\n<< /Type /Catalog /Pages {pages_obj} 0 R >>\nendobj\n")
+            .as_bytes(),
+    );
     let xref_off = pdf.len();
     let total = cat_obj + 1;
     pdf.extend_from_slice(format!("xref\n0 {total}\n").as_bytes());
@@ -416,9 +542,17 @@ fn content_stream_pdf(text: &str) -> Vec<u8> {
     let content = format!("BT /F1 12 Tf 72 720 Td ({text}) Tj ET");
     let mut pdf = b"%PDF-1.4\n".to_vec();
     let stream_off = pdf.len() as u64;
-    pdf.extend_from_slice(format!("4 0 obj\n<< /Length {} >>\nstream\n{content}\nendstream\nendobj\n", content.len()).as_bytes());
+    pdf.extend_from_slice(
+        format!(
+            "4 0 obj\n<< /Length {} >>\nstream\n{content}\nendstream\nendobj\n",
+            content.len()
+        )
+        .as_bytes(),
+    );
     let page_off = pdf.len() as u64;
-    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n");
+    pdf.extend_from_slice(
+        b"2 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n",
+    );
     let pages_off = pdf.len() as u64;
     pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
     let cat_off = pdf.len() as u64;
@@ -439,9 +573,17 @@ fn multiline_content_stream_pdf() -> Vec<u8> {
     let content = "BT /F1 12 Tf 72 720 Td (Line one) Tj 0 -14 Td (Line two) Tj ET";
     let mut pdf = b"%PDF-1.4\n".to_vec();
     let stream_off = pdf.len() as u64;
-    pdf.extend_from_slice(format!("4 0 obj\n<< /Length {} >>\nstream\n{content}\nendstream\nendobj\n", content.len()).as_bytes());
+    pdf.extend_from_slice(
+        format!(
+            "4 0 obj\n<< /Length {} >>\nstream\n{content}\nendstream\nendobj\n",
+            content.len()
+        )
+        .as_bytes(),
+    );
     let page_off = pdf.len() as u64;
-    pdf.extend_from_slice(b"2 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n");
+    pdf.extend_from_slice(
+        b"2 0 obj\n<< /Type /Page /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n",
+    );
     let pages_off = pdf.len() as u64;
     pdf.extend_from_slice(b"3 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n");
     let cat_off = pdf.len() as u64;
@@ -465,7 +607,9 @@ fn missing_header_pdf() -> Vec<u8> {
     bytes
 }
 
-fn empty_bytes_pdf() -> Vec<u8> { vec![] }
+fn empty_bytes_pdf() -> Vec<u8> {
+    vec![]
+}
 
 fn broken_xref_pdf() -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
@@ -483,32 +627,32 @@ fn fixture_bytes(fixture: &str) -> Vec<u8> {
     match fixture {
         // Smoke
         "smoke/letter_single_page.pdf" => single_page_pdf(612.0, 792.0),
-        "smoke/a4_single_page.pdf"     => single_page_pdf(595.0, 842.0),
-        "smoke/five_pages.pdf"         => n_page_pdf(5,   612.0, 792.0),
-        "smoke/ten_pages.pdf"          => n_page_pdf(10,  612.0, 792.0),
-        "smoke/three_pages.pdf"        => n_page_pdf(3,   612.0, 792.0),
-        "smoke/minimal_catalog.pdf"    => minimal_catalog_pdf(),
-        "smoke/custom_page_size.pdf"   => single_page_pdf(200.0, 300.0),
-        "smoke/version_1_7.pdf"        => single_page_pdf_version("1.7", 612.0, 792.0),
-        "smoke/rotated_90.pdf"         => rotated_page_pdf(612.0, 792.0, 90),
-        "smoke/rotated_270.pdf"        => rotated_page_pdf(612.0, 792.0, 270),
-        "smoke/round_trip.pdf"         => round_trip_pdf(3),
+        "smoke/a4_single_page.pdf" => single_page_pdf(595.0, 842.0),
+        "smoke/five_pages.pdf" => n_page_pdf(5, 612.0, 792.0),
+        "smoke/ten_pages.pdf" => n_page_pdf(10, 612.0, 792.0),
+        "smoke/three_pages.pdf" => n_page_pdf(3, 612.0, 792.0),
+        "smoke/minimal_catalog.pdf" => minimal_catalog_pdf(),
+        "smoke/custom_page_size.pdf" => single_page_pdf(200.0, 300.0),
+        "smoke/version_1_7.pdf" => single_page_pdf_version("1.7", 612.0, 792.0),
+        "smoke/rotated_90.pdf" => rotated_page_pdf(612.0, 792.0, 90),
+        "smoke/rotated_270.pdf" => rotated_page_pdf(612.0, 792.0, 270),
+        "smoke/round_trip.pdf" => round_trip_pdf(3),
         // Font-heavy
-        "font_heavy/text_hello_world.pdf"  => content_stream_pdf("Hello World"),
-        "font_heavy/text_multiline.pdf"    => multiline_content_stream_pdf(),
+        "font_heavy/text_hello_world.pdf" => content_stream_pdf("Hello World"),
+        "font_heavy/text_multiline.pdf" => multiline_content_stream_pdf(),
         "font_heavy/text_empty_stream.pdf" => content_stream_pdf(""),
         // Encrypted (structural only — no actual encryption applied)
-        "encrypted/permissions_all.pdf"       => single_page_pdf(612.0, 792.0),
-        "encrypted/permissions_none.pdf"      => single_page_pdf(612.0, 792.0),
+        "encrypted/permissions_all.pdf" => single_page_pdf(612.0, 792.0),
+        "encrypted/permissions_none.pdf" => single_page_pdf(612.0, 792.0),
         "encrypted/permissions_print_only.pdf" => single_page_pdf(612.0, 792.0),
         // Malformed
         "malformed/missing_header.pdf" => missing_header_pdf(),
-        "malformed/empty_bytes.pdf"    => empty_bytes_pdf(),
-        "malformed/broken_xref.pdf"    => broken_xref_pdf(),
+        "malformed/empty_bytes.pdf" => empty_bytes_pdf(),
+        "malformed/broken_xref.pdf" => broken_xref_pdf(),
         // Large
-        "large/100_pages.pdf"   => n_page_pdf(100, 612.0, 792.0),
-        "large/fifty_pages.pdf" => n_page_pdf(50,  612.0, 792.0),
-        "large/200_pages.pdf"   => n_page_pdf(200, 612.0, 792.0),
+        "large/100_pages.pdf" => n_page_pdf(100, 612.0, 792.0),
+        "large/fifty_pages.pdf" => n_page_pdf(50, 612.0, 792.0),
+        "large/200_pages.pdf" => n_page_pdf(200, 612.0, 792.0),
         other => panic!("Unknown fixture: {other}"),
     }
 }
@@ -539,7 +683,13 @@ fn run_cv(snapshot: &str, fixture: &str) -> VResult {
         Err(e) => panic!("Failed to load {fixture} ({source}): {e}"),
     };
     let mut r = validate(&doc, &snap);
-    r.checks.insert(0, (format!("[source: {source}]"), Check::Skip(format!("loaded from {source}"))));
+    r.checks.insert(
+        0,
+        (
+            format!("[source: {source}]"),
+            Check::Skip(format!("loaded from {source}")),
+        ),
+    );
     r
 }
 
@@ -551,10 +701,15 @@ fn run_cv_lenient(snapshot: &str, fixture: &str) -> VResult {
     let (bytes, source) = load_fixture(fixture);
     let (doc, _report) = Document::load_lenient(&bytes);
     let mut r = validate(&doc, &snap);
-    r.checks.insert(0, (format!("[source: {source}]"), Check::Skip(format!("info: lenient load from {source}"))));
+    r.checks.insert(
+        0,
+        (
+            format!("[source: {source}]"),
+            Check::Skip(format!("info: lenient load from {source}")),
+        ),
+    );
     r
 }
-
 
 // ── Test macros ───────────────────────────────────────────────────────────────
 
@@ -564,7 +719,12 @@ macro_rules! cv {
         fn $name() {
             let r = run_cv($snap, $fix);
             print!("{}", r.summary());
-            assert!(r.is_ok(), "Cross-validation FAILED for {}\n{}", $fix, r.summary());
+            assert!(
+                r.is_ok(),
+                "Cross-validation FAILED for {}\n{}",
+                $fix,
+                r.summary()
+            );
         }
     };
 }
@@ -575,44 +735,141 @@ macro_rules! cv_lenient {
         fn $name() {
             let r = run_cv_lenient($snap, $fix);
             print!("{}", r.summary());
-            assert!(r.is_ok(), "Cross-validation FAILED for {}\n{}", $fix, r.summary());
+            assert!(
+                r.is_ok(),
+                "Cross-validation FAILED for {}\n{}",
+                $fix,
+                r.summary()
+            );
         }
     };
 }
 
 // ── Smoke tier ───────────────────────────────────────────────────────────────
-cv!(cv_smoke_letter_single_page, "smoke_letter_single_page.json", "smoke/letter_single_page.pdf");
-cv!(cv_smoke_a4_single_page,     "smoke_a4_single_page.json",     "smoke/a4_single_page.pdf");
-cv!(cv_smoke_five_pages,         "smoke_five_pages.json",         "smoke/five_pages.pdf");
-cv!(cv_smoke_ten_pages,          "smoke_ten_pages.json",          "smoke/ten_pages.pdf");
-cv!(cv_smoke_three_pages,        "smoke_three_pages.json",        "smoke/three_pages.pdf");
-cv!(cv_smoke_minimal_catalog,    "smoke_minimal_catalog.json",    "smoke/minimal_catalog.pdf");
-cv!(cv_smoke_custom_page_size,   "smoke_custom_page_size.json",   "smoke/custom_page_size.pdf");
-cv!(cv_smoke_version_1_7,        "smoke_version_1_7.json",        "smoke/version_1_7.pdf");
-cv!(cv_smoke_rotated_90,         "smoke_rotated_90.json",         "smoke/rotated_90.pdf");
-cv!(cv_smoke_rotated_270,        "smoke_rotated_270.json",        "smoke/rotated_270.pdf");
-cv!(cv_smoke_round_trip,         "smoke_round_trip.json",         "smoke/round_trip.pdf");
+cv!(
+    cv_smoke_letter_single_page,
+    "smoke_letter_single_page.json",
+    "smoke/letter_single_page.pdf"
+);
+cv!(
+    cv_smoke_a4_single_page,
+    "smoke_a4_single_page.json",
+    "smoke/a4_single_page.pdf"
+);
+cv!(
+    cv_smoke_five_pages,
+    "smoke_five_pages.json",
+    "smoke/five_pages.pdf"
+);
+cv!(
+    cv_smoke_ten_pages,
+    "smoke_ten_pages.json",
+    "smoke/ten_pages.pdf"
+);
+cv!(
+    cv_smoke_three_pages,
+    "smoke_three_pages.json",
+    "smoke/three_pages.pdf"
+);
+cv!(
+    cv_smoke_minimal_catalog,
+    "smoke_minimal_catalog.json",
+    "smoke/minimal_catalog.pdf"
+);
+cv!(
+    cv_smoke_custom_page_size,
+    "smoke_custom_page_size.json",
+    "smoke/custom_page_size.pdf"
+);
+cv!(
+    cv_smoke_version_1_7,
+    "smoke_version_1_7.json",
+    "smoke/version_1_7.pdf"
+);
+cv!(
+    cv_smoke_rotated_90,
+    "smoke_rotated_90.json",
+    "smoke/rotated_90.pdf"
+);
+cv!(
+    cv_smoke_rotated_270,
+    "smoke_rotated_270.json",
+    "smoke/rotated_270.pdf"
+);
+cv!(
+    cv_smoke_round_trip,
+    "smoke_round_trip.json",
+    "smoke/round_trip.pdf"
+);
 
 // ── Font-heavy tier ───────────────────────────────────────────────────────────
-cv!(cv_font_heavy_hello_world,   "font_heavy_text_hello_world.json",  "font_heavy/text_hello_world.pdf");
-cv!(cv_font_heavy_multiline,     "font_heavy_text_multiline.json",    "font_heavy/text_multiline.pdf");
-cv!(cv_font_heavy_empty_stream,  "font_heavy_text_empty_stream.json", "font_heavy/text_empty_stream.pdf");
+cv!(
+    cv_font_heavy_hello_world,
+    "font_heavy_text_hello_world.json",
+    "font_heavy/text_hello_world.pdf"
+);
+cv!(
+    cv_font_heavy_multiline,
+    "font_heavy_text_multiline.json",
+    "font_heavy/text_multiline.pdf"
+);
+cv!(
+    cv_font_heavy_empty_stream,
+    "font_heavy_text_empty_stream.json",
+    "font_heavy/text_empty_stream.pdf"
+);
 
 // ── Encrypted tier ────────────────────────────────────────────────────────────
 // Encrypted PDFs require decryption before full page traversal; use lenient loader.
-cv_lenient!(cv_encrypted_perms_all,        "encrypted_permissions_all.json",        "encrypted/permissions_all.pdf");
-cv_lenient!(cv_encrypted_perms_none,       "encrypted_permissions_none.json",       "encrypted/permissions_none.pdf");
-cv_lenient!(cv_encrypted_perms_print_only, "encrypted_permissions_print_only.json", "encrypted/permissions_print_only.pdf");
+cv_lenient!(
+    cv_encrypted_perms_all,
+    "encrypted_permissions_all.json",
+    "encrypted/permissions_all.pdf"
+);
+cv_lenient!(
+    cv_encrypted_perms_none,
+    "encrypted_permissions_none.json",
+    "encrypted/permissions_none.pdf"
+);
+cv_lenient!(
+    cv_encrypted_perms_print_only,
+    "encrypted_permissions_print_only.json",
+    "encrypted/permissions_print_only.pdf"
+);
 
 // ── Malformed tier (lenient) ──────────────────────────────────────────────────
-cv_lenient!(cv_malformed_missing_header, "malformed_missing_header.json", "malformed/missing_header.pdf");
-cv_lenient!(cv_malformed_empty_bytes,    "malformed_empty_bytes.json",    "malformed/empty_bytes.pdf");
-cv_lenient!(cv_malformed_broken_xref,    "malformed_broken_xref.json",    "malformed/broken_xref.pdf");
+cv_lenient!(
+    cv_malformed_missing_header,
+    "malformed_missing_header.json",
+    "malformed/missing_header.pdf"
+);
+cv_lenient!(
+    cv_malformed_empty_bytes,
+    "malformed_empty_bytes.json",
+    "malformed/empty_bytes.pdf"
+);
+cv_lenient!(
+    cv_malformed_broken_xref,
+    "malformed_broken_xref.json",
+    "malformed/broken_xref.pdf"
+);
 
 // ── Large tier ────────────────────────────────────────────────────────────────
-cv!(cv_large_100_pages,  "large_100_pages.json",   "large/100_pages.pdf");
-cv!(cv_large_fifty_pages, "large_fifty_pages.json", "large/fifty_pages.pdf");
-cv!(cv_large_200_pages,  "large_200_pages.json",   "large/200_pages.pdf");
+cv!(
+    cv_large_100_pages,
+    "large_100_pages.json",
+    "large/100_pages.pdf"
+);
+cv!(
+    cv_large_fifty_pages,
+    "large_fifty_pages.json",
+    "large/fifty_pages.pdf"
+);
+cv!(
+    cv_large_200_pages,
+    "large_200_pages.json",
+    "large/200_pages.pdf"
+);
 
 // ── Snapshot parser self-tests ────────────────────────────────────────────────
 

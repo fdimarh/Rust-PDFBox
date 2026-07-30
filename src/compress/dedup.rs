@@ -10,9 +10,9 @@ use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
+use super::CompressOptions;
 use crate::cos::{CosObject, ObjectId};
 use crate::{Document, PdfResult};
-use super::CompressOptions;
 
 // ---------------------------------------------------------------------------
 // Public report
@@ -227,9 +227,95 @@ mod tests {
     fn dedup_count_field_accurate() {
         // Synthesise two identical stream objects and verify dedup collapses them.
         // (Full integration test covered in tests/compress_integration.rs)
-        let report = DedupReport { objects_deduped: 5, bytes_saved: 1000 };
+        let report = DedupReport {
+            objects_deduped: 5,
+            bytes_saved: 1000,
+        };
         assert_eq!(report.objects_deduped, 5);
         assert_eq!(report.bytes_saved, 1000);
     }
-}
 
+    #[test]
+    fn hash_dict_consistent() {
+        use crate::cos::CosDictionary;
+        let mut d1 = CosDictionary::new();
+        d1.set(crate::cos::CosName::new(b"A".to_vec()), CosObject::Integer(1));
+        d1.set(crate::cos::CosName::new(b"B".to_vec()), CosObject::Integer(2));
+        let mut d2 = CosDictionary::new();
+        d2.set(crate::cos::CosName::new(b"B".to_vec()), CosObject::Integer(2));
+        d2.set(crate::cos::CosName::new(b"A".to_vec()), CosObject::Integer(1));
+        assert_eq!(hash_dict(&d1), hash_dict(&d2), "order-independent hash");
+    }
+
+    #[test]
+    fn hash_dict_different_values() {
+        use crate::cos::CosDictionary;
+        let mut d1 = CosDictionary::new();
+        d1.set(crate::cos::CosName::new(b"A".to_vec()), CosObject::Integer(1));
+        let mut d2 = CosDictionary::new();
+        d2.set(crate::cos::CosName::new(b"A".to_vec()), CosObject::Integer(2));
+        assert_ne!(hash_dict(&d1), hash_dict(&d2));
+    }
+
+    #[test]
+    fn objects_equal_stream_same_bytes() {
+        use crate::cos::{CosDictionary, CosStream};
+        let d = CosDictionary::new();
+        let s = CosObject::Stream(CosStream::new(d, b"hello".to_vec()));
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        let id_a = ObjectId::new(50, 0);
+        let id_b = ObjectId::new(51, 0);
+        doc.insert_object(id_a, s.clone());
+        doc.insert_object(id_b, s);
+        assert!(objects_equal(&doc, id_a, id_b));
+    }
+
+    #[test]
+    fn objects_equal_stream_different_bytes() {
+        use crate::cos::{CosDictionary, CosStream};
+        let d = CosDictionary::new();
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        let id_a = ObjectId::new(60, 0);
+        let id_b = ObjectId::new(61, 0);
+        doc.insert_object(id_a, CosObject::Stream(CosStream::new(d.clone(), b"aaa".to_vec())));
+        doc.insert_object(id_b, CosObject::Stream(CosStream::new(d, b"bbb".to_vec())));
+        assert!(!objects_equal(&doc, id_a, id_b));
+    }
+
+    #[test]
+    fn rewrite_in_object_reference() {
+        use std::collections::HashMap;
+        let mut remap = HashMap::new();
+        remap.insert(ObjectId::new(1, 0), ObjectId::new(10, 0));
+        let mut obj = CosObject::Reference(ObjectId::new(1, 0));
+        rewrite_in_object(&mut obj, &remap);
+        assert_eq!(obj.as_reference(), Some(ObjectId::new(10, 0)));
+    }
+
+    #[test]
+    fn rewrite_in_object_array_nested() {
+        use std::collections::HashMap;
+        let mut remap = HashMap::new();
+        remap.insert(ObjectId::new(5, 0), ObjectId::new(99, 0));
+        let mut obj = CosObject::Array(vec![
+            CosObject::Integer(1),
+            CosObject::Reference(ObjectId::new(5, 0)),
+            CosObject::Reference(ObjectId::new(5, 0)),
+        ]);
+        rewrite_in_object(&mut obj, &remap);
+        let arr = obj.as_array().unwrap();
+        assert_eq!(arr[0].as_integer(), Some(1));
+        assert_eq!(arr[1].as_reference(), Some(ObjectId::new(99, 0)));
+        assert_eq!(arr[2].as_reference(), Some(ObjectId::new(99, 0)));
+    }
+
+    #[test]
+    fn rewrite_in_object_ignores_non_ref() {
+        use std::collections::HashMap;
+        let mut remap = HashMap::new();
+        remap.insert(ObjectId::new(1, 0), ObjectId::new(10, 0));
+        let mut obj = CosObject::Integer(42);
+        rewrite_in_object(&mut obj, &remap);
+        assert_eq!(obj.as_integer(), Some(42));
+    }
+}

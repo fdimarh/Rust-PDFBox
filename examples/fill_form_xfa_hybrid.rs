@@ -5,14 +5,16 @@ fn main() {
 
 #[cfg(feature = "forms")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use rust_pdfbox::forms::set_field_value;
     use rust_pdfbox::Document;
+    use rust_pdfbox::forms::set_field_value;
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 5 {
         eprintln!(
             "Usage: {} <input.pdf> <output.pdf> <field_name> <value>",
-            args.first().map(String::as_str).unwrap_or("fill_form_xfa_hybrid")
+            args.first()
+                .map(String::as_str)
+                .unwrap_or("fill_form_xfa_hybrid")
         );
         std::process::exit(2);
     }
@@ -57,4 +59,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

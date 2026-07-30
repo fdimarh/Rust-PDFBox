@@ -27,9 +27,9 @@
 //! **Feature `compress-mozjpeg`** (super-set of `compress-images`):
 //! - [`mozjpeg`](https://crates.io/crates/mozjpeg) `0.10` — libjpeg-turbo JPEG encoder (progressive + psychovisual)
 
+use super::CompressOptions;
 use crate::cos::{CosName, CosObject, ObjectId};
 use crate::{Document, PdfResult};
-use super::CompressOptions;
 
 // ---------------------------------------------------------------------------
 // Public report
@@ -127,16 +127,16 @@ fn compute_effective_dpi_map(
             let tok = tokens[i];
             if tok == "cm" && i >= 6 {
                 let m: [f32; 6] = [
-                    tokens[i-6].parse().unwrap_or(1.0),
-                    tokens[i-5].parse().unwrap_or(0.0),
-                    tokens[i-4].parse().unwrap_or(0.0),
-                    tokens[i-3].parse().unwrap_or(1.0),
-                    tokens[i-2].parse().unwrap_or(0.0),
-                    tokens[i-1].parse().unwrap_or(0.0),
+                    tokens[i - 6].parse().unwrap_or(1.0),
+                    tokens[i - 5].parse().unwrap_or(0.0),
+                    tokens[i - 4].parse().unwrap_or(0.0),
+                    tokens[i - 3].parse().unwrap_or(1.0),
+                    tokens[i - 2].parse().unwrap_or(0.0),
+                    tokens[i - 1].parse().unwrap_or(0.0),
                 ];
                 last_cm = Some(m);
-            } else if tok == "Do" && i >= 1 && tokens[i-1].starts_with('/') {
-                let name = &tokens[i-1][1..];
+            } else if tok == "Do" && i >= 1 && tokens[i - 1].starts_with('/') {
+                let name = &tokens[i - 1][1..];
                 if let Some(obj_id) = xobj_map.get(name) {
                     if image_ids.contains(obj_id) {
                         let ctm_w_pts = last_cm
@@ -228,9 +228,16 @@ fn image_pixel_width(doc: &Document, id: ObjectId) -> u32 {
         Some(s) => s,
         None => return 0,
     };
-    stream.dictionary
+    stream
+        .dictionary
         .get(&CosName::new(b"Width".to_vec()))
-        .and_then(|v| if let CosObject::Integer(n) = v { Some(*n as u32) } else { None })
+        .and_then(|v| {
+            if let CosObject::Integer(n) = v {
+                Some(*n as u32)
+            } else {
+                None
+            }
+        })
         .unwrap_or(0)
 }
 
@@ -240,7 +247,9 @@ fn image_pixel_width(doc: &Document, id: ObjectId) -> u32 {
 fn get_jbig2_globals(doc: &Document, id: ObjectId) -> Option<Vec<u8>> {
     let stream = doc.get_object_ref(id)?.as_stream()?;
 
-    let decode_parms = stream.dictionary.get(&CosName::new(b"DecodeParms".to_vec()))?;
+    let decode_parms = stream
+        .dictionary
+        .get(&CosName::new(b"DecodeParms".to_vec()))?;
     let parms_dict = match decode_parms {
         CosObject::Dictionary(d) => d,
         CosObject::Reference(r) => doc.get_object_ref(*r)?.as_dictionary()?,
@@ -267,7 +276,11 @@ fn try_optimize_image(
     opts: &CompressOptions,
     report: &mut ImagesReport,
 ) -> PdfResult<()> {
-    #[cfg(any(feature = "compress-images", feature = "compress-mozjpeg", feature = "compress-jbig2"))]
+    #[cfg(any(
+        feature = "compress-images",
+        feature = "compress-mozjpeg",
+        feature = "compress-jbig2"
+    ))]
     {
         return optimize_with_image_crate(doc, id, dpi_map, opts, report);
     }
@@ -280,7 +293,11 @@ fn try_optimize_image(
 // Full implementation
 // ---------------------------------------------------------------------------
 
-#[cfg(any(feature = "compress-images", feature = "compress-mozjpeg", feature = "compress-jbig2"))]
+#[cfg(any(
+    feature = "compress-images",
+    feature = "compress-mozjpeg",
+    feature = "compress-jbig2"
+))]
 fn optimize_with_image_crate(
     doc: &mut Document,
     id: ObjectId,
@@ -288,8 +305,8 @@ fn optimize_with_image_crate(
     opts: &CompressOptions,
     report: &mut ImagesReport,
 ) -> PdfResult<()> {
-    use image::{DynamicImage, ImageBuffer, Rgb, Luma};
     use image::imageops::FilterType;
+    use image::{DynamicImage, ImageBuffer, Luma, Rgb};
 
     // ── Gather image metadata ─────────────────────────────────────────────────
     let (filter_name, width, height, bits, colorspace_name, original_len) = {
@@ -298,61 +315,116 @@ fn optimize_with_image_crate(
             Some(s) => s,
             None => return Ok(()),
         };
-        let filter = stream.dictionary
+        let filter = stream
+            .dictionary
             .get(&CosName::new(b"Filter".to_vec()))
             .and_then(|v| {
-                if let CosObject::Name(n) = v { n.as_str().map(|s| s.to_string()) } else { None }
+                if let CosObject::Name(n) = v {
+                    n.as_str().map(|s| s.to_string())
+                } else {
+                    None
+                }
             })
             .unwrap_or_default();
-        let w = stream.dictionary
+        let w = stream
+            .dictionary
             .get(&CosName::new(b"Width".to_vec()))
-            .and_then(|v| if let CosObject::Integer(n) = v { Some(*n as u32) } else { None })
+            .and_then(|v| {
+                if let CosObject::Integer(n) = v {
+                    Some(*n as u32)
+                } else {
+                    None
+                }
+            })
             .unwrap_or(0);
-        let h = stream.dictionary
+        let h = stream
+            .dictionary
             .get(&CosName::new(b"Height".to_vec()))
-            .and_then(|v| if let CosObject::Integer(n) = v { Some(*n as u32) } else { None })
+            .and_then(|v| {
+                if let CosObject::Integer(n) = v {
+                    Some(*n as u32)
+                } else {
+                    None
+                }
+            })
             .unwrap_or(0);
-        let bpc = stream.dictionary
+        let bpc = stream
+            .dictionary
             .get(&CosName::new(b"BitsPerComponent".to_vec()))
-            .and_then(|v| if let CosObject::Integer(n) = v { Some(*n as u32) } else { None })
+            .and_then(|v| {
+                if let CosObject::Integer(n) = v {
+                    Some(*n as u32)
+                } else {
+                    None
+                }
+            })
             .unwrap_or(8);
-        let cs = stream.dictionary
+        let cs = stream
+            .dictionary
             .get(&CosName::new(b"ColorSpace".to_vec()))
-            .and_then(|v| if let CosObject::Name(n) = v { n.as_str().map(|s| s.to_string()) } else { None })
+            .and_then(|v| {
+                if let CosObject::Name(n) = v {
+                    n.as_str().map(|s| s.to_string())
+                } else {
+                    None
+                }
+            })
             .unwrap_or_else(|| "DeviceRGB".to_string());
         let orig_len = stream.data.len();
         (filter, w, h, bpc, cs, orig_len)
     };
 
-    if width == 0 || height == 0 { return Ok(()); }
+    if width == 0 || height == 0 {
+        return Ok(());
+    }
     // Skip JPX (JPEG 2000) — no pure-Rust decoder.
-    if filter_name == "JPXDecode" { return Ok(()); }
+    if filter_name == "JPXDecode" {
+        return Ok(());
+    }
     // Skip JBIG2 when compress-jbig2 feature is absent.
     #[cfg(not(feature = "compress-jbig2"))]
-    if filter_name == "JBIG2Decode" { return Ok(()); }
+    if filter_name == "JBIG2Decode" {
+        return Ok(());
+    }
 
     // ── Decode raw pixels ─────────────────────────────────────────────────────
-    let (raw_pixels, decoded_as_gray) = decode_image_pixels(doc, id, &filter_name, width, height, bits, &colorspace_name)?;
-    if raw_pixels.is_empty() { return Ok(()); }
+    let (raw_pixels, decoded_as_gray) =
+        decode_image_pixels(doc, id, &filter_name, width, height, bits, &colorspace_name)?;
+    if raw_pixels.is_empty() {
+        return Ok(());
+    }
 
     // ── Build DynamicImage ────────────────────────────────────────────────────
     // JBIG2 decoded data is always 8-bit grayscale (1-bit expanded).
     let is_jbig2 = filter_name == "JBIG2Decode";
-    let channels = if decoded_as_gray || is_jbig2
+    let channels = if decoded_as_gray
+        || is_jbig2
         || colorspace_name == "DeviceGray"
         || colorspace_name.contains("Gray")
         || bits == 1
-    { 1 } else { 3 };
+    {
+        1
+    } else {
+        3
+    };
 
     let mut dyn_img: DynamicImage = if channels == 1 {
-        if raw_pixels.len() < (width * height) as usize { return Ok(()); }
+        if raw_pixels.len() < (width * height) as usize {
+            return Ok(());
+        }
         let buf = ImageBuffer::<Luma<u8>, _>::from_raw(width, height, raw_pixels.clone())
-            .ok_or_else(|| crate::PdfError::Compress { reason: "bad Luma image buffer".into() })?;
+            .ok_or_else(|| crate::PdfError::Compress {
+                reason: "bad Luma image buffer".into(),
+            })?;
         DynamicImage::ImageLuma8(buf)
     } else {
-        if raw_pixels.len() < (width * height * 3) as usize { return Ok(()); }
+        if raw_pixels.len() < (width * height * 3) as usize {
+            return Ok(());
+        }
         let buf = ImageBuffer::<Rgb<u8>, _>::from_raw(width, height, raw_pixels.clone())
-            .ok_or_else(|| crate::PdfError::Compress { reason: "bad RGB image buffer".into() })?;
+            .ok_or_else(|| crate::PdfError::Compress {
+                reason: "bad RGB image buffer".into(),
+            })?;
         DynamicImage::ImageRgb8(buf)
     };
     let mut is_gray = channels == 1;
@@ -415,7 +487,12 @@ fn optimize_with_image_crate(
     // ── JPEG re-encode (lossy) ────────────────────────────────────────────────
     // Applied to DCT, downsampled JBIG2 (8-bit gray), and other decoded images.
     if opts.optimize_images {
-        let jpeg_bytes = encode_jpeg(&dyn_img, opts.image_jpeg_quality, is_gray, opts.image_use_mozjpeg);
+        let jpeg_bytes = encode_jpeg(
+            &dyn_img,
+            opts.image_jpeg_quality,
+            is_gray,
+            opts.image_use_mozjpeg,
+        );
         if !jpeg_bytes.is_empty() && jpeg_bytes.len() < original_len {
             let saved = original_len - jpeg_bytes.len();
             update_image_stream(doc, id, jpeg_bytes, new_w, new_h, is_gray, true);
@@ -433,7 +510,11 @@ fn optimize_with_image_crate(
 
 /// Decode an image XObject into a raw 8-bit pixel buffer.
 /// Returns `(pixels, is_gray)`.
-#[cfg(any(feature = "compress-images", feature = "compress-mozjpeg", feature = "compress-jbig2"))]
+#[cfg(any(
+    feature = "compress-images",
+    feature = "compress-mozjpeg",
+    feature = "compress-jbig2"
+))]
 fn decode_image_pixels(
     doc: &Document,
     id: ObjectId,
@@ -459,7 +540,7 @@ fn decode_image_pixels(
             {
                 let globals = get_jbig2_globals(doc, id);
                 let pixels = decode_jbig2_pixels(&stream.data, globals.as_deref(), width, height)?;
-                Ok((pixels, true))  // JBIG2 always decodes to 8-bit gray
+                Ok((pixels, true)) // JBIG2 always decodes to 8-bit gray
             }
             #[cfg(not(feature = "compress-jbig2"))]
             Ok((vec![], false))
@@ -478,7 +559,11 @@ fn decode_image_pixels(
 // JPEG decode
 // ---------------------------------------------------------------------------
 
-#[cfg(any(feature = "compress-images", feature = "compress-mozjpeg", feature = "compress-jbig2"))]
+#[cfg(any(
+    feature = "compress-images",
+    feature = "compress-mozjpeg",
+    feature = "compress-jbig2"
+))]
 fn decode_jpeg_pixels(data: &[u8]) -> PdfResult<Vec<u8>> {
     // Try zune-jpeg first (fast pure-Rust).
     #[cfg(any(feature = "compress-images", feature = "compress-jbig2"))]
@@ -499,9 +584,10 @@ fn decode_jpeg_pixels(data: &[u8]) -> PdfResult<Vec<u8>> {
         Ok(mut dec) => {
             let (w, h) = dec.dimensions();
             let mut buf = vec![0u8; (w * h * dec.color_type().bytes_per_pixel() as u32) as usize];
-            dec.read_image(&mut buf).map_err(|e| crate::PdfError::Compress {
-                reason: format!("JPEG decode failed: {e}"),
-            })?;
+            dec.read_image(&mut buf)
+                .map_err(|e| crate::PdfError::Compress {
+                    reason: format!("JPEG decode failed: {e}"),
+                })?;
             Ok(buf)
         }
         Err(e) => Err(crate::PdfError::Compress {
@@ -537,7 +623,11 @@ fn decode_jbig2_pixels(
         let mut glob_cursor = std::io::Cursor::new(glob);
         Document::from_reader(&mut page_cursor, Some(&mut glob_cursor), OpenFlag::Embedded)
     } else {
-        Document::from_reader(&mut page_cursor, None::<&mut std::io::Cursor<&[u8]>>, OpenFlag::Embedded)
+        Document::from_reader(
+            &mut page_cursor,
+            None::<&mut std::io::Cursor<&[u8]>>,
+            OpenFlag::Embedded,
+        )
     };
 
     let doc = doc.map_err(|e| crate::PdfError::Compress {
@@ -573,11 +663,13 @@ fn decode_jbig2_pixels(
     for row in 0..use_h as usize {
         let row_start = row * stride;
         let row_end = (row_start + stride).min(packed.len());
-        if row_start >= packed.len() { break; }
+        if row_start >= packed.len() {
+            break;
+        }
         let row_data = &packed[row_start..row_end];
         for col in 0..use_w as usize {
             let byte_idx = col / 8;
-            let bit_pos = 7 - (col % 8);  // MSB first
+            let bit_pos = 7 - (col % 8); // MSB first
             let bit = if byte_idx < row_data.len() {
                 (row_data[byte_idx] >> bit_pos) & 1
             } else {
@@ -622,9 +714,18 @@ fn is_photo_image(filter: &str) -> bool {
 // JPEG encoding
 // ---------------------------------------------------------------------------
 
-#[cfg(any(feature = "compress-images", feature = "compress-mozjpeg", feature = "compress-jbig2"))]
+#[cfg(any(
+    feature = "compress-images",
+    feature = "compress-mozjpeg",
+    feature = "compress-jbig2"
+))]
 #[allow(unreachable_code, unused_variables)]
-fn encode_jpeg(img: &image::DynamicImage, quality: u8, _is_gray: bool, use_mozjpeg: bool) -> Vec<u8> {
+fn encode_jpeg(
+    img: &image::DynamicImage,
+    quality: u8,
+    _is_gray: bool,
+    use_mozjpeg: bool,
+) -> Vec<u8> {
     #[cfg(feature = "compress-mozjpeg")]
     if use_mozjpeg {
         return encode_mozjpeg(img, quality);
@@ -644,14 +745,20 @@ fn encode_jpeg_encoder(img: &image::DynamicImage, quality: u8) -> Vec<u8> {
     let encoder = jpeg_encoder::Encoder::new(&mut out, quality);
 
     let result = match img {
-        image::DynamicImage::ImageLuma8(buf) => {
-            encoder.encode(buf.as_raw(), buf.width() as u16, buf.height() as u16,
-                           jpeg_encoder::ColorType::Luma)
-        }
+        image::DynamicImage::ImageLuma8(buf) => encoder.encode(
+            buf.as_raw(),
+            buf.width() as u16,
+            buf.height() as u16,
+            jpeg_encoder::ColorType::Luma,
+        ),
         _ => {
             let rgb = img.to_rgb8();
-            encoder.encode(rgb.as_raw(), rgb.width() as u16, rgb.height() as u16,
-                           jpeg_encoder::ColorType::Rgb)
+            encoder.encode(
+                rgb.as_raw(),
+                rgb.width() as u16,
+                rgb.height() as u16,
+                jpeg_encoder::ColorType::Rgb,
+            )
         }
     };
 
@@ -674,7 +781,7 @@ fn encode_mozjpeg(img: &image::DynamicImage, quality: u8) -> Vec<u8> {
             let mut compress = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_GRAYSCALE);
             compress.set_size(width, height);
             compress.set_quality(quality as f32);
-            compress.set_progressive_mode();   // progressive JPEG: 5–15% smaller
+            compress.set_progressive_mode(); // progressive JPEG: 5–15% smaller
             let mut started = compress.start_compress(Vec::new()).unwrap();
             started.write_scanlines(gray.as_raw()).unwrap();
             started.finish().unwrap_or_default()
@@ -685,7 +792,7 @@ fn encode_mozjpeg(img: &image::DynamicImage, quality: u8) -> Vec<u8> {
             let mut compress = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
             compress.set_size(width, height);
             compress.set_quality(quality as f32);
-            compress.set_progressive_mode();   // progressive JPEG: 5–15% smaller
+            compress.set_progressive_mode(); // progressive JPEG: 5–15% smaller
             // 4:2:0 chroma subsampling (same as ilovepdf)
             compress.set_chroma_sampling_pixel_sizes((2, 2), (2, 2));
             let mut started = compress.start_compress(Vec::new()).unwrap();
@@ -701,7 +808,11 @@ fn encode_mozjpeg(img: &image::DynamicImage, quality: u8) -> Vec<u8> {
 // PNG optimization
 // ---------------------------------------------------------------------------
 
-#[cfg(any(feature = "compress-images", feature = "compress-mozjpeg", feature = "compress-jbig2"))]
+#[cfg(any(
+    feature = "compress-images",
+    feature = "compress-mozjpeg",
+    feature = "compress-jbig2"
+))]
 fn png_optimize(img: &image::DynamicImage, w: u32, h: u32, is_gray: bool) -> Option<Vec<u8>> {
     #[cfg(any(feature = "compress-images", feature = "compress-jbig2"))]
     {
@@ -740,26 +851,34 @@ fn png_optimize(img: &image::DynamicImage, w: u32, h: u32, is_gray: bool) -> Opt
 /// Returns `None` if the `fax` crate is not available (no `compress-jbig2` feature).
 #[cfg(feature = "compress-jbig2")]
 fn encode_ccitt_g4(gray8: &[u8], width: u32, height: u32) -> Option<Vec<u8>> {
-    use fax::{Color, VecWriter};
     use fax::encoder::Encoder;
+    use fax::{Color, VecWriter};
 
     let mut encoder = Encoder::new(VecWriter::new());
 
     for row in 0..height as usize {
         let row_start = row * width as usize;
         let row_end = row_start + width as usize;
-        if row_end > gray8.len() { break; }
+        if row_end > gray8.len() {
+            break;
+        }
 
         let line = gray8[row_start..row_end].iter().map(|&px| {
             // 0xFF = white, 0x00 = black  (our JBIG2 expand convention)
-            if px >= 128 { Color::White } else { Color::Black }
+            if px >= 128 {
+                Color::White
+            } else {
+                Color::Black
+            }
         });
 
         encoder.encode_line(line, width as u16).ok()?;
     }
 
     let data = encoder.finish().ok()?.finish();
-    if data.is_empty() { return None; }
+    if data.is_empty() {
+        return None;
+    }
     Some(data)
 }
 
@@ -782,20 +901,41 @@ fn update_image_stream_ccitt(
     doc.mutate_object(id, |obj| {
         if let CosObject::Stream(stream) = obj {
             stream.data = new_data;
-            stream.dictionary.set(CosName::new(b"Width".to_vec()),  CosObject::Integer(width as i64));
-            stream.dictionary.set(CosName::new(b"Height".to_vec()), CosObject::Integer(height as i64));
-            stream.dictionary.set(CosName::new(b"Filter".to_vec()),
-                CosObject::Name(CosName::new(b"CCITTFaxDecode".to_vec())));
+            stream.dictionary.set(
+                CosName::new(b"Width".to_vec()),
+                CosObject::Integer(width as i64),
+            );
+            stream.dictionary.set(
+                CosName::new(b"Height".to_vec()),
+                CosObject::Integer(height as i64),
+            );
+            stream.dictionary.set(
+                CosName::new(b"Filter".to_vec()),
+                CosObject::Name(CosName::new(b"CCITTFaxDecode".to_vec())),
+            );
             // /DecodeParms << /K -1 /Columns width >>
             let mut parms = CosDictionary::new();
-            parms.set(CosName::new(b"K".to_vec()),       CosObject::Integer(-1));
-            parms.set(CosName::new(b"Columns".to_vec()), CosObject::Integer(width as i64));
-            stream.dictionary.set(CosName::new(b"DecodeParms".to_vec()),
-                CosObject::Dictionary(parms));
-            stream.dictionary.set(CosName::new(b"ColorSpace".to_vec()),
-                CosObject::Name(CosName::new(b"DeviceGray".to_vec())));
-            stream.dictionary.set(CosName::new(b"BitsPerComponent".to_vec()), CosObject::Integer(1));
-            stream.dictionary.set(CosName::new(b"Length".to_vec()), CosObject::Integer(data_len));
+            parms.set(CosName::new(b"K".to_vec()), CosObject::Integer(-1));
+            parms.set(
+                CosName::new(b"Columns".to_vec()),
+                CosObject::Integer(width as i64),
+            );
+            stream.dictionary.set(
+                CosName::new(b"DecodeParms".to_vec()),
+                CosObject::Dictionary(parms),
+            );
+            stream.dictionary.set(
+                CosName::new(b"ColorSpace".to_vec()),
+                CosObject::Name(CosName::new(b"DeviceGray".to_vec())),
+            );
+            stream.dictionary.set(
+                CosName::new(b"BitsPerComponent".to_vec()),
+                CosObject::Integer(1),
+            );
+            stream.dictionary.set(
+                CosName::new(b"Length".to_vec()),
+                CosObject::Integer(data_len),
+            );
         }
     });
 }
@@ -816,13 +956,33 @@ fn update_image_stream(
     doc.mutate_object(id, |obj| {
         if let CosObject::Stream(stream) = obj {
             stream.data = new_data;
-            stream.dictionary.set(CosName::new(b"Width".to_vec()),  CosObject::Integer(new_w as i64));
-            stream.dictionary.set(CosName::new(b"Height".to_vec()), CosObject::Integer(new_h as i64));
-            stream.dictionary.set(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(filter_name.as_bytes().to_vec())));
-            stream.dictionary.set(CosName::new(b"ColorSpace".to_vec()), CosObject::Name(CosName::new(cs_name.as_bytes().to_vec())));
-            stream.dictionary.set(CosName::new(b"BitsPerComponent".to_vec()), CosObject::Integer(8));
-            stream.dictionary.set(CosName::new(b"Length".to_vec()), CosObject::Integer(data_len));
-            stream.dictionary.remove(&CosName::new(b"DecodeParms".to_vec()));
+            stream.dictionary.set(
+                CosName::new(b"Width".to_vec()),
+                CosObject::Integer(new_w as i64),
+            );
+            stream.dictionary.set(
+                CosName::new(b"Height".to_vec()),
+                CosObject::Integer(new_h as i64),
+            );
+            stream.dictionary.set(
+                CosName::new(b"Filter".to_vec()),
+                CosObject::Name(CosName::new(filter_name.as_bytes().to_vec())),
+            );
+            stream.dictionary.set(
+                CosName::new(b"ColorSpace".to_vec()),
+                CosObject::Name(CosName::new(cs_name.as_bytes().to_vec())),
+            );
+            stream.dictionary.set(
+                CosName::new(b"BitsPerComponent".to_vec()),
+                CosObject::Integer(8),
+            );
+            stream.dictionary.set(
+                CosName::new(b"Length".to_vec()),
+                CosObject::Integer(data_len),
+            );
+            stream
+                .dictionary
+                .remove(&CosName::new(b"DecodeParms".to_vec()));
         }
     });
 }
@@ -865,9 +1025,12 @@ mod tests {
     #[test]
     fn detect_image_xobject() {
         let mut dict = crate::cos::CosDictionary::new();
-        dict.set(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Image".to_vec())));
-        dict.set(CosName::new(b"Width".to_vec()),   CosObject::Integer(10));
-        dict.set(CosName::new(b"Height".to_vec()),  CosObject::Integer(10));
+        dict.set(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Image".to_vec())),
+        );
+        dict.set(CosName::new(b"Width".to_vec()), CosObject::Integer(10));
+        dict.set(CosName::new(b"Height".to_vec()), CosObject::Integer(10));
         let subtype = dict.get(&CosName::new(b"Subtype".to_vec()));
         assert!(matches!(subtype, Some(CosObject::Name(n)) if n.as_str() == Some("Image")));
     }
@@ -916,10 +1079,9 @@ mod tests {
     fn jbig2_bit_expansion_white_black() {
         // Byte 0b10000000: bit 7 = 1 (black), bit 6 = 0 (white)
         let byte = 0b10000000u8;
-        let bit7 = (byte >> 7) & 1;  // MSB = 1 → black
-        let bit6 = (byte >> 6) & 1;  // → 0 → white
-        assert_eq!(if bit7 == 0 { 0xFF } else { 0x00 }, 0x00);  // black
-        assert_eq!(if bit6 == 0 { 0xFF } else { 0x00 }, 0xFF);  // white
+        let bit7 = (byte >> 7) & 1; // MSB = 1 → black
+        let bit6 = (byte >> 6) & 1; // → 0 → white
+        assert_eq!(if bit7 == 0 { 0xFF } else { 0x00 }, 0x00); // black
+        assert_eq!(if bit6 == 0 { 0xFF } else { 0x00 }, 0xFF); // white
     }
 }
-

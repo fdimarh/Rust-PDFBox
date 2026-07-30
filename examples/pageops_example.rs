@@ -1,6 +1,6 @@
-use std::env;
 use rust_pdfbox::Document;
-use rust_pdfbox::pageops::{PdfSplitter, PdfMerger};
+use rust_pdfbox::pageops::{PdfMerger, PdfSplitter};
+use std::env;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -49,4 +49,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
