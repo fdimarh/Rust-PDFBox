@@ -108,4 +108,16 @@ mod tests {
         assert_eq!(arr[0].as_reference(), Some(widget_id));
         assert_eq!(dict.get(&CosName::new(b"SigFlags")), Some(&CosObject::Integer(3)));
     }
+
+    #[test]
+    fn test_build_acroform_with_changed_fields() {
+        let doc = doc_with_fields();
+        let widget_id = ObjectId::new(10, 0);
+        let mut changed = BTreeMap::new();
+        let result = build_acroform(&doc, widget_id, ObjectId::new(3, 0), &mut changed);
+        let dict = result.as_dictionary().unwrap();
+        let fields = dict.get(&CosName::new(b"Fields")).unwrap();
+        let arr = fields.as_array().unwrap();
+        assert_eq!(arr.len(), 2, "should have original field + new widget");
+    }
 }
