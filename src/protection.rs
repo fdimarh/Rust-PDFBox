@@ -35,3 +35,51 @@ impl StandardProtectionPolicy {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::crypto::Permissions;
+
+    #[test]
+    fn test_policy_new_with_both_passwords() {
+        let policy = StandardProtectionPolicy::new("owner", "user", Permissions::all_allowed());
+        assert_eq!(policy.user_password, Some("user".into()));
+        assert_eq!(policy.owner_password, "owner");
+        assert_eq!(policy.permissions, Permissions::all_allowed());
+    }
+
+    #[test]
+    fn test_policy_owner_only() {
+        let policy = StandardProtectionPolicy::owner_password("owner", Permissions::all_allowed());
+        assert_eq!(policy.user_password, None);
+        assert_eq!(policy.owner_password, "owner");
+    }
+
+    #[test]
+    fn test_policy_default() {
+        let policy = StandardProtectionPolicy::default();
+        assert_eq!(policy.user_password, None);
+        assert!(policy.owner_password.is_empty());
+    }
+
+    #[test]
+    fn test_policy_new_into_string() {
+        let policy = StandardProtectionPolicy::new(
+            String::from("owner_pass"),
+            String::from("user_pass"),
+            Permissions::none_allowed(),
+        );
+        assert_eq!(policy.user_password, Some("user_pass".into()));
+        let perms = Permissions::none_allowed();
+        assert_eq!(policy.permissions, perms);
+    }
+
+    #[test]
+    fn test_policy_restricted() {
+        let perms = Permissions::none_allowed();
+        let policy = StandardProtectionPolicy::new("o", "u", perms);
+        assert!(!policy.permissions.can_fill_forms());
+        assert!(!policy.permissions.can_print());
+    }
+}
