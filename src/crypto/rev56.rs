@@ -305,4 +305,35 @@ mod tests {
         let result = aes256_cbc_decrypt_no_pad(&key, &iv, &[0u8; 32]);
         assert_eq!(result.len(), 32, "32 byte ciphertext = 2 blocks = 32 bytes output");
     }
+
+    #[test]
+    fn test_aes128_cbc_pipeline_multiple_repetitions() {
+        let key = [0u8; 16];
+        let iv = [0u8; 16];
+        let data = [0x42u8; 48]; // 3 blocks
+        let r1 = aes128_cbc_pipeline(&key, &iv, &data, 1);
+        let r64 = aes128_cbc_pipeline(&key, &iv, &data, 64);
+        assert_eq!(r1.len(), 48);
+        assert_eq!(r64.len(), 48 * 64);
+        // First 48 bytes equal r1 (first repetition always same)
+        assert_eq!(&r64[..48], &r1);
+        // Later repetitions differ from first
+        assert_ne!(&r64[48..96], &r1[..48]);
+    }
+
+    #[test]
+    fn test_recover_key_r6_owner_valid_non_matching() {
+        let mut o_entry = vec![0u8; 48];
+        o_entry[32..40].copy_from_slice(b"valsalt1");
+        o_entry[40..48].copy_from_slice(b"keyslt88");
+        // U entry doesn't match, should return None
+        let result = recover_encryption_key_r6_owner(b"any", &o_entry, &[0u8; 48], &[0u8; 32]);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_compute_encryption_key_rev6_legacy() {
+        let result = compute_encryption_key_rev6(b"x", b"y", b"z");
+        assert!(result.is_empty());
+    }
 }

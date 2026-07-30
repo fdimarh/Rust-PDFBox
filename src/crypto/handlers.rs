@@ -759,4 +759,63 @@ mod tests {
         let result = StandardSecurityHandler::authenticate(&enc, b"", fid);
         assert!(result.is_authenticated());
     }
+
+    #[test]
+    fn constant_time_eq_equal_slices() {
+        assert!(StandardSecurityHandler::constant_time_eq(b"hello", b"hello"));
+    }
+
+    #[test]
+    fn constant_time_eq_different_length() {
+        assert!(!StandardSecurityHandler::constant_time_eq(b"hi", b"hello"));
+    }
+
+    #[test]
+    fn constant_time_eq_different_content() {
+        assert!(!StandardSecurityHandler::constant_time_eq(b"hello", b"world"));
+    }
+
+    #[test]
+    fn constant_time_eq_empty_slices() {
+        assert!(StandardSecurityHandler::constant_time_eq(b"", b""));
+    }
+
+    #[test]
+    fn encryption_dict_debug() {
+        let enc = EncryptionDict {
+            revision: 2,
+            key_length: 5,
+            o_entry: vec![0u8; 32],
+            u_entry: vec![0u8; 32],
+            permissions: Permissions::all_allowed(),
+            crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
+        };
+        let _ = format!("{:?}", enc);
+    }
+
+    #[test]
+    fn compute_key_rev2_rev3_different_file_ids() {
+        let enc = EncryptionDict {
+            revision: 2,
+            key_length: 5,
+            o_entry: vec![0u8; 32],
+            u_entry: vec![0u8; 32],
+            permissions: Permissions::all_allowed(),
+            crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
+        };
+        let k1 = StandardSecurityHandler::compute_encryption_key(&enc, b"pass", b"fid1_fid1_fid1_");
+        let k2 = StandardSecurityHandler::compute_encryption_key(&enc, b"pass", b"fid2_fid2_fid2_");
+        assert_ne!(k1, k2);
+    }
+
+    #[test]
+    fn auth_result_owner_password() {
+        let r = AuthResult::OwnerPassword(vec![4u8; 16]);
+        assert!(r.is_authenticated());
+        assert_eq!(r.encryption_key(), Some(vec![4u8; 16].as_slice()));
+    }
 }

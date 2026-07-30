@@ -128,4 +128,28 @@ mod tests {
         let ciphertext = [0u8; 16];
         assert!(aes256_cbc_decrypt(&key, &iv, &ciphertext).is_none());
     }
+
+    #[test]
+    fn aes128_decrypt_non_multiple_16_returns_none() {
+        let key = [0u8; 16];
+        let iv = [0u8; 16];
+        let ct = [0u8; 15]; // not multiple of 16
+        assert!(aes_cbc_decrypt(&key, &iv, &ct).is_none());
+    }
+
+    #[test]
+    fn aes256_decrypt_non_multiple_16_returns_none() {
+        let key = [0u8; 32];
+        let iv = [0u8; 16];
+        let ct = [0u8; 15];
+        assert!(aes256_cbc_decrypt(&key, &iv, &ct).is_none());
+    }
+
+    #[test]
+    fn aes128_decrypt_short_iv_returns_none() {
+        let key = [0u8; 16];
+        let iv = [0u8; 12];
+        let ct = [0u8; 16];
+        assert!(aes_cbc_decrypt(&key, &iv, &ct).is_none());
+    }
 }
