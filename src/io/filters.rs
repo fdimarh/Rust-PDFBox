@@ -77,3 +77,67 @@ fn decode_ascii_hex(data: &[u8]) -> Result<Vec<u8>, PdfError> {
     }
     Ok(out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_ascii_hex_empty() {
+        let result = decode_ascii_hex(b">").unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn decode_ascii_hex_simple() {
+        let result = decode_ascii_hex(b"48656C6C6F>").unwrap();
+        assert_eq!(result, b"Hello");
+    }
+
+    #[test]
+    fn decode_ascii_hex_lowercase() {
+        let result = decode_ascii_hex(b"776f726c64>").unwrap();
+        assert_eq!(result, b"world");
+    }
+
+    #[test]
+    fn decode_ascii_hex_with_whitespace() {
+        let result = decode_ascii_hex(b"48 65 6C 6C 6F>").unwrap();
+        assert_eq!(result, b"Hello");
+    }
+
+    #[test]
+    fn decode_ascii_hex_odd_nibble_no_pad() {
+        let result = decode_ascii_hex(b"414243>").unwrap();
+        // 'A'=0x41, 'B'=0x42, 'C'=0x43
+        assert_eq!(result, b"ABC");
+    }
+
+    #[test]
+    fn decode_ascii_hex_invalid_char() {
+        let result = decode_ascii_hex(b"4G>");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decode_stream_filters_unknown_passthrough() {
+        let data = b"hello";
+        let result = decode_stream_filters(data, &["UnknownFilter".to_string()]).unwrap();
+        assert_eq!(result, data);
+    }
+
+    #[test]
+    fn decode_stream_filters_flate_roundtrip() {
+        use flate2::write::ZlibEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+
+        let original = b"Test data for flate roundtrip!";
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
+        encoder.write_all(original).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let result = decode_stream_filters(&compressed, &["FlateDecode".to_string()]).unwrap();
+        assert_eq!(result, original);
+    }
+}

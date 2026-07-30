@@ -155,3 +155,80 @@ impl DocumentBuilder {
         Ok(doc)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn page_size_a4() {
+        let (w, h) = PageSize::A4.dimensions();
+        assert!((w - 595.28).abs() < 0.01);
+        assert!((h - 841.89).abs() < 0.01);
+    }
+
+    #[test]
+    fn page_size_letter() {
+        let (w, h) = PageSize::Letter.dimensions();
+        assert!((w - 612.0).abs() < 0.01);
+        assert!((h - 792.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn page_size_custom() {
+        let (w, h) = PageSize::Custom(300.0, 400.0).dimensions();
+        assert!((w - 300.0).abs() < 0.01);
+        assert!((h - 400.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn document_builder_default_page_size() {
+        let builder = DocumentBuilder::new();
+        let doc = builder.build().unwrap();
+        let pages_ids: Vec<_> = doc.page_object_ids().collect();
+        assert_eq!(pages_ids.len(), 1);
+        // Verify catalog exists
+        assert!(doc.catalog().is_some());
+        // Verify page has MediaBox
+        let page_id = pages_ids[0];
+        let page_obj = doc.get_object_ref(page_id).unwrap();
+        let page_dict = page_obj.as_dictionary().unwrap();
+        assert!(page_dict
+            .get(&CosName::new(b"MediaBox".to_vec()))
+            .is_some());
+    }
+
+    #[test]
+    fn document_builder_custom_size() {
+        let builder = DocumentBuilder::new().page_size(PageSize::Letter);
+        let doc = builder.build().unwrap();
+        let page_id = doc.page_object_ids().next().unwrap();
+        let page_obj = doc.get_object_ref(page_id).unwrap();
+        let page_dict = page_obj.as_dictionary().unwrap();
+        let media_box = page_dict
+            .get(&CosName::new(b"MediaBox".to_vec()))
+            .unwrap();
+        let arr = media_box.as_array().unwrap();
+        assert!((arr[2].as_real().unwrap() - 612.0).abs() < 0.01);
+        assert!((arr[3].as_real().unwrap() - 792.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn document_builder_has_helvetica_font() {
+        let builder = DocumentBuilder::new();
+        let doc = builder.build().unwrap();
+        let catalog = doc.catalog().unwrap();
+        let pages_ref = catalog.get(&CosName::pages()).unwrap().as_reference().unwrap();
+        let pages_obj = doc.get_object_ref(pages_ref).unwrap();
+        let pages_dict = pages_obj.as_dictionary().unwrap();
+        let resources = pages_dict
+            .get(&CosName::new(b"Resources".to_vec()))
+            .unwrap();
+        let res_dict = resources.as_dictionary().unwrap();
+        let fonts = res_dict.get(&CosName::new(b"Font".to_vec())).unwrap();
+        let font_dict = fonts.as_dictionary().unwrap();
+        assert!(font_dict
+            .get(&CosName::new(b"Helvetica".to_vec()))
+            .is_some());
+    }
+}
