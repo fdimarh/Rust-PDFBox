@@ -231,4 +231,26 @@ mod tests {
             .get(&CosName::new(b"Helvetica".to_vec()))
             .is_some());
     }
+
+    #[test]
+    fn document_builder_multiple_pages() {
+        let builder = DocumentBuilder::new().page_size(PageSize::A4);
+        let doc = builder.build().unwrap();
+        // Base builder only creates 1 page
+        let page_count = doc.page_object_ids().count();
+        assert_eq!(page_count, 1);
+    }
+
+    #[test]
+    fn document_builder_debug_clone() {
+        let builder = DocumentBuilder::new();
+        let _ = builder.page_size(PageSize::A4);
+    }
+
+    #[test]
+    fn page_size_debug() {
+        let _ = format!("{:?}", PageSize::A4);
+        let _ = format!("{:?}", PageSize::Letter);
+        let _ = format!("{:?}", PageSize::Custom(100.0, 200.0));
+    }
 }

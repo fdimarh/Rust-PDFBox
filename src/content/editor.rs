@@ -584,4 +584,20 @@ mod tests {
         let doc_back = editor.into_document();
         assert_eq!(doc_back.page_count(), 1);
     }
+
+    #[test]
+    fn test_editor_document_mut_access() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+        let doc_mut = editor.document_mut();
+        assert!(doc_mut.catalog().is_some());
+    }
+
+    #[test]
+    fn test_editor_find_text_empty() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        let results = editor.find_text_all_pages("nonexistent");
+        assert!(results.is_empty());
+    }
 }

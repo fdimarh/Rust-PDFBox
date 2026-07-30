@@ -116,4 +116,19 @@ mod tests {
         assert_eq!(s.raw_len(), 11);
         assert!(!s.is_empty());
     }
+
+    #[test]
+    fn stream_debug_format() {
+        let s = CosStream::new(CosDictionary::new(), b"test".to_vec());
+        let _ = format!("{:?}", s);
+    }
+
+    #[test]
+    fn stream_with_filter() {
+        use crate::cos::CosName;
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(b"FlateDecode".to_vec())));
+        let s = CosStream::new(dict, b"data".to_vec());
+        assert_eq!(s.raw_len(), 4);
+    }
 }

@@ -403,4 +403,47 @@ mod tests {
         assert!(sync::pdf_date_to_xmp("2025").is_some());
         assert!(sync::pdf_date_to_xmp("").is_none());
     }
+
+    #[test]
+    fn test_document_info_empty_dict() {
+        let dict = CosDictionary::new();
+        let info = DocumentInfo { dict: Some(&dict) };
+        assert!(info.title().is_none());
+        assert!(info.author().is_none());
+        assert!(info.subject().is_none());
+        assert!(info.keywords().is_none());
+        assert!(info.creator().is_none());
+        assert!(info.producer().is_none());
+        assert!(info.creation_date().is_none());
+        assert!(info.mod_date().is_none());
+    }
+
+    #[test]
+    fn test_document_info_get_text_string() {
+        let mut dict = CosDictionary::new();
+        dict.insert(
+            CosName::new(b"Title".to_vec()),
+            CosObject::String(b"Test Title".to_vec()),
+        );
+        let info = DocumentInfo { dict: Some(&dict) };
+        assert_eq!(info.title(), Some(Cow::Borrowed("Test Title")));
+    }
+
+    #[test]
+    fn test_document_info_get_text_hex_string() {
+        let mut dict = CosDictionary::new();
+        dict.insert(
+            CosName::new(b"Author".to_vec()),
+            CosObject::HexString(b"417574686f72".to_vec()), // "Author" in hex
+        );
+        let info = DocumentInfo { dict: Some(&dict) };
+        // HexString is not decoded, just treated as raw bytes
+        assert_eq!(info.author(), Some(Cow::Borrowed("417574686f72")));
+    }
+
+    #[test]
+    fn test_document_info_none_dict() {
+        let info = DocumentInfo { dict: None };
+        assert!(info.title().is_none());
+    }
 }
