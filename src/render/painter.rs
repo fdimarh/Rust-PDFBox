@@ -1,10 +1,11 @@
 //! Bridging PDF Content Stream operators to Tiny-Skia Canvas.
 
-use tiny_skia::{PathBuilder, Transform, Paint, PixmapMut, Color, Stroke};
 use crate::content::{parse_content_stream, Instruction};
-use crate::cos::{CosName, CosObject};
+use crate::cos::{CosDictionary, CosName, CosObject};
 use crate::pdmodel::page::Page;
 use crate::PdfResult;
+use std::collections::HashMap;
+use tiny_skia::{Color, Paint, PathBuilder, PixmapMut, Stroke, Transform};
 
 /// Represents the complete graphics state (PDF §8.4).
 #[derive(Debug, Clone)]
@@ -62,6 +63,110 @@ struct TextState {
     rise: f32,
 }
 
+/// Per-font glyph metrics parsed from the PDF font dict.
+#[derive(Debug, Clone)]
+struct FontMetrics {
+    /// Base font name (PostScript)
+    base_font: String,
+    /// First character code with a width
+    first_char: u8,
+    /// Last character code with a width
+    last_char: u8,
+    /// Per-code widths in 1/1000 text space (PDF glyph units)
+    widths: Vec<f64>,
+    /// Default width for codes outside the range
+    missing_width: f64,
+    /// Ascent from font descriptor (in glyph units)
+    ascent: f64,
+    /// Descent from font descriptor (in glyph units)
+    descent: f64,
+    /// Cap height from font descriptor
+    cap_height: f64,
+    /// Font bounding box width
+    _bbox_width: f64,
+}
+
+impl FontMetrics {
+    fn from_dict(name: &[u8], dict: &CosDictionary) -> Option<Self> {
+        let base_font = dict
+            .get_name(&CosName::new(b"BaseFont".to_vec()))
+            .map(|n| String::from_utf8_lossy(n.as_bytes()).to_string())
+            .unwrap_or_else(|| String::from_utf8_lossy(name).to_string());
+
+        let first_char = dict.get_int(&CosName::new(b"FirstChar".to_vec())).unwrap_or(0) as u8;
+        let last_char = dict.get_int(&CosName::new(b"LastChar".to_vec())).unwrap_or(0) as u8;
+
+        let widths: Vec<f64> = dict
+            .get_array(&CosName::new(b"Widths".to_vec()))
+            .map(|arr| arr.iter().filter_map(|v| v.as_number()).collect())
+            .unwrap_or_default();
+
+        let mut missing_width = 0.0;
+        let mut ascent = 800.0;
+        let mut descent = -200.0;
+        let mut cap_height = 700.0;
+        let mut bbox_width = 1000.0;
+
+        // Parse font descriptor for metrics
+        if let Some(desc_dict) = dict
+            .get(&CosName::new(b"FontDescriptor".to_vec()))
+            .and_then(|v| match v {
+                CosObject::Dictionary(d) => Some(d),
+                CosObject::Reference(_) => None, // Can't resolve without store
+                _ => None,
+            })
+        {
+            ascent = desc_dict.get_number(&CosName::new(b"Ascent".to_vec())).unwrap_or(ascent);
+            descent = desc_dict.get_number(&CosName::new(b"Descent".to_vec())).unwrap_or(descent);
+            cap_height = desc_dict.get_number(&CosName::new(b"CapHeight".to_vec())).unwrap_or(cap_height);
+            missing_width = desc_dict.get_number(&CosName::new(b"MissingWidth".to_vec())).unwrap_or(0.0);
+
+            if let Some(arr) = desc_dict.get_array(&CosName::new(b"FontBBox".to_vec())) {
+                let nums: Vec<f64> = arr.iter().filter_map(|v| v.as_number()).collect();
+                if nums.len() >= 4 {
+                    bbox_width = (nums[2] - nums[0]).abs();
+                }
+            }
+        } else {
+            // Standard font defaults
+            match base_font.as_str() {
+                "Helvetica" | "Helvetica-Bold" | "Helvetica-Oblique" | "Helvetica-BoldOblique" => {
+                    ascent = 718.0; descent = -207.0; cap_height = 718.0;
+                    bbox_width = if base_font.contains("Bold") { 1000.0 } else { 1000.0 };
+                }
+                "Times-Roman" | "Times-Bold" | "Times-Italic" | "Times-BoldItalic" => {
+                    ascent = 683.0; descent = -217.0; cap_height = 662.0; bbox_width = 1000.0;
+                }
+                "Courier" | "Courier-Bold" | "Courier-Oblique" | "Courier-BoldOblique" => {
+                    ascent = 629.0; descent = -157.0; cap_height = 562.0; bbox_width = 1000.0;
+                }
+                _ => {}
+            }
+        }
+
+        Some(Self {
+            base_font,
+            first_char,
+            last_char,
+            widths,
+            missing_width,
+            ascent,
+            descent,
+            cap_height,
+            _bbox_width: bbox_width,
+        })
+    }
+
+    /// Width for a character code, in 1/1000 text space units
+    fn width_for_code(&self, code: u8) -> f64 {
+        if code < self.first_char || code > self.last_char {
+            return self.missing_width;
+        }
+        let idx = (code - self.first_char) as usize;
+        self.widths.get(idx).copied().unwrap_or(self.missing_width)
+    }
+}
+
 pub struct PagePainter<'a> {
     pixmap: PixmapMut<'a>,
     gs: GraphicsState,
@@ -71,6 +176,8 @@ pub struct PagePainter<'a> {
     resources: Option<crate::pdmodel::Resources<'a>>,
     text: TextState,
     in_text_object: bool,
+    /// Per-font metrics indexed by font resource name (e.g. "F1", "F2")
+    font_metrics: HashMap<Vec<u8>, FontMetrics>,
 }
 
 impl<'a> PagePainter<'a> {
@@ -84,12 +191,31 @@ impl<'a> PagePainter<'a> {
             resources: None,
             text: TextState::default(),
             in_text_object: false,
+            font_metrics: HashMap::new(),
         }
     }
 
     /// Iterates through the PDF content stream instructions and paints them to the canvas.
     pub fn paint_page(&mut self, page: &'a Page) -> PdfResult<()> {
         self.resources = page.resources();
+
+        // Parse font metrics from the page's Font resources
+        if let Some(ref resources) = self.resources {
+            if let Some(font_dict) = resources.font_dict() {
+                for (name, val) in font_dict.iter() {
+                    let dict = match val {
+                        CosObject::Dictionary(d) => Some(d.clone()),
+                        _ => None,
+                    };
+                    if let Some(d) = dict {
+                        if let Some(metrics) = FontMetrics::from_dict(name.as_bytes(), &d) {
+                            self.font_metrics.insert(name.as_bytes().to_vec(), metrics);
+                        }
+                    }
+                }
+            }
+        }
+
         if let Some(contents) = page.contents_object() {
             let content_bytes = match contents {
                 CosObject::Stream(s) => s.data.clone(),
@@ -405,36 +531,83 @@ impl<'a> PagePainter<'a> {
         if let Some(saved) = self.gs_stack.pop() { self.gs = saved; }
     }
 
-    /// Render text as filled rectangles (placeholder / debug).
-    /// Real glyph rasterization requires font metric lookup.
+    /// Render text with per-glyph width lookup from PDF font metrics.
+    /// Glyphs are rendered as filled rectangles proportional to their
+    /// actual width (from the font's /Widths array), ascent, and descent.
     fn render_text(&mut self, text: &[u8]) {
         if text.is_empty() { return; }
+
         let font_size = self.text.font_size;
         let hscale = self.text.horizontal_scale.max(0.001);
-        let avg_width = font_size * 0.6 * hscale;
-        let total_width = avg_width * text.len() as f32;
+        let char_spacing = self.text.char_spacing;
+        let word_spacing = self.text.word_spacing;
+
+        // Look up font metrics from parsed resources
+        let metrics = self.text.font_name.as_ref()
+            .and_then(|name| self.font_metrics.get(name));
+
+        let (ascent, descent, cap_height) = if let Some(m) = metrics {
+            (m.ascent as f32, m.descent as f32, m.cap_height as f32)
+        } else {
+            // Fallback: standard metric ratio
+            (650.0, -200.0, 650.0)
+        };
+
+        let font_scale = font_size / 1000.0; // PDF widths are in 1/1000 text space
+        let glyph_height = (ascent - descent) * font_scale;
+        let glyph_baseline = ascent * font_scale; // distance from baseline to top
 
         let text_ctm = self.text.tm;
-        let font_scale = Transform::from_row(font_size * hscale, 0.0, 0.0, font_size, 0.0, 0.0);
-        let final_tm = self.gs.ctm.pre_concat(text_ctm).pre_concat(font_scale);
+        let final_tm = self.gs.ctm.pre_concat(text_ctm)
+            .pre_concat(Transform::from_row(font_size * hscale, 0.0, 0.0, font_size, 0.0, 0.0));
 
-        for i in 0..text.len() {
-            let x = i as f32 * avg_width;
-            let w = avg_width * 0.8;
-            let h = font_size;
+        let mut total_advance = 0.0f32;
+
+        for (i, &code) in text.iter().enumerate() {
+            let glyph_width = metrics
+                .map(|m| m.width_for_code(code) as f32)
+                .unwrap_or(font_size * 0.6 * hscale);
+
+            // Width in user space (PDF glyph units → font size)
+            let w = glyph_width * font_scale * hscale;
+            // Height proportion
+            let h = glyph_height;
+            // Vertical offset from baseline
+            let y_offset = -descent * font_scale;
+
+            // Draw glyph as filled rectangle proportional to its metrics
+            let x = total_advance;
+            let y = y_offset;
+
             let mut cp = PathBuilder::new();
-            cp.move_to(x, h * 0.2);
-            cp.line_to(x + w, h * 0.2);
-            cp.line_to(x + w, h);
-            cp.line_to(x, h);
+            cp.move_to(x, y);
+            cp.line_to(x + w, y);
+            cp.line_to(x + w, y + h * 0.8);
+            cp.line_to(x, y + h * 0.8);
             cp.close();
             if let Some(path) = cp.finish() {
                 let mut paint = Paint::default();
                 paint.set_color(self.gs.fill_color);
                 self.pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, final_tm, None);
             }
+
+            // Advance width
+            let advance = glyph_width * font_scale * hscale;
+            total_advance += advance;
+
+            // Kerning: add char_spacing for each char, word_spacing for space (0x20)
+            if code == b' ' {
+                total_advance += word_spacing * font_scale;
+            }
+            if i + 1 < text.len() {
+                total_advance += char_spacing * font_scale;
+            }
         }
-        self.text.tm = self.text.tm.pre_concat(Transform::from_row(1.0, 0.0, 0.0, 1.0, total_width, 0.0));
+
+        // Update text matrix — advance by total used width
+        self.text.tm = self.text.tm.pre_concat(
+            Transform::from_row(1.0, 0.0, 0.0, 1.0, total_advance, 0.0)
+        );
     }
 
     pub fn fill(&mut self, rule: tiny_skia::FillRule) {
@@ -497,4 +670,79 @@ fn raw_to_image(data: &[u8], width: u32, height: u32, dict: &crate::cos::CosDict
         _ => {}
     }
     Ok(rgba)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosDictionary, CosName, CosObject};
+
+    #[test]
+    fn test_font_metrics_from_dict() {
+        let mut d = CosDictionary::new();
+        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Helvetica".to_vec())));
+        d.set(CosName::new(b"FirstChar".to_vec()), CosObject::Integer(32));
+        d.set(CosName::new(b"LastChar".to_vec()), CosObject::Integer(122));
+        let widths: Vec<CosObject> = (32u8..=122u8).map(|_| CosObject::Integer(600)).collect();
+        d.set(CosName::new(b"Widths".to_vec()), CosObject::Array(widths));
+
+        let metrics = FontMetrics::from_dict(b"F1", &d).unwrap();
+        assert_eq!(metrics.base_font, "Helvetica");
+        assert_eq!(metrics.first_char, 32);
+        assert_eq!(metrics.last_char, 122);
+        assert_eq!(metrics.width_for_code(32), 600.0);
+        assert_eq!(metrics.width_for_code(0), 0.0); // below FirstChar
+    }
+
+    #[test]
+    fn test_font_metrics_standard_font_defaults() {
+        let mut d = CosDictionary::new();
+        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Times-Roman".to_vec())));
+
+        let metrics = FontMetrics::from_dict(b"F1", &d).unwrap();
+        assert_eq!(metrics.base_font, "Times-Roman");
+        assert_eq!(metrics.ascent, 683.0);
+        assert_eq!(metrics.descent, -217.0);
+    }
+
+    #[test]
+    fn test_font_metrics_with_descriptor() {
+        let mut desc = CosDictionary::new();
+        desc.set(CosName::new(b"Ascent".to_vec()), CosObject::Integer(900));
+        desc.set(CosName::new(b"Descent".to_vec()), CosObject::Integer(-300));
+        desc.set(CosName::new(b"MissingWidth".to_vec()), CosObject::Integer(500));
+
+        let mut d = CosDictionary::new();
+        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"CustomFont".to_vec())));
+        d.set(CosName::new(b"FontDescriptor".to_vec()), CosObject::Dictionary(desc));
+
+        let metrics = FontMetrics::from_dict(b"F1", &d).unwrap();
+        assert_eq!(metrics.ascent, 900.0);
+        assert_eq!(metrics.descent, -300.0);
+        assert_eq!(metrics.missing_width, 500.0);
+    }
+
+    #[test]
+    fn test_font_metrics_missing_dict() {
+        let d = CosDictionary::new();
+        assert!(FontMetrics::from_dict(b"F1", &d).is_some()); // still succeeds with defaults
+    }
+
+    #[test]
+    fn test_num_f32_integer() {
+        let obj = CosObject::Integer(42);
+        assert_eq!(num_f32(&obj), 42.0);
+    }
+
+    #[test]
+    fn test_num_f32_real() {
+        let obj = CosObject::Real(3.14);
+        assert_eq!(num_f32(&obj), 3.14);
+    }
+
+    #[test]
+    fn test_num_f32_null_defaults_zero() {
+        let obj = CosObject::Null;
+        assert_eq!(num_f32(&obj), 0.0);
+    }
 }
