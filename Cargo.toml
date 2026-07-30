@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["text", "crypto", "layout", "forms", "pageops", "outline", "annotations"]
+default = ["text", "crypto", "layout", "forms", "pageops", "outline", "annotations", "image-extract"]
 ## Text extraction and font handling
 text = []
 ## Document outline (bookmarks)
@@ -20,7 +20,7 @@ annotations = []
 ## Page Manipulation
 pageops = []
 ## Image extraction (Phase 17 baseline)
-image-extract = []
+image-extract = ["dep:lcms2"]
 ## Metadata & document properties (Phase 22)
 metadata = ["dep:quick-xml"]
 ## Core compression: stream recompression (flate2) + object deduplication (rustc-hash) + cleanup + version + linearize
