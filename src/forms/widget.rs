@@ -103,4 +103,26 @@ mod tests {
         let arr = rect.as_array().unwrap();
         assert_eq!(arr.len(), 4);
     }
+
+    #[test]
+    fn test_widget_new_negative_rect() {
+        let mut dict = make_widget_dict().0;
+        dict.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Integer(-50), CosObject::Integer(-20),
+            CosObject::Integer(150), CosObject::Integer(80),
+        ]));
+        let store = ObjectStore::new();
+        let w = PdWidget::new(ObjectId::new(1, 0), &dict, &store);
+        let rect = w.dict.get(&CosName::new(b"Rect".to_vec())).unwrap();
+        let arr = rect.as_array().unwrap();
+        assert_eq!(arr.len(), 4);
+    }
+
+    #[test]
+    fn test_widget_no_rect_key() {
+        let dict = CosDictionary::new();
+        let store = ObjectStore::new();
+        let w = PdWidget::new(ObjectId::new(1, 0), &dict, &store);
+        assert!(w.dict.get(&CosName::new(b"Rect".to_vec())).is_none());
+    }
 }

@@ -158,4 +158,52 @@ mod tests {
             Some(42)
         );
     }
+
+    #[test]
+    fn pd_acro_form_xfa_returns_none_without_xfa() {
+        let store = ObjectStore::new();
+        let dict = CosDictionary::new();
+        let form = PdAcroForm::new(&dict, &store);
+        assert!(form.xfa().is_none());
+    }
+
+    #[test]
+    fn pd_acro_form_debug_format() {
+        let store = ObjectStore::new();
+        let dict = CosDictionary::new();
+        let form = PdAcroForm::new(&dict, &store);
+        let _ = format!("{:?}", form);
+    }
+
+    #[test]
+    fn pd_acro_form_fields_with_reference_to_missing_object() {
+        let store = ObjectStore::new();
+        let mut dict = CosDictionary::new();
+        dict.set(
+            CosName::new(b"Fields".to_vec()),
+            CosObject::Array(vec![CosObject::Reference(ObjectId::new(99, 0))]),
+        );
+        let form = PdAcroForm::new(&dict, &store);
+        // Reference to non-existent object -> silently skipped
+        assert!(form.fields().is_empty());
+    }
+
+    #[test]
+    fn pd_acro_form_get_field_ignores_non_dict_kids() {
+        let mut store = ObjectStore::new();
+        let kid_id = ObjectId::new(1, 0);
+        // kid is a stream, not a dictionary -> should be skipped
+        store.insert(
+            kid_id,
+            CosObject::Stream(crate::cos::CosStream::new(CosDictionary::new(), b"data".to_vec())),
+        );
+        let mut dict = CosDictionary::new();
+        dict.set(
+            CosName::new(b"Fields".to_vec()),
+            CosObject::Array(vec![CosObject::Reference(kid_id)]),
+        );
+        let form = PdAcroForm::new(&dict, &store);
+        let fields = form.fields();
+        assert!(fields.is_empty());
+    }
 }

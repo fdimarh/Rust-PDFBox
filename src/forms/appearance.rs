@@ -750,4 +750,63 @@ mod tests {
         let val = get_field_value_as_string(&dict);
         assert!(val.is_empty());
     }
+
+    #[test]
+    fn test_get_field_value_as_name() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"V".to_vec()), CosObject::Name(CosName::new(b"Yes".to_vec())));
+        let val = get_field_value_as_string(&dict);
+        assert_eq!(val, "/Yes");
+    }
+
+    #[test]
+    fn test_get_rect_with_integers() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(10.0), CosObject::Real(20.0),
+            CosObject::Real(200.0), CosObject::Real(400.0),
+        ]));
+        let (llx, lly, urx, ury) = get_rect(&dict);
+        assert!((llx - 10.0).abs() < f64::EPSILON);
+        assert!((lly - 20.0).abs() < f64::EPSILON);
+        assert!((urx - 200.0).abs() < f64::EPSILON);
+        assert!((ury - 400.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_get_field_name_with_value() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"T".to_vec()), CosObject::String(b"Username".to_vec()));
+        let name = get_field_name(&dict);
+        assert_eq!(name, "Username");
+    }
+
+    #[test]
+    fn test_get_field_value_as_string_string() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"V".to_vec()), CosObject::String(b"Hello World".to_vec()));
+        let val = get_field_value_as_string(&dict);
+        assert_eq!(val, "Hello World");
+    }
+
+    #[test]
+    fn test_parse_da_with_rg_color() {
+        let (font, size, r, g, b) = parse_da("/Helv 12 Tf 0.1 0.2 0.3 rg");
+        assert_eq!(font, "Helv");
+        assert!((size - 12.0).abs() < f64::EPSILON);
+        assert!((r - 0.1).abs() < f64::EPSILON);
+        assert!((g - 0.2).abs() < f64::EPSILON);
+        assert!((b - 0.3).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_generate_field_appearance_unknown_type_returns_ok() {
+        let mut dict = CosDictionary::new();
+        dict.insert(CosName::new(b"FT".to_vec()), CosObject::Name(CosName::new(b"Xyz".to_vec())));
+        let mut doc = crate::Document::empty();
+        let id = doc.allocate_object_id();
+        doc.insert_object(id, CosObject::Dictionary(dict));
+        let result = generate_field_appearance(&mut doc, id);
+        assert!(result.is_ok());
+    }
 }
