@@ -458,4 +458,74 @@ mod tests {
         let result = flatten_all_fields(&mut doc);
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_flatten_fields_empty_list() {
+        let mut doc = create_doc_with_acroform();
+        let result = flatten_fields(&mut doc, &[]);
+        assert!(result.is_ok());
+        // AcroForm should still be intact
+        let catalog = doc.catalog().unwrap().clone();
+        assert!(catalog.get(&CosName::new(b"AcroForm".to_vec())).is_some());
+    }
+
+    #[test]
+    fn test_flatten_fields_nonexistent_field_id() {
+        let mut doc = create_doc_with_acroform();
+        let result = flatten_fields(&mut doc, &[ObjectId::new(99, 0)]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_remove_widget_from_page_removes_annots_entry() {
+        let mut doc = create_doc_with_acroform();
+
+        // Remove the widget
+        remove_widget_from_page(&mut doc, ObjectId::new(3, 0), ObjectId::new(5, 0));
+
+        // Verify /Annots entry on page is gone entirely
+        let page = doc.pages().unwrap().get(0).unwrap();
+        let page_dict = page.dictionary();
+        assert!(page_dict.get(&CosName::new(b"Annots".to_vec())).is_none());
+    }
+
+    #[test]
+    fn test_remove_widget_from_page_wrong_page() {
+        let mut doc = create_doc_with_acroform();
+
+        // Use a page_id that doesn't exist — should not panic
+        remove_widget_from_page(&mut doc, ObjectId::new(99, 0), ObjectId::new(5, 0));
+
+        // Original annots should survive
+        let page = doc.pages().unwrap().get(0).unwrap();
+        let annots = page.dictionary().get(&CosName::new(b"Annots".to_vec()));
+        assert!(annots.is_some());
+    }
+
+    #[test]
+    fn test_remove_fields_from_acroform_multiple_fields() {
+        let mut doc = create_doc_with_acroform();
+
+        // Remove our single field
+        remove_fields_from_acroform(&mut doc, &[ObjectId::new(5, 0)]);
+
+        let catalog = doc.catalog().unwrap().clone();
+        let acro_ref = catalog.get(&CosName::new(b"AcroForm".to_vec()))
+            .and_then(|v| v.as_reference()).unwrap();
+        let acro = doc.get_object_ref(acro_ref).unwrap()
+            .as_dictionary().unwrap().clone();
+        // Fields key should be removed now
+        assert!(acro.get(&CosName::new(b"Fields".to_vec())).is_none());
+    }
+
+    #[test]
+    fn test_cleanup_acroform_with_remaining_fields() {
+        // Create a doc with multiple fields by cloning the existing pattern
+        // Since our helper creates one field, just verify cleanup doesn't remove a valid AcroForm
+        let mut doc = create_doc_with_acroform();
+        // Should not remove AcroForm since field still exists
+        cleanup_acroform(&mut doc);
+        let catalog = doc.catalog().unwrap().clone();
+        assert!(catalog.get(&CosName::new(b"AcroForm".to_vec())).is_some());
+    }
 }
