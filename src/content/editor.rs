@@ -581,6 +581,121 @@ impl PdfEditor {
         rotate_page_fn(&mut self.doc, page_index, degrees)
     }
 
+    // ── Form / AcroForm ───────────────────────────────────────────────
+
+    /// Returns the names of all root-level form fields.
+    pub fn get_field_names(&self) -> Vec<String> {
+        let Some(acro_form) = self.acro_form_dict() else {
+            return Vec::new();
+        };
+        let fields = acro_form
+            .get(&CosName::new(b"Fields".to_vec()))
+            .and_then(|v| v.as_array())
+            .map(|a| a.to_vec())
+            .unwrap_or_default();
+        let mut names = Vec::new();
+        for kid in &fields {
+            if let Some(ref_id) = kid.as_reference() {
+                if let Some(obj) = self.doc.objects.get(&ref_id) {
+                    if let Some(field_dict) = obj.as_dictionary() {
+                        let name = field_dict
+                            .get(&CosName::new(b"T".to_vec()))
+                            .and_then(|v| v.as_string())
+                            .map(|s| String::from_utf8_lossy(s).into_owned())
+                            .unwrap_or_default();
+                        if !name.is_empty() {
+                            names.push(name);
+                        }
+                    }
+                }
+            }
+        }
+        names
+    }
+
+    /// Get the value of a form field by its fully qualified name.
+    /// Returns `None` if the field doesn't exist or has no value.
+    pub fn get_field_value(&self, name: &str) -> Option<String> {
+        let field_id = self.find_field_id(name)?;
+        let field_dict = self
+            .doc
+            .objects
+            .get(&field_id)?
+            .as_dictionary()?;
+        crate::forms::get_field_value_for_export(field_dict)
+    }
+
+    /// Set the value of a form field by its fully qualified name.
+    pub fn set_field_value(&mut self, name: &str, value: &str) -> PdfResult<()> {
+        let field_id = self.find_field_id(name).ok_or_else(|| PdfError::Parse {
+            offset: None,
+            context: format!("form field '{name}' not found"),
+        })?;
+        crate::forms::field::set_field_value(&mut self.doc, field_id, value);
+        Ok(())
+    }
+
+    /// Flatten all form fields, converting them into static page content.
+    pub fn flatten_fields(&mut self) -> PdfResult<()> {
+        crate::forms::flatten_all_fields(&mut self.doc)
+    }
+
+    /// Export form data as FDF (Forms Data Format).
+    pub fn export_fdf(&self) -> PdfResult<Vec<u8>> {
+        crate::forms::export_fdf(&self.doc)
+    }
+
+    /// Export form data as XFDF (XML Forms Data Format).
+    pub fn export_xfdf(&self) -> PdfResult<Vec<u8>> {
+        crate::forms::export_xfdf(&self.doc)
+    }
+
+    /// Import form data from FDF bytes. Returns the number of fields updated.
+    pub fn import_fdf(&mut self, fdf_data: &[u8]) -> PdfResult<usize> {
+        crate::forms::import_fdf(&mut self.doc, fdf_data)
+    }
+
+    /// Import form data from XFDF bytes. Returns the number of fields updated.
+    pub fn import_xfdf(&mut self, xfdf_data: &[u8]) -> PdfResult<usize> {
+        crate::forms::import_xfdf(&mut self.doc, xfdf_data)
+    }
+
+    // ── Internal AcroForm helpers ──────────────────────────────────────
+
+    /// Get the /AcroForm dictionary (if any).
+    fn acro_form_dict(&self) -> Option<&CosDictionary> {
+        let catalog = self.doc.catalog()?;
+        let acro_ref = catalog
+            .get(&CosName::new(b"AcroForm".to_vec()))
+            .and_then(|v| v.as_reference())?;
+        self.doc.objects.get(&acro_ref).and_then(|o| o.as_dictionary())
+    }
+
+    /// Find a field's ObjectId by its fully qualified name.
+    fn find_field_id(&self, name: &str) -> Option<ObjectId> {
+        let acro_dict = self.acro_form_dict()?;
+        let fields = acro_dict
+            .get(&CosName::new(b"Fields".to_vec()))
+            .and_then(|v| v.as_array())?;
+        for kid in fields {
+            if let Some(ref_id) = kid.as_reference() {
+                if let Some(obj) = self.doc.objects.get(&ref_id) {
+                    if let Some(field_dict) = obj.as_dictionary() {
+                        let field_name = field_dict
+                            .get(&CosName::new(b"T".to_vec()))
+                            .and_then(|v| v.as_string())
+                            .map(|s| String::from_utf8_lossy(s).into_owned())
+                            .unwrap_or_default();
+                        if field_name == name {
+                            return Some(ref_id);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
     // ── Internal: read raw decoded content bytes ───────────────────────
 
     fn page_raw_content_bytes(&self, page_index: usize) -> PdfResult<Vec<u8>> {
@@ -1012,5 +1127,153 @@ mod tests {
         // verify by accessing the underlying doc
         let tree = editor.document().pages().unwrap();
         assert_eq!(tree.get(0).unwrap().rotation(), 90);
+    }
+
+    // ── Form tests ────────────────────────────────────────────────────
+
+    fn doc_with_form_field() -> Document {
+        use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+        let mut doc = Document::empty();
+
+        let cat_id = ObjectId::new(1, 0);
+        let pages_id = ObjectId::new(2, 0);
+        let page_id = ObjectId::new(3, 0);
+        let acro_id = ObjectId::new(4, 0);
+        let field_id = ObjectId::new(5, 0);
+        let content_id = ObjectId::new(6, 0);
+
+        // AcroForm
+        let mut acro_dict = CosDictionary::new();
+        acro_dict.insert(
+            CosName::new(b"Fields".to_vec()),
+            CosObject::Array(vec![CosObject::Reference(field_id)]),
+        );
+        doc.insert_object(acro_id, CosObject::Dictionary(acro_dict));
+
+        // Field
+        let mut field_dict = CosDictionary::new();
+        field_dict.insert(
+            CosName::new(b"FT".to_vec()),
+            CosObject::Name(CosName::new(b"Tx".to_vec())),
+        );
+        field_dict.insert(
+            CosName::new(b"T".to_vec()),
+            CosObject::String(b"Username".to_vec()),
+        );
+        field_dict.insert(
+            CosName::new(b"V".to_vec()),
+            CosObject::String(b"default".to_vec()),
+        );
+        doc.insert_object(field_id, CosObject::Dictionary(field_dict));
+
+        // Catalog
+        doc.insert_object(
+            cat_id,
+            CosObject::Dictionary({
+                let mut d = CosDictionary::new();
+                d.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Catalog".to_vec())));
+                d.insert(CosName::pages(), CosObject::Reference(pages_id));
+                d.insert(CosName::new(b"AcroForm".to_vec()), CosObject::Reference(acro_id));
+                d
+            }),
+        );
+        // Pages
+        doc.insert_object(
+            pages_id,
+            CosObject::Dictionary({
+                let mut d = CosDictionary::new();
+                d.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Pages".to_vec())));
+                d.insert(CosName::count(), CosObject::Integer(1));
+                d.insert(CosName::kids(), CosObject::Array(vec![CosObject::Reference(page_id)]));
+                d
+            }),
+        );
+        // Page
+        doc.insert_object(
+            page_id,
+            CosObject::Dictionary({
+                let mut d = CosDictionary::new();
+                d.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Page".to_vec())));
+                d.insert(CosName::new(b"Parent".to_vec()), CosObject::Reference(pages_id));
+                d.insert(CosName::new(b"MediaBox".to_vec()), CosObject::Array(vec![
+                    CosObject::Integer(0), CosObject::Integer(0),
+                    CosObject::Integer(612), CosObject::Integer(792),
+                ]));
+                d.insert(CosName::contents(), CosObject::Reference(content_id));
+                d
+            }),
+        );
+        // Content stream
+        doc.insert_object(
+            content_id,
+            CosObject::Stream(crate::cos::CosStream::new(
+                CosDictionary::new(),
+                b"BT /F1 12 Tf (Hello) Tj ET".to_vec(),
+            )),
+        );
+        doc.xref.trailer.insert(CosName::new(b"Root".to_vec()), CosObject::Reference(cat_id));
+        doc
+    }
+
+    #[test]
+    fn test_editor_get_field_names() {
+        let doc = doc_with_form_field();
+        let editor = PdfEditor::new(doc);
+        let names = editor.get_field_names();
+        assert_eq!(names, vec!["Username"]);
+    }
+
+    #[test]
+    fn test_editor_get_field_value() {
+        let doc = doc_with_form_field();
+        let editor = PdfEditor::new(doc);
+        let val = editor.get_field_value("Username");
+        assert_eq!(val.as_deref(), Some("default"));
+    }
+
+    #[test]
+    fn test_editor_set_field_value() {
+        let doc = doc_with_form_field();
+        let mut editor = PdfEditor::new(doc);
+        editor.set_field_value("Username", "NewVal").unwrap();
+        let val = editor.get_field_value("Username");
+        assert_eq!(val.as_deref(), Some("NewVal"));
+    }
+
+    #[test]
+    fn test_editor_get_field_value_missing() {
+        let doc = doc_with_form_field();
+        let editor = PdfEditor::new(doc);
+        assert!(editor.get_field_value("NonExistent").is_none());
+    }
+
+    #[test]
+    fn test_editor_set_field_value_missing() {
+        let doc = doc_with_form_field();
+        let mut editor = PdfEditor::new(doc);
+        assert!(editor.set_field_value("NonExistent", "x").is_err());
+    }
+
+    #[test]
+    fn test_editor_export_fdf() {
+        let doc = doc_with_form_field();
+        let editor = PdfEditor::new(doc);
+        let fdf = editor.export_fdf().unwrap();
+        assert!(fdf.starts_with(b"%FDF-"));
+    }
+
+    #[test]
+    fn test_editor_export_xfdf() {
+        let doc = doc_with_form_field();
+        let editor = PdfEditor::new(doc);
+        let xfdf = editor.export_xfdf().unwrap();
+        assert!(xfdf.starts_with(b"<?xml"));
+    }
+
+    #[test]
+    fn test_editor_get_field_names_no_form() {
+        let doc = Document::empty();
+        let editor = PdfEditor::new(doc);
+        assert!(editor.get_field_names().is_empty());
     }
 }
