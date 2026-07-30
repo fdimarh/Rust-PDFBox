@@ -138,7 +138,6 @@ mod tests {
             objects,
             source_bytes: None,
             stream_cache: std::sync::Arc::new(std::sync::Mutex::new(crate::StreamCache::new())),
-            file_encryption_key: None,
         };
         // Override trailer for the test
         let mut doc_with_trailer = doc.clone();

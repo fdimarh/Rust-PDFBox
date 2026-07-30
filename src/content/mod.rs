@@ -11,7 +11,6 @@
 
 pub mod graphics_state;
 pub mod writer;
-pub mod edit;
 
 pub use graphics_state::{GraphicsState, Matrix, TextState};
 pub use writer::ContentStreamWriter;

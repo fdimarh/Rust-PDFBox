@@ -38,7 +38,7 @@
 //! IncrementalWriter::write_update(&original_bytes, &doc, &changed, &mut out)?;
 //! ```
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::io::{self, Write};
 
 use crate::cos::{CosName, CosObject, ObjectId};
@@ -308,7 +308,7 @@ mod tests {
         changed.insert(ObjectId::new(3, 0), CosObject::Integer(42));
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
 
         // The result must be parseable
         let updated_doc = Document::load_from_bytes(&out).unwrap();
@@ -340,7 +340,7 @@ mod tests {
         );
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
 
         let updated_doc = Document::load_from_bytes(&out).unwrap();
         assert_eq!(updated_doc.page_count(), 0);
@@ -364,7 +364,7 @@ mod tests {
         changed.insert(ObjectId::new(3, 0), CosObject::Bool(true));
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
 
         let text = String::from_utf8_lossy(&out);
         // The updated trailer must contain /Prev
@@ -379,7 +379,7 @@ mod tests {
         changed.insert(ObjectId::new(3, 0), CosObject::Integer(7));
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
 
         // First N bytes must equal original
         assert_eq!(&out[..original.len()], original.as_slice());
@@ -392,7 +392,7 @@ mod tests {
         let changed = BTreeMap::new();
 
         let mut out = Vec::new();
-        IncrementalWriter::write_update(&original, &doc, &changed, HashSet::new(), &mut out).unwrap();
+        IncrementalWriter::write_update(&original, &doc, &changed, &mut out).unwrap();
 
         // Still must load
         let updated = Document::load_from_bytes(&out).unwrap();
