@@ -192,3 +192,78 @@ fn cmyk_to_rgb8_for_png(cmyk: &[u8]) -> Vec<u8> {
 
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interleave_luma_alpha_equal() {
+        let luma = b"\x10\x20\x30";
+        let alpha = b"\x80\x90\xa0";
+        let out = interleave_luma_alpha(luma, alpha);
+        assert_eq!(out, b"\x10\x80\x20\x90\x30\xa0");
+    }
+
+    #[test]
+    fn interleave_luma_alpha_luma_shorter() {
+        let luma = b"\x10\x20";
+        let alpha = b"\x80\x90\xa0";
+        let out = interleave_luma_alpha(luma, alpha);
+        assert_eq!(out, b"\x10\x80\x20\x90");
+    }
+
+    #[test]
+    fn interleave_luma_alpha_empty() {
+        assert!(interleave_luma_alpha(b"", b"").is_empty());
+    }
+
+    #[test]
+    fn interleave_rgb_alpha_equal() {
+        let rgb = b"\xff\x00\x00\x00\xff\x00\x00\x00\xff";
+        let alpha = b"\x80\x40\xff";
+        let out = interleave_rgb_alpha(rgb, alpha);
+        assert_eq!(out.len(), 12);
+        assert_eq!(&out[0..4], &[0xff, 0x00, 0x00, 0x80]);
+        assert_eq!(&out[4..8], &[0x00, 0xff, 0x00, 0x40]);
+        assert_eq!(&out[8..12], &[0x00, 0x00, 0xff, 0xff]);
+    }
+
+    #[test]
+    fn interleave_rgb_alpha_empty() {
+        assert!(interleave_rgb_alpha(b"", b"").is_empty());
+    }
+
+    #[test]
+    fn cmyk_to_rgb_black() {
+        // C=0, M=0, Y=0, K=255 → black
+        let rgb = cmyk_to_rgb8_for_png(&[0, 0, 0, 255]);
+        assert_eq!(rgb, &[0, 0, 0]);
+    }
+
+    #[test]
+    fn cmyk_to_rgb_white() {
+        // C=0, M=0, Y=0, K=0 → white
+        let rgb = cmyk_to_rgb8_for_png(&[0, 0, 0, 0]);
+        assert_eq!(rgb, &[255, 255, 255]);
+    }
+
+    #[test]
+    fn cmyk_to_rgb_cyan() {
+        // C=255, M=0, Y=0, K=0 → approximate cyan
+        let rgb = cmyk_to_rgb8_for_png(&[255, 0, 0, 0]);
+        // (255-255)*(255-0)+127/255 = 0
+        assert_eq!(rgb[0], 0); // R = 0
+        assert!((rgb[1] as u16).abs_diff(255) <= 1); // G ≈ 255
+        assert!((rgb[2] as u16).abs_diff(255) <= 1); // B ≈ 255
+    }
+
+    #[test]
+    fn cmyk_to_rgb_multiple_pixels() {
+        let cmyk = b"\x00\x00\x00\x00\x00\x00\x00\xff";
+        let rgb = cmyk_to_rgb8_for_png(cmyk);
+        assert_eq!(rgb.len(), 6);
+        assert_eq!(&rgb[0..3], &[255, 255, 255]); // white
+        assert_eq!(&rgb[3..6], &[0, 0, 0]);       // black
+    }
+}
