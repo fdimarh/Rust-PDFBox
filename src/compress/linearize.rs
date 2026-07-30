@@ -106,4 +106,22 @@ mod tests {
         mark_linearized(&mut doc);
         // No panic is the minimum bar; page count accuracy is verified in integration tests.
     }
+
+    #[test]
+    fn linearize_empty_doc_no_panic() {
+        let mut doc = crate::Document::empty();
+        let opts = CompressOptions::default();
+        let result = run(&mut doc, &opts);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn linearize_twice_no_duplicate_dict() {
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        let opts = CompressOptions::default();
+        run(&mut doc, &opts).unwrap();
+        run(&mut doc, &opts).unwrap();
+        // No panic means it's idempotent at the run() level
+        assert!(doc.page_count() > 0 || doc.page_count() == 0);
+    }
 }

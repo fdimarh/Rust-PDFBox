@@ -106,10 +106,6 @@ mod tests {
         let arr = fields.as_array().unwrap();
         assert_eq!(arr.len(), 1);
         assert_eq!(arr[0].as_reference(), Some(widget_id));
-        assert_eq!(
-            dict.get(&CosName::new(b"SigFlags"))
-                .and_then(|v| v.as_integer()),
-            Some(3)
-        );
+        assert_eq!(dict.get(&CosName::new(b"SigFlags")), Some(&CosObject::Integer(3)));
     }
 }
