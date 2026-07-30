@@ -284,3 +284,167 @@ impl<'a, W: Write> Serializer<'a, W> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+
+    fn new_buf() -> Vec<u8> {
+        Vec::new()
+    }
+
+    #[test]
+    fn test_write_null() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Null).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "null");
+    }
+
+    #[test]
+    fn test_write_boolean_true() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Bool(true)).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "true");
+    }
+
+    #[test]
+    fn test_write_boolean_false() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Bool(false)).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "false");
+    }
+
+    #[test]
+    fn test_write_integer() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Integer(42)).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "42");
+    }
+
+    #[test]
+    fn test_write_real() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Real(3.14)).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "3.14");
+    }
+
+    #[test]
+    fn test_write_string() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::String(b"Hello".to_vec())).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "(Hello)");
+    }
+
+    #[test]
+    fn test_write_string_with_escapes() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::String(b"a(b)c\\d".to_vec())).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), r"(a\(b\)c\\d)");
+    }
+
+    #[test]
+    fn test_write_hex_string() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::HexString(b"\x48\x65\x6c".to_vec())).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "<48656C>");
+    }
+
+    #[test]
+    fn test_write_name_simple() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Name(CosName::new(b"Type".to_vec()))).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "/Type");
+    }
+
+    #[test]
+    fn test_write_name_with_special_chars() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            let name = CosName::new(b"Test/Name#1".to_vec());
+            s.write_object(&CosObject::Name(name)).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "/Test#2FName#231");
+    }
+
+    #[test]
+    fn test_write_array() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Array(vec![
+                CosObject::Integer(1),
+                CosObject::Integer(2),
+                CosObject::Integer(3),
+            ])).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "[1 2 3]");
+    }
+
+    #[test]
+    fn test_write_reference() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Reference(ObjectId::new(5, 0))).unwrap();
+        }
+        assert_eq!(String::from_utf8_lossy(&buf), "5 0 R");
+    }
+
+    #[test]
+    fn test_write_dictionary() {
+        let mut dict = CosDictionary::new();
+        dict.set(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Page".to_vec())));
+        dict.set(CosName::new(b"ID".to_vec()), CosObject::Integer(7));
+
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_object(&CosObject::Dictionary(dict)).unwrap();
+        }
+        let out = String::from_utf8_lossy(&buf);
+        assert!(out.starts_with("<<"));
+        assert!(out.ends_with(">>"));
+        assert!(out.contains("/Type /Page"));
+        assert!(out.contains("/ID 7"));
+    }
+
+    #[test]
+    fn test_write_indirect_object() {
+        let mut buf = new_buf();
+        {
+            let mut s = Serializer::new(&mut buf);
+            s.write_indirect_object(ObjectId::new(10, 0), &CosObject::Integer(42)).unwrap();
+        }
+        let out = String::from_utf8_lossy(&buf);
+        assert_eq!(out, "10 0 obj\n42\nendobj\n");
+    }
+}
