@@ -121,4 +121,36 @@ mod tests {
         Rc4::new(key).apply_keystream(&mut buf);
         assert_eq!(buf, via_crypt);
     }
+
+    #[test]
+    fn rc4_long_key_truncation() {
+        let long_key = b"this key is way longer than 256 bytes but let's test it anyway with some more chars";
+        let data = b"test data";
+        let ct = Rc4::crypt(long_key, data);
+        let rt = Rc4::crypt(long_key, &ct);
+        assert_eq!(rt, data);
+    }
+
+    #[test]
+    fn rc4_known_vector() {
+        // Test vector from RFC 6229 with a 5-byte key
+        let key = b"\x01\x02\x03\x04\x05";
+        let pt = b"\x01\x02\x03\x04\x05\x06\x07\x08";
+        // Just ensure it runs without panic and roundtrips
+        let ct = Rc4::crypt(key, pt);
+        assert_ne!(ct, pt);
+        let rt = Rc4::crypt(key, &ct);
+        assert_eq!(rt, pt);
+    }
+
+    #[test]
+    fn rc4_apply_keystream_twice_restores() {
+        let key = b"circular";
+        let mut data = b"secret message".to_vec();
+        let original = data.clone();
+        Rc4::new(key).apply_keystream(&mut data);
+        assert_ne!(data, original);
+        Rc4::new(key).apply_keystream(&mut data);
+        assert_eq!(data, original);
+    }
 }

@@ -155,4 +155,23 @@ mod tests {
         assert!(!result.is_empty());
         assert!(result.len() >= plaintext.len());
     }
+
+    #[test]
+    fn aes256_encrypt_noiv_vs_standard() {
+        let key = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f";
+        let iv = b"\xaa\xbb\xcc\xdd\xee\xff\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99";
+        let pt = b"Hello world! This is a test.  ";
+        let standard = aes256_cbc_encrypt(key, iv, pt).unwrap();
+        let noiv = aes256_cbc_encrypt_noiv(key, iv, pt);
+        // standard prepends IV (16 bytes), noiv doesn't
+        assert_eq!(noiv, &standard[16..]);
+    }
+
+    #[test]
+    fn aes256_noiv_invalid_key_panics() {
+        let short_key = b"too short";
+        let iv = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f";
+        let result = std::panic::catch_unwind(|| aes256_cbc_encrypt_noiv(short_key, iv, b"data"));
+        assert!(result.is_err());
+    }
 }

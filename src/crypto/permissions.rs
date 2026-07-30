@@ -182,4 +182,65 @@ mod tests {
         assert_eq!(p as u32 & 0b11, 0);
         assert_eq!(p as u32 & 0b1100_0000, 0b1100_0000);
     }
+
+    #[test]
+    fn permissions_debug_format() {
+        let p = Permissions::all_allowed();
+        let _ = format!("{:?}", p);
+    }
+
+    #[test]
+    fn permissions_clone_eq() {
+        let a = Permissions::all_allowed();
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn permissions_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(Permissions::all_allowed());
+        set.insert(Permissions::none_allowed());
+        assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    fn permissions_default_is_none() {
+        let p = Permissions::default();
+        assert!(!p.can_print());
+        assert!(!p.can_copy());
+    }
+
+    #[test]
+    fn can_extract_false_when_not_set() {
+        let p = Permissions(Permissions::PRINT);
+        assert!(!p.can_extract_for_accessibility());
+    }
+
+    #[test]
+    fn can_assemble_false_when_not_set() {
+        let p = Permissions(Permissions::PRINT);
+        assert!(!p.can_assemble());
+    }
+
+    #[test]
+    fn can_print_high_quality_false_when_only_print() {
+        let p = Permissions(Permissions::PRINT);
+        assert!(!p.can_print_high_quality());
+    }
+
+    #[test]
+    fn can_modify_annotations_false_when_not_set() {
+        let p = Permissions(Permissions::PRINT);
+        assert!(!p.can_modify_annotations());
+    }
+
+    #[test]
+    fn can_modify_content_only() {
+        let p = Permissions(Permissions::MODIFY_CONTENT);
+        assert!(p.can_modify_content());
+        assert!(!p.can_copy());
+        assert!(!p.can_assemble());
+    }
 }

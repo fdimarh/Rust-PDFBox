@@ -131,4 +131,29 @@ mod tests {
         assert!(policy.user_password.is_none());
         assert!(!policy.permissions.can_print());
     }
+
+    #[test]
+    fn test_policy_new_with_empty_owner() {
+        let policy = StandardProtectionPolicy::new("", "", Permissions::all_allowed());
+        assert!(policy.user_password.as_deref().unwrap().is_empty());
+        assert!(policy.owner_password.is_empty());
+    }
+
+    #[test]
+    fn test_policy_owner_only_with_user_default() {
+        let policy = StandardProtectionPolicy::owner_password("pw", Permissions::all_allowed());
+        assert_eq!(policy.user_password, None);
+    }
+
+    #[test]
+    fn test_policy_protect_empty_doc() {
+        use crate::cos::CosName;
+        use crate::Document;
+        let mut doc = Document::empty();
+        let policy = StandardProtectionPolicy::new("o", "u", Permissions::none_allowed());
+        doc.protect(&policy).unwrap();
+        let trailer = doc.trailer();
+        let encrypt = trailer.get(&CosName::new(b"Encrypt"));
+        assert!(encrypt.is_some());
+    }
 }
