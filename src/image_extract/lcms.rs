@@ -79,3 +79,27 @@ pub fn apply_icc_profile(
 
     img
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn apply_icc_corrupted_profile_returns_blank() {
+        // Invalid/corrupted ICC profile data should trigger the error path
+        let img = apply_icc_profile(&[0u8; 400], b"not-an-icc-profile", 10, 10, 3);
+        assert_eq!(img.width(), 10);
+        assert_eq!(img.height(), 10);
+        // All pixels must be zero (blank)
+        for pixel in img.pixels() {
+            assert_eq!(pixel.0, [0, 0, 0, 0]);
+        }
+    }
+
+    #[test]
+    fn apply_icc_empty_pixels_returns_blank() {
+        let img = apply_icc_profile(&[], b"", 1, 1, 3);
+        assert_eq!(img.width(), 1);
+        assert_eq!(img.height(), 1);
+    }
+}
