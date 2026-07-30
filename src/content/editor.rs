@@ -696,6 +696,79 @@ impl PdfEditor {
         None
     }
 
+    // ── Annotation operations ─────────────────────────────────────────
+
+    /// List all annotations on a page.
+    pub fn get_annotations_on_page(
+        &self,
+        page_index: usize,
+    ) -> PdfResult<Vec<crate::annotations::PdAnnotation>> {
+        let id = self.page_id(page_index)?;
+        let page_dict = self
+            .doc
+            .objects
+            .get(&id)
+            .and_then(|o| o.as_dictionary())
+            .ok_or_else(|| PdfError::Parse {
+                offset: None,
+                context: format!("page {page_index} dictionary not found"),
+            })?;
+        let annots = page_dict
+            .get(&CosName::new(b"Annots".to_vec()));
+        let annots = match annots {
+            Some(CosObject::Array(arr)) => arr.clone(),
+            Some(CosObject::Reference(rid)) => self
+                .doc
+                .objects
+                .get(rid)
+                .and_then(|o| o.as_array())
+                .map(|a| a.to_vec())
+                .unwrap_or_default(),
+            _ => return Ok(Vec::new()),
+        };
+        let mut result = Vec::new();
+        for (i, obj) in annots.iter().enumerate() {
+            let annot_id = obj.as_reference().unwrap_or(ObjectId::new(0, 0));
+            let dict = match obj {
+                CosObject::Reference(rid) => self.doc.objects.get(rid).and_then(|o| o.as_dictionary()),
+                CosObject::Dictionary(d) => Some(d),
+                _ => None,
+            };
+            if let Some(dict) = dict {
+                if let Ok(annot) = crate::annotations::PdAnnotation::from_dict(dict, Some(annot_id)) {
+                    result.push(annot);
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Add an annotation to a page.
+    pub fn add_annotation(
+        &mut self,
+        page_index: usize,
+        annotation: crate::annotations::PdAnnotation,
+    ) -> PdfResult<ObjectId> {
+        let page_id = self.page_id(page_index)?;
+        crate::annotations::add_annotation_to_page(&mut self.doc, page_id, annotation)
+    }
+
+    /// Remove an annotation from a page by its index in the /Annots array.
+    pub fn remove_annotation(&mut self, page_index: usize, annot_index: usize) -> PdfResult<()> {
+        let page_id = self.page_id(page_index)?;
+        crate::annotations::remove_annotation_from_page(&mut self.doc, page_id, annot_index)
+    }
+
+    /// Flatten all annotations on a page into the page's content stream.
+    pub fn flatten_annotations_on_page(&mut self, page_index: usize) -> PdfResult<()> {
+        let annotations = self.get_annotations_on_page(page_index)?;
+        if annotations.is_empty() {
+            return Ok(());
+        }
+        let page_id = self.page_id(page_index)?;
+        crate::annotations::flatten_annotations(&mut self.doc, page_id, page_index, &annotations)
+    }
+
     // ── Internal: read raw decoded content bytes ───────────────────────
 
     fn page_raw_content_bytes(&self, page_index: usize) -> PdfResult<Vec<u8>> {
@@ -1275,5 +1348,64 @@ mod tests {
         let doc = Document::empty();
         let editor = PdfEditor::new(doc);
         assert!(editor.get_field_names().is_empty());
+    }
+
+    // ── Annotation tests ──────────────────────────────────────────────
+
+    #[test]
+    fn test_editor_get_annotations_empty() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        let annots = editor.get_annotations_on_page(0).unwrap();
+        assert!(annots.is_empty());
+    }
+
+    #[test]
+    fn test_editor_add_annotation() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+        let annot = crate::annotations::PdAnnotation::Generic(
+            crate::annotations::GenericAnnotation {
+                common: crate::annotations::AnnotationCommon {
+                    id: None,
+                    rect: crate::pdmodel::Rectangle::new(10.0, 10.0, 100.0, 50.0),
+                    contents: Some("Test".to_string()),
+                    name: None,
+                    flags: Some(4),
+                    color: None,
+                    opacity: None,
+                },
+                subtype: "Text".to_string(),
+            },
+        );
+        let annot_id = editor.add_annotation(0, annot).unwrap();
+        assert!(annot_id.object_number > 0);
+        let annots = editor.get_annotations_on_page(0).unwrap();
+        assert_eq!(annots.len(), 1);
+        assert_eq!(annots[0].subtype(), "Text");
+    }
+
+    #[test]
+    fn test_editor_remove_annotation() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+        let annot = crate::annotations::PdAnnotation::Generic(
+            crate::annotations::GenericAnnotation {
+                common: crate::annotations::AnnotationCommon {
+                    id: None,
+                    rect: crate::pdmodel::Rectangle::new(10.0, 10.0, 100.0, 50.0),
+                    contents: Some("Test".to_string()),
+                    name: None,
+                    flags: Some(4),
+                    color: None,
+                    opacity: None,
+                },
+                subtype: "Text".to_string(),
+            },
+        );
+        editor.add_annotation(0, annot).unwrap();
+        assert_eq!(editor.get_annotations_on_page(0).unwrap().len(), 1);
+        editor.remove_annotation(0, 0).unwrap();
+        assert_eq!(editor.get_annotations_on_page(0).unwrap().len(), 0);
     }
 }
