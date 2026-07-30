@@ -2030,4 +2030,92 @@ pub mod tests {
         // First bytes must be identical to original
         assert_eq!(&out[..original_pdf.len()], original_pdf.as_slice());
     }
+
+    // ── Document metadata / encryption helpers ──
+
+    #[test]
+    fn test_pdf_version_default() {
+        let doc = Document::load_from_bytes(&minimal_pdf()).unwrap();
+        assert_eq!(doc.pdf_version(), (1, 4));
+    }
+
+    #[test]
+    fn test_set_and_get_version() {
+        let mut doc = Document::load_from_bytes(&minimal_pdf()).unwrap();
+        doc.set_version(2, 0);
+        assert_eq!(doc.pdf_version(), (2, 0));
+    }
+
+    #[test]
+    fn test_is_not_encrypted_by_default() {
+        let doc = Document::load_from_bytes(&minimal_pdf()).unwrap();
+        assert!(!doc.is_encrypted());
+        assert!(!doc.was_encrypted());
+    }
+
+    #[cfg(feature = "crypto")]
+    #[test]
+    fn test_protect_makes_doc_encrypted() {
+        use crate::protection::StandardProtectionPolicy;
+        use crate::crypto::Permissions;
+
+        let mut doc = Document::load_from_bytes(&minimal_pdf()).unwrap();
+        let policy = StandardProtectionPolicy::new("owner", "user", Permissions::all_allowed());
+        doc.protect(&policy).unwrap();
+
+        assert!(doc.is_encrypted());
+        assert!(doc.was_encrypted());
+        assert!(doc.encryption_dict_id().is_some());
+    }
+
+    #[cfg(feature = "crypto")]
+    #[test]
+    fn test_protect_twice_returns_error() {
+        use crate::protection::StandardProtectionPolicy;
+        use crate::crypto::Permissions;
+
+        let mut doc = Document::load_from_bytes(&minimal_pdf()).unwrap();
+        let policy = StandardProtectionPolicy::new("owner", "user", Permissions::all_allowed());
+        doc.protect(&policy).unwrap();
+
+        let result = doc.protect(&policy);
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "crypto")]
+    #[test]
+    fn test_protect_owner_only() {
+        use crate::protection::StandardProtectionPolicy;
+        use crate::crypto::Permissions;
+
+        let mut doc = Document::load_from_bytes(&minimal_pdf()).unwrap();
+        let policy = StandardProtectionPolicy::owner_password("owner_only", Permissions::all_allowed());
+        doc.protect(&policy).unwrap();
+
+        assert!(doc.is_encrypted());
+    }
+
+    #[cfg(feature = "crypto")]
+    #[test]
+    fn test_protect_encryption_dict_has_valid_entries() {
+        use crate::protection::StandardProtectionPolicy;
+        use crate::crypto::Permissions;
+        use crate::cos::{CosName, CosObject};
+
+        let mut doc = Document::load_from_bytes(&minimal_pdf()).unwrap();
+        let policy = StandardProtectionPolicy::new("owner", "user", Permissions::all_allowed());
+        doc.protect(&policy).unwrap();
+
+        let enc_id = doc.encryption_dict_id().unwrap();
+        let enc_obj = doc.objects.get(&enc_id).unwrap();
+        let enc_dict = enc_obj.as_dictionary().unwrap();
+
+        // Standard encryption dict entries
+        assert!(enc_dict.get(&CosName::new(b"Filter".to_vec())).is_some());
+        assert!(enc_dict.get(&CosName::new(b"V".to_vec())).is_some());
+        assert!(enc_dict.get(&CosName::new(b"R".to_vec())).is_some());
+        assert!(enc_dict.get(&CosName::new(b"O".to_vec())).is_some());
+        assert!(enc_dict.get(&CosName::new(b"U".to_vec())).is_some());
+        assert!(enc_dict.get(&CosName::new(b"P".to_vec())).is_some());
+    }
 }
