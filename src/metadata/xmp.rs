@@ -421,4 +421,61 @@ mod tests {
         let bad = vec![0xFF, 0xFE, 0x00];
         assert!(XmpMetadata::from_bytes(&bad).is_none());
     }
+
+    #[test]
+    fn test_xmp_metadata_debug() {
+        let xmp_str = build_minimal_xmp(Some("Doc"), None);
+        let meta = XmpMetadata::from_bytes(xmp_str.as_bytes()).unwrap();
+        let _ = format!("{:?}", meta);
+    }
+
+    #[test]
+    fn test_xmp_metadata_accessors_none() {
+        let empty_xmp = "<?xpacket begin=\"\u{FEFF}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description/></rdf:RDF></x:xmpmeta><?xpacket end=\"w\"?>";
+        let meta = XmpMetadata::from_bytes(empty_xmp.as_bytes()).unwrap();
+        assert!(meta.dc_title().is_none());
+        assert!(meta.dc_creator().is_none());
+        assert!(meta.dc_subject().is_none());
+        assert!(meta.pdf_keywords().is_none());
+        assert!(meta.xmp_creator_tool().is_none());
+        assert!(meta.pdf_producer().is_none());
+        assert!(meta.xmp_create_date().is_none());
+        assert!(meta.xmp_modify_date().is_none());
+    }
+
+    #[test]
+    fn test_extract_dc_subject_simple() {
+        let xml = "<rdf:Description><dc:subject>Category</dc:subject></rdf:Description>";
+        assert_eq!(extract_dc_subject(xml), Some("Category".into()));
+    }
+
+    #[test]
+    fn test_extract_xmp_creator_tool() {
+        let xml = "<rdf:Description><xmp:CreatorTool>MyApp</xmp:CreatorTool></rdf:Description>";
+        assert_eq!(extract_xmp_creator_tool(xml), Some("MyApp".into()));
+    }
+
+    #[test]
+    fn test_extract_pdf_producer() {
+        let xml = "<rdf:Description><pdf:Producer>rust-pdfbox</pdf:Producer></rdf:Description>";
+        assert_eq!(extract_pdf_producer(xml), Some("rust-pdfbox".into()));
+    }
+
+    #[test]
+    fn test_extract_xmp_modify_date() {
+        let xml = "<rdf:Description><xmp:ModifyDate>2026-07-30T12:00:00Z</xmp:ModifyDate></rdf:Description>";
+        assert_eq!(extract_xmp_modify_date(xml), Some("2026-07-30T12:00:00Z".into()));
+    }
+
+    #[test]
+    fn test_extract_tag_body_with_attrs() {
+        let xml = "<ns:tag attr=\"val\">content</ns:tag>";
+        assert_eq!(extract_tag_body(xml, "ns:tag"), Some("content"));
+    }
+
+    #[test]
+    fn test_extract_tag_body_missing_close() {
+        let xml = "<ns:tag>content<not-close>";
+        assert_eq!(extract_tag_body(xml, "ns:tag"), None);
+    }
 }
