@@ -1,6 +1,7 @@
 //! Phase 17 baseline: image XObject discovery and basic decode helpers.
 pub mod decode;
 pub mod export;
+#[cfg(feature = "compress-color")]
 pub mod lcms;
 use std::collections::HashSet;
 

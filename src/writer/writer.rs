@@ -9,10 +9,6 @@ use std::collections::{BTreeMap, HashSet};
 use crate::cos::{CosObject, CosName, ObjectId};
 use crate::Document;
 use super::serializer::Serializer;
-use crate::Document;
-use crate::cos::{CosName, CosObject, ObjectId};
-use std::collections::{BTreeMap, HashSet};
-use std::io::{self, Seek, SeekFrom, Write};
 
 /// Writes a `Document` to an output stream.
 pub struct Writer<W: Write> {

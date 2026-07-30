@@ -7,7 +7,7 @@ edition = "2024"
 crate-type = ["rlib", "cdylib", "staticlib"]
 
 [features]
-default = ["text", "crypto", "layout", "forms", "pageops", "outline", "network", "image-support"]
+default = ["text", "crypto", "layout", "forms", "pageops", "outline", "annotations", "image-extract", "metadata", "compress"]
 network = ["dep:reqwest", "cryptographic-message-syntax/http"]
 image-support = ["dep:image"]
 cli = ["dep:clap"]
@@ -47,7 +47,7 @@ compress-fonts = ["compress", "dep:subsetter", "dep:ttf-parser", "dep:owned_ttf_
 ## Full ilovepdf-grade: all passes (requires C toolchain for mozjpeg + lcms2 + jbig2dec)
 compress-full = ["compress-mozjpeg", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts"]
 ## All features enabled
-full = ["text", "crypto", "layout", "compress", "compress-images", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts", "image-support", "network"]
+full = ["text", "crypto", "layout", "forms", "pageops", "outline", "annotations", "metadata", "image-extract", "compress", "compress-images", "compress-jbig2", "compress-zopfli", "compress-color", "compress-fonts", "image-support", "network"]
 quick-xml = ["dep:quick-xml"]
 
 [[bin]]
@@ -78,7 +78,7 @@ chrono    = { version = "0.4", default-features = false, features = ["std", "clo
 
 # CMS / PKCS#7 builder — same crate as rust_pdf_signing to produce
 # identical CMS blobs that Adobe/Foxit accept.
-cryptographic-message-syntax = { version = "0.28.0", default-features = false }
+cryptographic-message-syntax = { version = "0.28.0", default-features = false, features = ["http"] }
 x509-certificate = "0.25.0"
 bcder = "0.7.6"
 
