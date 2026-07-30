@@ -4,7 +4,7 @@ A comprehensive Rust PDF manipulation library, porting key capabilities from Apa
 
 ## Status
 
-**1,097 tests — 100% passing ✅** — Overall ~92% completion across all modules
+**1,111 tests — 100% passing ✅** — Overall ~93% completion across all modules
 
 | Module | Tests | Progress | Status |
 |--------|:-----:|:--------:|:------:|
@@ -12,7 +12,7 @@ A comprehensive Rust PDF manipulation library, porting key capabilities from Apa
 | Compress | 94 | **87%** | 🟢 |
 | Crypto | 103 | **95%** | 🟢 |
 | Forms (AcroForm) | 91 | **~83%** | 🟢 |
-| Content Streams | 79 | **88%** | 🟢 |
+| Content Streams | 93 | **90%** | 🟢 |
 | Signing | 67 | **87%** | 🟢 |
 | Font | 61 | **82%** | 🟢 |
 | PageOps | 61 | **79%** | 🟢 |
