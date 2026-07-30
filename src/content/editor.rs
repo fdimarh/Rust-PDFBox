@@ -16,6 +16,7 @@
 use crate::content::edit::{ContentOperator, parse_content_operators, serialise_content_stream};
 use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
 use crate::io::decode_stream;
+use crate::pageops::{PdfMerger, PdfSplitter, extract_pages, rotate_page as rotate_page_fn};
 use crate::{Document, PdfError, PdfResult};
 
 /// High-level content-stream editor for PDF documents.
@@ -514,6 +515,72 @@ impl PdfEditor {
         Ok(changed)
     }
 
+    // ── Page operations ───────────────────────────────────────────────
+
+    /// Merge another document into this one by appending all its pages.
+    pub fn merge_document(&mut self, other: &Document) -> PdfResult<()> {
+        let mut merger = PdfMerger::new();
+        // First, add our current doc's pages to the merger
+        merger.append(&self.doc)?;
+        // Then append the other doc
+        merger.append(other)?;
+        self.doc = merger.finish();
+        Ok(())
+    }
+
+    /// Split the document into multiple documents, each with at most `pages_per_doc` pages.
+    pub fn split(&mut self, pages_per_doc: usize) -> PdfResult<Vec<Document>> {
+        let mut splitter = PdfSplitter::new(&mut self.doc);
+        splitter.split(pages_per_doc)
+    }
+
+    /// Extract a subset of pages into a new `Document`.
+    /// `indices` are zero-based page indices. The source document is not modified.
+    pub fn extract_pages(&self, indices: &[usize]) -> PdfResult<Document> {
+        // extract_pages takes &mut Document but only reads the structure
+        extract_pages(&mut self.doc.clone(), indices)
+    }
+
+    /// Delete pages by index. Remaining pages keep their relative order.
+    pub fn delete_page(&mut self, page_index: usize) -> PdfResult<()> {
+        let n = self.page_count();
+        if page_index >= n {
+            return Err(PdfError::Parse {
+                offset: None,
+                context: format!(
+                    "page index {page_index} out of range (count={n})"
+                ),
+            });
+        }
+        let indices: Vec<usize> = (0..n).filter(|&i| i != page_index).collect();
+        self.doc = extract_pages(&mut self.doc, &indices)?;
+        Ok(())
+    }
+
+    /// Delete multiple pages by index. Remaining pages keep their relative order.
+    pub fn delete_pages(&mut self, page_indices: &[usize]) -> PdfResult<()> {
+        let n = self.page_count();
+        let keep: std::collections::HashSet<usize> =
+            (0..n).filter(|i| !page_indices.contains(i)).collect();
+        let mut indices: Vec<usize> = keep.into_iter().collect();
+        indices.sort_unstable();
+        self.doc = extract_pages(&mut self.doc, &indices)?;
+        Ok(())
+    }
+
+    /// Reorder pages. `order` is the desired order as zero-based page indices.
+    /// For example, `reorder_pages(&[2, 0, 1])` moves page 3 to the front.
+    pub fn reorder_pages(&mut self, order: &[usize]) -> PdfResult<()> {
+        self.doc = extract_pages(&mut self.doc, order)?;
+        Ok(())
+    }
+
+    /// Rotate a page by the given number of degrees (multiple of 90).
+    /// Positive = clockwise, negative = counter-clockwise.
+    pub fn rotate_page(&mut self, page_index: usize, degrees: i64) -> PdfResult<()> {
+        rotate_page_fn(&mut self.doc, page_index, degrees)
+    }
+
     // ── Internal: read raw decoded content bytes ───────────────────────
 
     fn page_raw_content_bytes(&self, page_index: usize) -> PdfResult<Vec<u8>> {
@@ -846,5 +913,104 @@ mod tests {
             .replace_image_on_page(0, "Im1", "ImNew", new_stream, true)
             .unwrap();
         assert_eq!(changed, 2);
+    }
+
+    // ── Page operation tests ───────────────────────────────────────────
+
+    #[test]
+    fn test_editor_merge_document() {
+        let doc1 = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc1);
+        let doc2 = {
+            let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+            doc
+        };
+        editor.merge_document(&doc2).unwrap();
+        assert_eq!(editor.page_count(), 2);
+    }
+
+    #[test]
+    fn test_editor_split() {
+        use crate::pdmodel::{DocumentBuilder, PageSize};
+        let mut merger = PdfMerger::new();
+        for _ in 0..4 {
+            let doc = DocumentBuilder::new().page_size(PageSize::A4).build().unwrap();
+            merger.append(&doc).unwrap();
+        }
+        let doc = merger.finish();
+        let mut editor = PdfEditor::new(doc);
+        let result = editor.split(2).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].page_count(), 2);
+        assert_eq!(result[1].page_count(), 2);
+    }
+
+    #[test]
+    fn test_editor_extract_pages() {
+        use crate::pdmodel::{DocumentBuilder, PageSize};
+        let mut merger = PdfMerger::new();
+        for _ in 0..3 {
+            let doc = DocumentBuilder::new().page_size(PageSize::A4).build().unwrap();
+            merger.append(&doc).unwrap();
+        }
+        let doc = merger.finish();
+        let editor = PdfEditor::new(doc);
+        let extracted = editor.extract_pages(&[0, 2]).unwrap();
+        assert_eq!(extracted.page_count(), 2);
+    }
+
+    #[test]
+    fn test_editor_delete_page() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+        assert_eq!(editor.page_count(), 1);
+        editor.delete_page(0).unwrap();
+        assert_eq!(editor.page_count(), 0);
+    }
+
+    #[test]
+    fn test_editor_delete_page_out_of_range() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+        assert!(editor.delete_page(99).is_err());
+    }
+
+    #[test]
+    fn test_editor_delete_pages() {
+        use crate::pdmodel::{DocumentBuilder, PageSize};
+        let mut merger = PdfMerger::new();
+        for _ in 0..5 {
+            let doc = DocumentBuilder::new().page_size(PageSize::A4).build().unwrap();
+            merger.append(&doc).unwrap();
+        }
+        let doc = merger.finish();
+        let mut editor = PdfEditor::new(doc);
+        editor.delete_pages(&[1, 3]).unwrap();
+        assert_eq!(editor.page_count(), 3);
+    }
+
+    #[test]
+    fn test_editor_reorder_pages() {
+        use crate::pdmodel::{DocumentBuilder, PageSize};
+        let mut merger = PdfMerger::new();
+        for _ in 0..4 {
+            let doc = DocumentBuilder::new().page_size(PageSize::A4).build().unwrap();
+            merger.append(&doc).unwrap();
+        }
+        let doc = merger.finish();
+        let mut editor = PdfEditor::new(doc);
+        editor.reorder_pages(&[3, 2, 1, 0]).unwrap();
+        assert_eq!(editor.page_count(), 4);
+    }
+
+    #[test]
+    fn test_editor_rotate_page() {
+        use crate::pdmodel::{DocumentBuilder, PageSize};
+        let doc = DocumentBuilder::new().page_size(PageSize::A4).build().unwrap();
+        let mut editor = PdfEditor::new(doc);
+        editor.rotate_page(0, 90).unwrap();
+        // verify by accessing the underlying doc
+        let tree = editor.document().pages().unwrap();
+        assert_eq!(tree.get(0).unwrap().rotation(), 90);
     }
 }
