@@ -1648,3 +1648,172 @@ fn hex_char_val(c: u8) -> u8 {
         _ => 0,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── hex_char_val ───────────────────────────────────────────────────────
+
+    #[test]
+    fn hex_char_val_digit() {
+        assert_eq!(hex_char_val(b'0'), 0);
+        assert_eq!(hex_char_val(b'5'), 5);
+        assert_eq!(hex_char_val(b'9'), 9);
+    }
+
+    #[test]
+    fn hex_char_val_lower() {
+        assert_eq!(hex_char_val(b'a'), 10);
+        assert_eq!(hex_char_val(b'f'), 15);
+    }
+
+    #[test]
+    fn hex_char_val_upper() {
+        assert_eq!(hex_char_val(b'A'), 10);
+        assert_eq!(hex_char_val(b'F'), 15);
+    }
+
+    #[test]
+    fn hex_char_val_invalid() {
+        assert_eq!(hex_char_val(b'z'), 0);
+        assert_eq!(hex_char_val(b'g'), 0);
+    }
+
+    // ── trim_zeros ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn trim_zeros_noop() {
+        assert_eq!(trim_zeros(b"abc"), b"abc");
+    }
+
+    #[test]
+    fn trim_zeros_empty() {
+        assert!(trim_zeros(b"").is_empty());
+    }
+
+    #[test]
+    fn trim_zeros_trims_trailing_zeros() {
+        // DER SEQUENCE of length 3: [0x30, 0x03, 0x01, 0x02, 0x03, 0x00, 0x00]
+        let data = [0x30, 0x03, 0x01, 0x02, 0x03, 0x00, 0x00];
+        let trimmed = trim_zeros(&data);
+        assert_eq!(trimmed.len(), 5);
+        assert_eq!(trimmed, &[0x30, 0x03, 0x01, 0x02, 0x03]);
+    }
+
+    // ── oid_present ────────────────────────────────────────────────────────
+
+    #[test]
+    fn oid_present_found() {
+        let cms = [0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x2f, 0x01, 0x01, 0x08, 0xff];
+        assert!(oid_present(&cms, &[0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x2f, 0x01, 0x01, 0x08]));
+    }
+
+    #[test]
+    fn oid_present_not_found() {
+        let cms = [0x01, 0x02, 0x03];
+        assert!(!oid_present(&cms, &[0x04, 0x05, 0x06]));
+    }
+
+    #[test]
+    fn oid_present_empty() {
+        assert!(!oid_present(b"", &[0x06]));
+    }
+
+    // ── ValidationResult::is_valid ─────────────────────────────────────────
+
+    #[test]
+    fn validation_result_valid() {
+        let r = ValidationResult {
+            digest_match: true,
+            cms_signature_valid: true,
+            certificate_chain_valid: true,
+            no_unauthorized_modifications: true,
+            byte_range_valid: true,
+            signature_not_wrapped: true,
+            certification_permission_ok: true,
+            errors: vec![],
+            field_name: None,
+            is_document_timestamp: false,
+            signer_name: None,
+            contact_info: None,
+            reason: None,
+            signing_time: None,
+            filter: None,
+            sub_filter: None,
+            byte_range: vec![],
+            byte_range_covers_whole_file: false,
+            is_encrypted: false,
+            computed_digest: vec![],
+            certificates: vec![],
+            certificate_chain_trusted: false,
+            chain_warnings: vec![],
+            has_dss: false,
+            dss_crl_count: 0,
+            dss_ocsp_count: 0,
+            dss_cert_count: 0,
+            has_vri: false,
+            has_cms_revocation_data: false,
+            has_timestamp: false,
+            is_ltv_enabled: false,
+            signature_revision_end: 0,
+            modification_notes: vec![],
+            security_warnings: vec![],
+            certification_level: None,
+        };
+        assert!(r.is_valid());
+    }
+
+    #[test]
+    fn validation_result_invalid_with_errors() {
+        let mut r = ValidationResult {
+            digest_match: true,
+            cms_signature_valid: true,
+            certificate_chain_valid: true,
+            no_unauthorized_modifications: true,
+            byte_range_valid: true,
+            signature_not_wrapped: true,
+            certification_permission_ok: true,
+            errors: vec!["something wrong".into()],
+            field_name: None,
+            is_document_timestamp: false,
+            signer_name: None,
+            contact_info: None,
+            reason: None,
+            signing_time: None,
+            filter: None,
+            sub_filter: None,
+            byte_range: vec![],
+            byte_range_covers_whole_file: false,
+            is_encrypted: false,
+            computed_digest: vec![],
+            certificates: vec![],
+            certificate_chain_trusted: false,
+            chain_warnings: vec![],
+            has_dss: false,
+            dss_crl_count: 0,
+            dss_ocsp_count: 0,
+            dss_cert_count: 0,
+            has_vri: false,
+            has_cms_revocation_data: false,
+            has_timestamp: false,
+            is_ltv_enabled: false,
+            signature_revision_end: 0,
+            modification_notes: vec![],
+            security_warnings: vec![],
+            certification_level: None,
+        };
+        assert!(!r.is_valid());
+    }
+
+    // ── hash_to_sign (hex_char_val used in hunk) ───────────────────────────
+
+    #[test]
+    fn hex_char_val_roundtrip() {
+        let hex_digits = b"0123456789abcdefABCDEF";
+        for c in hex_digits {
+            let v = hex_char_val(*c);
+            assert!(v <= 15);
+        }
+    }
+}
