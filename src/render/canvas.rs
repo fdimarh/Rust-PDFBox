@@ -55,4 +55,11 @@ mod tests {
         assert!((cs.line_width - 3.0).abs() < f32::EPSILON);
         assert!((cs.fill_alpha - 0.75).abs() < f32::EPSILON);
     }
+
+    #[test]
+    fn canvas_state_default_clone() {
+        let cs = CanvasState::default();
+        let cs = CanvasState { ..cs };
+        assert!((cs.line_width - 1.0).abs() < f32::EPSILON);
+    }
 }

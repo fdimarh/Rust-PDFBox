@@ -188,4 +188,22 @@ mod tests {
         let result = CmsSignerResult { cms_der: vec![] };
         assert!(result.cms_der.is_empty());
     }
+
+    #[test]
+    fn test_signature_config_default() {
+        let config = SignatureConfig {
+            digest: vec![0u8; 32],
+            sign_options: SignOptions::default(),
+        };
+        assert_eq!(config.digest.len(), 32);
+        assert_eq!(config.sign_options.format, crate::signing::SignatureFormat::Pkcs7);
+    }
+
+    #[test]
+    fn test_cms_signer_result_with_data() {
+        let result = CmsSignerResult {
+            cms_der: b"some-cms-data".to_vec(),
+        };
+        assert_eq!(result.cms_der, b"some-cms-data");
+    }
 }

@@ -504,4 +504,61 @@ mod tests {
         assert!(r.certificates.is_empty());
         assert!(r.chain_warnings.is_empty());
     }
+
+    #[test]
+    fn cms_verify_result_chain_valid() {
+        let r = CmsVerifyResult {
+            digest_valid: true,
+            signature_valid: true,
+            has_timestamp: true,
+            certificates: vec![],
+            chain_warnings: vec![],
+            chain_valid: true,
+        };
+        assert!(r.digest_valid);
+        assert!(r.signature_valid);
+        assert!(r.chain_valid);
+    }
+
+    #[test]
+    fn cms_options_with_timestamp() {
+        let opts = CmsOptions {
+            sub_filter: "ETSI.CAdES.detached",
+            timestamp_url: Some("http://timestamp.example.com".to_string()),
+            include_crl: true,
+            include_ocsp: true,
+            cert_chain_pem: "chain".to_string(),
+        };
+        assert!(opts.timestamp_url.is_some());
+        assert!(opts.include_crl);
+        assert!(opts.include_ocsp);
+        assert_eq!(opts.sub_filter, "ETSI.CAdES.detached");
+    }
+
+    #[test]
+    fn cms_verify_result_with_certs() {
+        #[cfg(feature = "signing")]
+        let cert = crate::signing::cms::CmsCertInfo {
+            subject: vec![],
+            issuer: vec![],
+            serial: vec![],
+            not_before: 0,
+            not_after: 0,
+            is_valid: true,
+            signature_algo: "".to_string(),
+        };
+        #[cfg(not(feature = "signing"))]
+        let cert = ();
+        let _ = cert;
+        let r = CmsVerifyResult {
+            digest_valid: false,
+            signature_valid: false,
+            has_timestamp: false,
+            certificates: vec![],
+            chain_warnings: vec!["warning".to_string()],
+            chain_valid: false,
+        };
+        assert!(r.certificates.is_empty());
+        assert_eq!(r.chain_warnings.len(), 1);
+    }
 }

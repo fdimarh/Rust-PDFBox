@@ -210,4 +210,31 @@ mod tests {
         assert!(w.file_key.is_some());
         assert_eq!(w.file_key.as_ref().unwrap().len(), 32);
     }
+
+    #[test]
+    fn writer_no_key_encrypted() {
+        let buf = Cursor::new(Vec::new());
+        let bypass = std::collections::HashSet::new();
+        let w = Writer::new_encrypted(buf, None, bypass);
+        assert!(w.file_key.is_none());
+    }
+
+    #[test]
+    fn writer_encrypted_bypass_many_ids() {
+        let buf = Cursor::new(Vec::new());
+        let bypass: std::collections::HashSet<ObjectId> =
+            (1..=5).map(|i| ObjectId::new(i, 0)).collect();
+        let w = Writer::new_encrypted(buf, None, bypass);
+        assert_eq!(w.bypass_ids.len(), 5);
+    }
+
+    #[test]
+    fn writer_encrypted_with_duplicate_bypass() {
+        let buf = Cursor::new(Vec::new());
+        let mut bypass = std::collections::HashSet::new();
+        bypass.insert(ObjectId::new(1, 0));
+        bypass.insert(ObjectId::new(1, 0));
+        let w = Writer::new_encrypted(buf, None, bypass);
+        assert_eq!(w.bypass_ids.len(), 1);
+    }
 }

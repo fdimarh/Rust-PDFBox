@@ -120,4 +120,23 @@ mod tests {
         let arr = fields.as_array().unwrap();
         assert_eq!(arr.len(), 2, "should have original field + new widget");
     }
+
+    #[test]
+    fn test_build_acroform_result_type() {
+        let bytes = b"%PDF-1.7\n\
+            1 0 obj<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+            2 0 obj<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n\
+            xref\n0 3\n\
+            0000000000 65535 f \n\
+            0000000009 00000 n \n\
+            0000000081 00000 n \n\
+            trailer\n<< /Size 3 /Root 1 0 R >>\n\
+            startxref\n155\n%%EOF";
+        let (doc, _) = Document::load_lenient(bytes);
+        let mut changed = BTreeMap::new();
+        let result = build_acroform(&doc, ObjectId::new(5, 0), ObjectId::new(10, 0), &mut changed);
+        let dict = result.as_dictionary().expect("should be a dictionary");
+        assert!(dict.contains_key(&CosName::new(b"Fields".to_vec())));
+        assert!(dict.contains_key(&CosName::new(b"SigFlags".to_vec())));
+    }
 }
