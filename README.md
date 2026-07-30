@@ -38,7 +38,8 @@ A comprehensive Rust PDF manipulation library, porting key capabilities from Apa
 - **Digital Signatures:** Creating signature placeholders and embedding CMS/PAdES signatures
 - **Text Extraction:** ToUnicode CMap, Type1, TrueType, Type0/CID font support with positional layout heuristics
 - **Font Parsing:** FontDescriptor, Encoding, CMap, and font subsetting
-- **Content Stream Editing:** Tokenizer, parser, serializer — find & replace text and XObject images
+- **Content Stream Editing:** Tokenizer, parser, serializer — find & replace text, XObject images, inline images
+- **PdfEditor API:** High-level WASM-friendly interface for text, image, page, and form operations via `Vec<u8>` I/O
 - **Interactive Forms (AcroForm):** Field creation, flatten, XFA, FDF/XFDF export/import
 - **Annotations:** Markup, links, stamps, text notes
 - **Page Operations:** Merge, split, rotate, extract, overlay, watermark
@@ -61,11 +62,39 @@ println!("Pages: {}", doc.page_count());
 
 ### Editing content streams
 
+Use `PdfEditor` — a high-level WASM-friendly API for all content+page+form operations.
+
 ```rust,ignore
-use rust_pdfbox::content::editor::PdfEditor;
+use rust_pdfbox::PdfEditor;
 
 let mut editor = PdfEditor::load_from_bytes(&pdf_bytes)?;
+
+// ── Text operations ──
 editor.replace_text_on_page(0, "old text", "new text")?;
+let results = editor.find_text_all_pages("search");
+let text = editor.extract_text_from_page(0)?;
+
+// ── Image operations ──
+let images = editor.find_images_on_page(0)?;
+editor.replace_image_xobject(0, "Im1", &new_data, 200, 100, "DeviceRGB", 8, None)?;
+editor.rename_xobject_on_page(0, "Im1", "NewIm")?;
+
+// ── Page operations ──
+editor.merge_document(&other_doc)?;
+editor.split(2)?; // split into 2-page chunks
+let extracted = editor.extract_pages(&[0, 2])?;
+editor.delete_page(1)?;
+editor.reorder_pages(&[3, 0, 1, 2])?;
+editor.rotate_page(0, 90)?;
+
+// ── Form / AcroForm operations ──
+editor.set_field_value("username", "new value")?;
+let val = editor.get_field_value("username");
+editor.flatten_fields()?;
+let fdf = editor.export_fdf()?;
+editor.import_fdf(&fdf_bytes)?;
+
+// ── Save ──
 let result = editor.save_to_bytes()?;
 ```
 
@@ -147,7 +176,7 @@ src/
   parser/       — Lexer, parser, xref (table + stream), malformed recovery
   io/           — Stream filters (FlateDecode, ASCIIHex, ASCII85, RunLength, LZW)
   pdmodel/      — Page, page tree, resources, PDMetadata
-  content/      — Stream tokenizer, operator, editor, editor API
+  content/      — Stream tokenizer, operator, editor (PdfEditor API)
   font/         — CMap, descriptor, encoding, simple fonts, Type0/CID
   text/         — Text extraction + layout heuristics
   writer/       — Full-rewrite + incremental append writer
