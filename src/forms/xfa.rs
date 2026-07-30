@@ -252,4 +252,45 @@ mod tests {
         let xfa = XfaForm { packets: vec![] };
         assert!(xfa.raw_xml().is_empty());
     }
+
+    #[test]
+    fn xfa_from_integer_or_name_returns_empty() {
+        let mut store = ObjectStore::new();
+        let mut form = CosDictionary::new();
+        form.insert(CosName::new(b"XFA".to_vec()), CosObject::Integer(42));
+        let xfa = XfaForm::from_acro_form_dict(&form, &store).unwrap();
+        assert!(xfa.is_empty());
+
+        let mut form2 = CosDictionary::new();
+        form2.insert(CosName::new(b"XFA".to_vec()), CosObject::Name(CosName::new(b"test".to_vec())));
+        let xfa2 = XfaForm::from_acro_form_dict(&form2, &store).unwrap();
+        assert!(xfa2.is_empty());
+    }
+
+    #[test]
+    fn xfa_debug_format() {
+        let xfa = XfaForm { packets: vec![] };
+        let _ = format!("{:?}", xfa);
+    }
+
+    #[test]
+    fn xfa_packet_debug() {
+        let p = XfaPacket { name: Some("test".to_string()), xml: b"<data/>".to_vec() };
+        let _ = format!("{:?}", p);
+    }
+
+    #[test]
+    fn xfa_packet_eq() {
+        let a = XfaPacket { name: Some("a".to_string()), xml: b"<a/>".to_vec() };
+        let b = XfaPacket { name: Some("a".to_string()), xml: b"<a/>".to_vec() };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn xfa_raw_xml_multiple_packets() {
+        let p1 = XfaPacket { name: Some("a".to_string()), xml: b"<a/>".to_vec() };
+        let p2 = XfaPacket { name: Some("b".to_string()), xml: b"<b/>".to_vec() };
+        let xfa = XfaForm { packets: vec![p1, p2] };
+        assert_eq!(xfa.raw_xml(), b"<a/><b/>");
+    }
 }

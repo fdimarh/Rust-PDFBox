@@ -218,6 +218,35 @@ mod tests {
         let result = pdf_date_to_xmp("D:20260730120000-05'30'").unwrap();
         assert_eq!(result, "2026-07-30T12:00:00-05:30");
     }
+
+    #[test]
+    fn sync_policy_no_fields_set() {
+        let p = SyncPolicy {
+            title: false,
+            author: false,
+            subject: false,
+            keywords: false,
+            creator: false,
+            producer: false,
+            creation_date: false,
+            mod_date: false,
+        };
+        assert!(!p.title);
+        assert!(!p.author);
+    }
+
+    #[test]
+    fn sync_policy_clone() {
+        let a = SyncPolicy::all_fields();
+        let b = a.clone();
+        assert_eq!(a.title, b.title);
+    }
+
+    #[test]
+    fn sync_policy_debug() {
+        let p = SyncPolicy::default();
+        let _ = format!("{:?}", p);
+    }
 }
 
 pub(crate) fn pdf_date_to_xmp(input: &str) -> Option<String> {
