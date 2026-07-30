@@ -4,22 +4,22 @@ A comprehensive Rust PDF manipulation library, porting key capabilities from Apa
 
 ## Status
 
-**1,036 tests — 100% passing ✅** — Overall ~89% completion across all modules
+**1,064 tests — 100% passing ✅** — Overall ~90% completion across all modules
 
 | Module | Tests | Progress | Status |
 |--------|:-----:|:--------:|:------:|
 | Parser | 159 | **95%** | 🟢 |
 | Compress | 94 | **87%** | 🟢 |
 | Crypto | 73 | **93%** | 🟢 |
-| Forms (AcroForm) | 78 | **73%** | 🟡 |
-| Content Streams | 77 | **88%** | 🟢 |
+| Forms (AcroForm) | 91 | **~83%** | 🟢 |
+| Content Streams | 79 | **88%** | 🟢 |
 | Signing | 67 | **87%** | 🟢 |
 | Font | 61 | **82%** | 🟢 |
 | PageOps | 61 | **79%** | 🟢 |
 | COS Model | 56 | **96%** | 🟢 |
 | Preflight (PDF/A) | 47 | **~80%** | 🟢 |
 | Image Extract | 46 | **85%** | 🟢 |
-| Metadata | 41 | **~76%** | 🟡 |
+| Metadata | 49 | **~80%** | 🟢 |
 | Annotations | 36 | **88%** | 🟢 |
 | IO / Filters | 32 | **95%** | 🟢 |
 | Writer | 31 | **88%** | 🟢 |
