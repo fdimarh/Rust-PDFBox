@@ -6,6 +6,7 @@ use crate::pdmodel::page::Page;
 use crate::PdfResult;
 use std::collections::HashMap;
 use tiny_skia::{Color, Paint, PathBuilder, PixmapMut, Stroke, Transform};
+use ab_glyph::Font as AbFont;
 
 /// Represents the complete graphics state (PDF §8.4).
 #[derive(Debug, Clone)]
@@ -84,6 +85,10 @@ struct FontMetrics {
     cap_height: f64,
     /// Font bounding box width
     _bbox_width: f64,
+    /// Embedded font program bytes (TrueType / OpenType) for ab_glyph rendering
+    font_data: Option<Vec<u8>>,
+    /// Scaled ab_glyph font for glyph outline rendering
+    ab_font: Option<ab_glyph::FontArc>,
 }
 
 impl FontMetrics {
@@ -106,8 +111,10 @@ impl FontMetrics {
         let mut descent = -200.0;
         let mut cap_height = 700.0;
         let mut bbox_width = 1000.0;
+        let mut font_data: Option<Vec<u8>> = None;
+        let mut ab_font: Option<ab_glyph::FontArc> = None;
 
-        // Parse font descriptor for metrics
+        // Parse font descriptor for metrics and embedded font program
         if let Some(desc_dict) = dict
             .get(&CosName::new(b"FontDescriptor".to_vec()))
             .and_then(|v| match v {
@@ -126,6 +133,39 @@ impl FontMetrics {
                 if nums.len() >= 4 {
                     bbox_width = (nums[2] - nums[0]).abs();
                 }
+            }
+
+            // Extract embedded font program from descriptor
+            let ff2_name = CosName::new(b"FontFile2".to_vec());
+            let ff3_name = CosName::new(b"FontFile3".to_vec());
+            let ff_name = CosName::new(b"FontFile".to_vec());
+
+            let font_program = desc_dict
+                .get(&ff2_name)
+                .and_then(|v| match v {
+                    CosObject::Stream(s) => Some(s.data.clone()),
+                    _ => None,
+                })
+                .or_else(|| {
+                    desc_dict
+                        .get(&ff3_name)
+                        .and_then(|v| match v {
+                            CosObject::Stream(s) => Some(s.data.clone()),
+                            _ => None,
+                        })
+                })
+                .or_else(|| {
+                    desc_dict
+                        .get(&ff_name)
+                        .and_then(|v| match v {
+                            CosObject::Stream(s) => Some(s.data.clone()),
+                            _ => None,
+                        })
+                });
+
+            if let Some(data) = font_program {
+                font_data = Some(data.clone());
+                ab_font = ab_glyph::FontArc::try_from_vec(data).ok();
             }
         } else {
             // Standard font defaults
@@ -154,6 +194,8 @@ impl FontMetrics {
             descent,
             cap_height,
             _bbox_width: bbox_width,
+            font_data,
+            ab_font,
         })
     }
 
@@ -531,9 +573,8 @@ impl<'a> PagePainter<'a> {
         if let Some(saved) = self.gs_stack.pop() { self.gs = saved; }
     }
 
-    /// Render text with per-glyph width lookup from PDF font metrics.
-    /// Glyphs are rendered as filled rectangles proportional to their
-    /// actual width (from the font's /Widths array), ascent, and descent.
+    /// Render text with glyph outline rendering via ab_glyph (when available).
+    /// Falls back to proportional rectangles when no font program is embedded.
     fn render_text(&mut self, text: &[u8]) {
         if text.is_empty() { return; }
 
@@ -546,19 +587,87 @@ impl<'a> PagePainter<'a> {
         let metrics = self.text.font_name.as_ref()
             .and_then(|name| self.font_metrics.get(name));
 
-        let (ascent, descent, cap_height) = if let Some(m) = metrics {
+        // ── ab_glyph outline rendering path ──
+        if let Some(m) = metrics {
+            if let Some(ref ab_font) = m.ab_font {
+                let units_per_em = ab_font.units_per_em().unwrap_or(1000.0);
+                let scale = font_size / units_per_em;
+
+                let mut total_advance = 0.0f32;
+
+                for (i, &code) in text.iter().enumerate() {
+                    let glyph_id = ab_glyph::GlyphId(code as u16);
+
+                    if let Some(outline) = ab_font.outline(glyph_id) {
+                        // Convert outline curves to tiny_skia path
+                        let mut cp = PathBuilder::new();
+                        for curve in &outline.curves {
+                            match curve {
+                                ab_glyph::OutlineCurve::Line(_from, to) => {
+                                    cp.line_to(to.x, -to.y);
+                                }
+                                ab_glyph::OutlineCurve::Quad(fr, ctrl, to) => {
+                                    let c0_x = fr.x + (2.0/3.0) * (ctrl.x - fr.x);
+                                    let c0_y = fr.y + (2.0/3.0) * (ctrl.y - fr.y);
+                                    let c1_x = to.x + (2.0/3.0) * (ctrl.x - to.x);
+                                    let c1_y = to.y + (2.0/3.0) * (ctrl.y - to.y);
+                                    cp.cubic_to(c0_x, -c0_y, c1_x, -c1_y, to.x, -to.y);
+                                }
+                                ab_glyph::OutlineCurve::Cubic(_from, c1, c2, to) => {
+                                    cp.cubic_to(c1.x, -c1.y, c2.x, -c2.y, to.x, -to.y);
+                                }
+                            }
+                        }
+
+                        if let Some(path) = cp.finish() {
+                            let mut paint = Paint::default();
+                            paint.set_color(self.gs.fill_color);
+
+                            let glyph_tm = self.gs.ctm.pre_concat(self.text.tm)
+                                .pre_concat(Transform::from_row(
+                                    scale * hscale, 0.0, 0.0, scale,
+                                    total_advance, 0.0,
+                                ));
+
+                            self.pixmap.fill_path(
+                                &path, &paint,
+                                tiny_skia::FillRule::Winding,
+                                glyph_tm, None,
+                            );
+                        }
+
+                        total_advance += ab_font.h_advance_unscaled(glyph_id) * scale * hscale;
+                    } else {
+                        // Fallback to PDF metric
+                        let gw = m.width_for_code(code) as f32;
+                        total_advance += gw * font_size / 1000.0 * hscale;
+                    }
+
+                    // Spacing
+                    if code == b' ' {
+                        total_advance += word_spacing;
+                    }
+                    total_advance += char_spacing;
+                }
+
+                self.text.tm = self.text.tm.pre_concat(
+                    Transform::from_row(1.0, 0.0, 0.0, 1.0, total_advance, 0.0)
+                );
+                return;
+            }
+        }
+
+        // ── Fallback: rectangle-based rendering ──
+        let (ascent, descent, _cap_height) = if let Some(m) = metrics {
             (m.ascent as f32, m.descent as f32, m.cap_height as f32)
         } else {
-            // Fallback: standard metric ratio
             (650.0, -200.0, 650.0)
         };
 
-        let font_scale = font_size / 1000.0; // PDF widths are in 1/1000 text space
+        let font_scale = font_size / 1000.0;
         let glyph_height = (ascent - descent) * font_scale;
-        let glyph_baseline = ascent * font_scale; // distance from baseline to top
 
-        let text_ctm = self.text.tm;
-        let final_tm = self.gs.ctm.pre_concat(text_ctm)
+        let final_tm = self.gs.ctm.pre_concat(self.text.tm)
             .pre_concat(Transform::from_row(font_size * hscale, 0.0, 0.0, font_size, 0.0, 0.0));
 
         let mut total_advance = 0.0f32;
@@ -568,22 +677,15 @@ impl<'a> PagePainter<'a> {
                 .map(|m| m.width_for_code(code) as f32)
                 .unwrap_or(font_size * 0.6 * hscale);
 
-            // Width in user space (PDF glyph units → font size)
             let w = glyph_width * font_scale * hscale;
-            // Height proportion
             let h = glyph_height;
-            // Vertical offset from baseline
             let y_offset = -descent * font_scale;
 
-            // Draw glyph as filled rectangle proportional to its metrics
-            let x = total_advance;
-            let y = y_offset;
-
             let mut cp = PathBuilder::new();
-            cp.move_to(x, y);
-            cp.line_to(x + w, y);
-            cp.line_to(x + w, y + h * 0.8);
-            cp.line_to(x, y + h * 0.8);
+            cp.move_to(total_advance, y_offset);
+            cp.line_to(total_advance + w, y_offset);
+            cp.line_to(total_advance + w, y_offset + h * 0.8);
+            cp.line_to(total_advance, y_offset + h * 0.8);
             cp.close();
             if let Some(path) = cp.finish() {
                 let mut paint = Paint::default();
@@ -591,11 +693,9 @@ impl<'a> PagePainter<'a> {
                 self.pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, final_tm, None);
             }
 
-            // Advance width
             let advance = glyph_width * font_scale * hscale;
             total_advance += advance;
 
-            // Kerning: add char_spacing for each char, word_spacing for space (0x20)
             if code == b' ' {
                 total_advance += word_spacing * font_scale;
             }
@@ -604,7 +704,6 @@ impl<'a> PagePainter<'a> {
             }
         }
 
-        // Update text matrix — advance by total used width
         self.text.tm = self.text.tm.pre_concat(
             Transform::from_row(1.0, 0.0, 0.0, 1.0, total_advance, 0.0)
         );
