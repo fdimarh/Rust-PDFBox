@@ -17,11 +17,16 @@ pub struct Rc4 {
 impl Rc4 {
     /// Initialises RC4 with the given key (1–256 bytes).
     pub fn new(key: &[u8]) -> Self {
-        assert!(!key.is_empty() && key.len() <= 256, "RC4 key must be 1-256 bytes");
+        assert!(
+            !key.is_empty() && key.len() <= 256,
+            "RC4 key must be 1-256 bytes"
+        );
         let mut s: [u8; 256] = core::array::from_fn(|i| i as u8);
         let mut j: u8 = 0;
         for i in 0u8..=255 {
-            j = j.wrapping_add(s[i as usize]).wrapping_add(key[i as usize % key.len()]);
+            j = j
+                .wrapping_add(s[i as usize])
+                .wrapping_add(key[i as usize % key.len()]);
             s.swap(i as usize, j as usize);
         }
         Self { s, i: 0, j: 0 }

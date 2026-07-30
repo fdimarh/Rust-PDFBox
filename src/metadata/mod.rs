@@ -143,13 +143,17 @@ impl Document {
             Some(CosObject::Dictionary(dict)) => {
                 let id = self.allocate_object_id();
                 self.insert_object(id, CosObject::Dictionary(dict));
-                self.xref.trailer.insert(info_name.clone(), CosObject::Reference(id));
+                self.xref
+                    .trailer
+                    .insert(info_name.clone(), CosObject::Reference(id));
                 id
             }
             Some(_) | None => {
                 let id = self.allocate_object_id();
                 self.insert_object(id, CosObject::Dictionary(CosDictionary::new()));
-                self.xref.trailer.insert(info_name.clone(), CosObject::Reference(id));
+                self.xref
+                    .trailer
+                    .insert(info_name.clone(), CosObject::Reference(id));
                 id
             }
         };
@@ -167,9 +171,7 @@ impl Document {
             _ => return None,
         };
 
-        let filter = stream
-            .dictionary
-            .get(&CosName::new(b"Filter".to_vec()));
+        let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec()));
         let decoded = crate::io::decode_stream(&stream.data, filter).ok()?;
         XmpMetadata::from_bytes(&decoded)
     }
@@ -242,19 +244,34 @@ mod tests {
         let pages_id = crate::cos::ObjectId::new(3, 0);
 
         let mut doc = Document::empty();
-        doc.insert_object(catalog_id, CosObject::Dictionary({
-            let mut d = CosDictionary::new();
-            d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Catalog".to_vec())));
-            d.insert(CosName::new(b"Pages".to_vec()), CosObject::Reference(pages_id));
-            d
-        }));
-        doc.insert_object(pages_id, CosObject::Dictionary({
-            let mut d = CosDictionary::new();
-            d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Pages".to_vec())));
-            d.insert(CosName::new(b"Count".to_vec()), CosObject::Integer(0));
-            d.insert(CosName::new(b"Kids".to_vec()), CosObject::Array(vec![]));
-            d
-        }));
+        doc.insert_object(
+            catalog_id,
+            CosObject::Dictionary({
+                let mut d = CosDictionary::new();
+                d.insert(
+                    CosName::new(b"Type".to_vec()),
+                    CosObject::Name(CosName::new(b"Catalog".to_vec())),
+                );
+                d.insert(
+                    CosName::new(b"Pages".to_vec()),
+                    CosObject::Reference(pages_id),
+                );
+                d
+            }),
+        );
+        doc.insert_object(
+            pages_id,
+            CosObject::Dictionary({
+                let mut d = CosDictionary::new();
+                d.insert(
+                    CosName::new(b"Type".to_vec()),
+                    CosObject::Name(CosName::new(b"Pages".to_vec())),
+                );
+                d.insert(CosName::new(b"Count".to_vec()), CosObject::Integer(0));
+                d.insert(CosName::new(b"Kids".to_vec()), CosObject::Array(vec![]));
+                d
+            }),
+        );
         doc.insert_object(info_id, CosObject::Dictionary(info_dict));
         doc.xref.trailer.insert(
             CosName::new(b"Info".to_vec()),
@@ -270,14 +287,38 @@ mod tests {
     #[test]
     fn test_document_info_getters() {
         let mut dict = CosDictionary::new();
-        dict.insert(CosName::new(b"Title".to_vec()), CosObject::String(b"My Title".to_vec()));
-        dict.insert(CosName::new(b"Author".to_vec()), CosObject::String(b"Dimar".to_vec()));
-        dict.insert(CosName::new(b"Subject".to_vec()), CosObject::String(b"Test".to_vec()));
-        dict.insert(CosName::new(b"Keywords".to_vec()), CosObject::String(b"pdf,rust".to_vec()));
-        dict.insert(CosName::new(b"Creator".to_vec()), CosObject::String(b"rust-pdfbox".to_vec()));
-        dict.insert(CosName::new(b"Producer".to_vec()), CosObject::String(b"rust-pdfbox 0.1".to_vec()));
-        dict.insert(CosName::new(b"CreationDate".to_vec()), CosObject::String(b"D:20250101000000Z".to_vec()));
-        dict.insert(CosName::new(b"ModDate".to_vec()), CosObject::String(b"D:20250102000000Z".to_vec()));
+        dict.insert(
+            CosName::new(b"Title".to_vec()),
+            CosObject::String(b"My Title".to_vec()),
+        );
+        dict.insert(
+            CosName::new(b"Author".to_vec()),
+            CosObject::String(b"Dimar".to_vec()),
+        );
+        dict.insert(
+            CosName::new(b"Subject".to_vec()),
+            CosObject::String(b"Test".to_vec()),
+        );
+        dict.insert(
+            CosName::new(b"Keywords".to_vec()),
+            CosObject::String(b"pdf,rust".to_vec()),
+        );
+        dict.insert(
+            CosName::new(b"Creator".to_vec()),
+            CosObject::String(b"rust-pdfbox".to_vec()),
+        );
+        dict.insert(
+            CosName::new(b"Producer".to_vec()),
+            CosObject::String(b"rust-pdfbox 0.1".to_vec()),
+        );
+        dict.insert(
+            CosName::new(b"CreationDate".to_vec()),
+            CosObject::String(b"D:20250101000000Z".to_vec()),
+        );
+        dict.insert(
+            CosName::new(b"ModDate".to_vec()),
+            CosObject::String(b"D:20250102000000Z".to_vec()),
+        );
 
         let doc = test_doc_with_info(dict);
         let info = doc.document_info();
@@ -351,10 +392,15 @@ mod tests {
 
     #[test]
     fn test_pdf_date_conversion() {
-        assert_eq!(sync::pdf_date_to_xmp("D:20250101120000Z"), Some("2025-01-01T12:00:00Z".to_string()));
-        assert_eq!(sync::pdf_date_to_xmp("D:20250101120000+05'30'"), Some("2025-01-01T12:00:00+05:30".to_string()));
+        assert_eq!(
+            sync::pdf_date_to_xmp("D:20250101120000Z"),
+            Some("2025-01-01T12:00:00Z".to_string())
+        );
+        assert_eq!(
+            sync::pdf_date_to_xmp("D:20250101120000+05'30'"),
+            Some("2025-01-01T12:00:00+05:30".to_string())
+        );
         assert!(sync::pdf_date_to_xmp("2025").is_some());
         assert!(sync::pdf_date_to_xmp("").is_none());
     }
 }
-

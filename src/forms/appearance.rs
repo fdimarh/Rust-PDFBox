@@ -42,7 +42,9 @@ pub fn generate_field_appearance(doc: &mut Document, field_id: ObjectId) -> PdfR
         .and_then(|n| n.as_str())
         .unwrap_or("")
         .to_string();
-    let flags = field_dict.get_int(&CosName::new(b"Ff".to_vec())).unwrap_or(0);
+    let flags = field_dict
+        .get_int(&CosName::new(b"Ff".to_vec()))
+        .unwrap_or(0);
 
     match ft.as_str() {
         "Tx" => generate_text_field_appearance(doc, field_id, &field_dict),
@@ -100,9 +102,15 @@ fn parse_da(da: &str) -> (String, f64, f64, f64, f64) {
         }
         if *token == "rg" && i >= 3 {
             if let (Some(rc), Some(gc), Some(bc)) = (
-                tokens.get(i.saturating_sub(3)).and_then(|s| s.parse::<f64>().ok()),
-                tokens.get(i.saturating_sub(2)).and_then(|s| s.parse::<f64>().ok()),
-                tokens.get(i.saturating_sub(1)).and_then(|s| s.parse::<f64>().ok()),
+                tokens
+                    .get(i.saturating_sub(3))
+                    .and_then(|s| s.parse::<f64>().ok()),
+                tokens
+                    .get(i.saturating_sub(2))
+                    .and_then(|s| s.parse::<f64>().ok()),
+                tokens
+                    .get(i.saturating_sub(1))
+                    .and_then(|s| s.parse::<f64>().ok()),
             ) {
                 r = rc;
                 g = gc;
@@ -206,7 +214,10 @@ fn set_appearance(
     doc.insert_object(form_id, CosObject::Stream(form_stream));
     doc.xref.insert_if_absent(
         form_id,
-        crate::parser::xref::XRefEntry::InUse { offset: 0, generation: 0 },
+        crate::parser::xref::XRefEntry::InUse {
+            offset: 0,
+            generation: 0,
+        },
     );
 
     let has_named_v = doc
@@ -220,10 +231,16 @@ fn set_appearance(
     let off_id = if has_named_v {
         let off_dict = CosDictionary::new();
         let oid = doc.allocate_object_id();
-        doc.insert_object(oid, CosObject::Stream(crate::cos::CosStream::new(off_dict, vec![])));
+        doc.insert_object(
+            oid,
+            CosObject::Stream(crate::cos::CosStream::new(off_dict, vec![])),
+        );
         doc.xref.insert_if_absent(
             oid,
-            crate::parser::xref::XRefEntry::InUse { offset: 0, generation: 0 },
+            crate::parser::xref::XRefEntry::InUse {
+                offset: 0,
+                generation: 0,
+            },
         );
         Some(oid)
     } else {
@@ -244,7 +261,10 @@ fn set_appearance(
                 let mut n_sub_dict = CosDictionary::new();
                 n_sub_dict.insert(CosName::new(val_name), CosObject::Reference(form_id));
                 n_sub_dict.insert(CosName::new(b"Off".to_vec()), CosObject::Reference(off));
-                ap_dict.insert(CosName::new(b"N".to_vec()), CosObject::Dictionary(n_sub_dict));
+                ap_dict.insert(
+                    CosName::new(b"N".to_vec()),
+                    CosObject::Dictionary(n_sub_dict),
+                );
             } else {
                 ap_dict.insert(CosName::new(b"N".to_vec()), CosObject::Reference(form_id));
             }
@@ -372,16 +392,52 @@ fn generate_radio_button_appearance(
 
     content.extend_from_slice(format!("{} {} m\n", cx + radius, cy).as_bytes());
     content.extend_from_slice(
-        format!("{} {} {} {} {} {} c\n", cx + radius, cy + radius * k, cx + radius * k, cy + radius, cx, cy + radius).as_bytes(),
+        format!(
+            "{} {} {} {} {} {} c\n",
+            cx + radius,
+            cy + radius * k,
+            cx + radius * k,
+            cy + radius,
+            cx,
+            cy + radius
+        )
+        .as_bytes(),
     );
     content.extend_from_slice(
-        format!("{} {} {} {} {} {} c\n", cx - radius * k, cy + radius, cx - radius, cy + radius * k, cx - radius, cy).as_bytes(),
+        format!(
+            "{} {} {} {} {} {} c\n",
+            cx - radius * k,
+            cy + radius,
+            cx - radius,
+            cy + radius * k,
+            cx - radius,
+            cy
+        )
+        .as_bytes(),
     );
     content.extend_from_slice(
-        format!("{} {} {} {} {} {} c\n", cx - radius, cy - radius * k, cx - radius * k, cy - radius, cx, cy - radius).as_bytes(),
+        format!(
+            "{} {} {} {} {} {} c\n",
+            cx - radius,
+            cy - radius * k,
+            cx - radius * k,
+            cy - radius,
+            cx,
+            cy - radius
+        )
+        .as_bytes(),
     );
     content.extend_from_slice(
-        format!("{} {} {} {} {} {} c\n", cx + radius * k, cy - radius, cx + radius, cy - radius * k, cx + radius, cy).as_bytes(),
+        format!(
+            "{} {} {} {} {} {} c\n",
+            cx + radius * k,
+            cy - radius,
+            cx + radius,
+            cy - radius * k,
+            cx + radius,
+            cy
+        )
+        .as_bytes(),
     );
     content.extend_from_slice(b"0 0 0 RG\n");
     content.extend_from_slice(b"S\n");
@@ -390,16 +446,52 @@ fn generate_radio_button_appearance(
         let inner_r = radius * 0.4;
         content.extend_from_slice(format!("{} {} m\n", cx + inner_r, cy).as_bytes());
         content.extend_from_slice(
-            format!("{} {} {} {} {} {} c\n", cx + inner_r, cy + inner_r * k, cx + inner_r * k, cy + inner_r, cx, cy + inner_r).as_bytes(),
+            format!(
+                "{} {} {} {} {} {} c\n",
+                cx + inner_r,
+                cy + inner_r * k,
+                cx + inner_r * k,
+                cy + inner_r,
+                cx,
+                cy + inner_r
+            )
+            .as_bytes(),
         );
         content.extend_from_slice(
-            format!("{} {} {} {} {} {} c\n", cx - inner_r * k, cy + inner_r, cx - inner_r, cy + inner_r * k, cx - inner_r, cy).as_bytes(),
+            format!(
+                "{} {} {} {} {} {} c\n",
+                cx - inner_r * k,
+                cy + inner_r,
+                cx - inner_r,
+                cy + inner_r * k,
+                cx - inner_r,
+                cy
+            )
+            .as_bytes(),
         );
         content.extend_from_slice(
-            format!("{} {} {} {} {} {} c\n", cx - inner_r, cy - inner_r * k, cx - inner_r * k, cy - inner_r, cx, cy - inner_r).as_bytes(),
+            format!(
+                "{} {} {} {} {} {} c\n",
+                cx - inner_r,
+                cy - inner_r * k,
+                cx - inner_r * k,
+                cy - inner_r,
+                cx,
+                cy - inner_r
+            )
+            .as_bytes(),
         );
         content.extend_from_slice(
-            format!("{} {} {} {} {} {} c\n", cx + inner_r * k, cy - inner_r, cx + inner_r, cy - inner_r * k, cx + inner_r, cy).as_bytes(),
+            format!(
+                "{} {} {} {} {} {} c\n",
+                cx + inner_r * k,
+                cy - inner_r,
+                cx + inner_r,
+                cy - inner_r * k,
+                cx + inner_r,
+                cy
+            )
+            .as_bytes(),
         );
         content.extend_from_slice(b"0 0 0 rg\n");
         content.extend_from_slice(b"f\n");
@@ -435,8 +527,12 @@ fn generate_combo_box_appearance(
     let arrow_size = height * 0.6;
     let arrow_x = width - height * 0.8;
     content.extend_from_slice(format!("{} {} m\n", arrow_x, height * 0.3).as_bytes());
-    content.extend_from_slice(format!("{} {} l\n", arrow_x + arrow_size * 0.7, height * 0.3).as_bytes());
-    content.extend_from_slice(format!("{} {} l\n", arrow_x + arrow_size * 0.35, height * 0.7).as_bytes());
+    content.extend_from_slice(
+        format!("{} {} l\n", arrow_x + arrow_size * 0.7, height * 0.3).as_bytes(),
+    );
+    content.extend_from_slice(
+        format!("{} {} l\n", arrow_x + arrow_size * 0.35, height * 0.7).as_bytes(),
+    );
     content.extend_from_slice(b"h 0.4 0.4 0.4 rg f\n");
 
     if !text_value.is_empty() {

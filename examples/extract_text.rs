@@ -14,12 +14,18 @@ fn main() {
 
     let doc = match Document::load(&path) {
         Ok(d) => d,
-        Err(e) => { eprintln!("Error loading {path}: {e}"); std::process::exit(2); }
+        Err(e) => {
+            eprintln!("Error loading {path}: {e}");
+            std::process::exit(2);
+        }
     };
 
     let pages = match doc.pages() {
         Ok(p) => p,
-        Err(e) => { eprintln!("Cannot access pages: {e}"); std::process::exit(3); }
+        Err(e) => {
+            eprintln!("Cannot access pages: {e}");
+            std::process::exit(3);
+        }
     };
 
     let page_count = pages.count();
@@ -42,4 +48,3 @@ fn main() {
         }
     }
 }
-

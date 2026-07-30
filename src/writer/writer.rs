@@ -4,11 +4,11 @@
 //! from scratch, creating a new body, xref table, and trailer. It does not
 //! support incremental updates.
 
-use std::io::{self, Write, Seek, SeekFrom};
-use std::collections::{BTreeMap, HashSet};
-use crate::cos::{CosObject, CosName, ObjectId};
-use crate::Document;
 use super::serializer::Serializer;
+use crate::Document;
+use crate::cos::{CosName, CosObject, ObjectId};
+use std::collections::{BTreeMap, HashSet};
+use std::io::{self, Seek, SeekFrom, Write};
 
 /// Writes a `Document` to an output stream.
 pub struct Writer<W: Write> {
@@ -20,12 +20,24 @@ pub struct Writer<W: Write> {
 impl<W: Write + Seek> Writer<W> {
     /// Creates a new writer for the given output stream.
     pub fn new(writer: W) -> Self {
-        Self { writer, file_key: None, bypass_ids: HashSet::new() }
+        Self {
+            writer,
+            file_key: None,
+            bypass_ids: HashSet::new(),
+        }
     }
 
     /// Creates a writer that encrypts strings and streams on-the-fly.
-    pub fn new_encrypted(writer: W, file_key: Option<Vec<u8>>, bypass_ids: HashSet<ObjectId>) -> Self {
-        Self { writer, file_key, bypass_ids }
+    pub fn new_encrypted(
+        writer: W,
+        file_key: Option<Vec<u8>>,
+        bypass_ids: HashSet<ObjectId>,
+    ) -> Self {
+        Self {
+            writer,
+            file_key,
+            bypass_ids,
+        }
     }
 
     /// Writes the entire `Document` to the output stream.
@@ -44,7 +56,11 @@ impl<W: Write + Seek> Writer<W> {
             let offset = self.writer.seek(SeekFrom::Current(0))?;
             object_offsets.insert(*id, offset);
             if self.file_key.is_some() {
-                let mut serializer = Serializer::new_encrypted(&mut self.writer, self.file_key.clone(), self.bypass_ids.clone());
+                let mut serializer = Serializer::new_encrypted(
+                    &mut self.writer,
+                    self.file_key.clone(),
+                    self.bypass_ids.clone(),
+                );
                 serializer.write_indirect_object(*id, obj)?;
             } else {
                 let mut serializer = Serializer::new(&mut self.writer);
@@ -92,7 +108,10 @@ impl<W: Write + Seek> Writer<W> {
         trailer.insert(CosName::size(), CosObject::Integer(size as i64));
         // /Root must be present
         if doc.catalog_ref().is_none() {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Document has no catalog/root"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Document has no catalog/root",
+            ));
         }
 
         let mut serializer = Serializer::new(&mut self.writer);
@@ -108,8 +127,8 @@ impl<W: Write + Seek> Writer<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
     use crate::{Document, ObjectStore, cos::CosDictionary};
+    use std::io::Cursor;
 
     #[test]
     fn write_minimal_document() {
@@ -143,7 +162,6 @@ mod tests {
         // Override trailer for the test
         let mut doc_with_trailer = doc.clone();
         doc_with_trailer.xref.trailer = trailer;
-
 
         // Write it to a buffer
         let mut buffer = Cursor::new(Vec::new());

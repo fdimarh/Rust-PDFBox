@@ -10,7 +10,10 @@ fn test_preflight_validator_api() {
 
     // Document::empty() is not PDF/A-1b — expect validation failures.
     assert_eq!(result.is_valid, false);
-    assert!(!result.errors.is_empty(), "expected at least one preflight error for empty document");
+    assert!(
+        !result.errors.is_empty(),
+        "expected at least one preflight error for empty document"
+    );
 }
 
 #[test]

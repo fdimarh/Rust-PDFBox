@@ -44,7 +44,12 @@ pub struct ObjectStream {
 impl ObjectStream {
     /// Create a new object stream with default parameters.
     pub fn new(first: u32, count: u32, data: Vec<u8>) -> Self {
-        Self { first, count, entries: BTreeMap::new(), data }
+        Self {
+            first,
+            count,
+            entries: BTreeMap::new(),
+            data,
+        }
     }
 
     /// Parse an object stream from a stream dictionary and decompressed data.
@@ -78,7 +83,12 @@ impl ObjectStream {
             entries.insert(obj_num, offset);
         }
 
-        Some(Self { first, count, entries, data })
+        Some(Self {
+            first,
+            count,
+            entries,
+            data,
+        })
     }
 
     /// Get a decompressed object by its number within the stream.
@@ -117,9 +127,18 @@ impl ObjectStream {
     /// Serialize to a stream object.
     pub fn to_stream(&self) -> CosStream {
         let mut dict = crate::cos::CosDictionary::new();
-        dict.set(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"ObjStm".to_vec())));
-        dict.set(CosName::new(b"N".to_vec()), CosObject::Integer(self.count as i64));
-        dict.set(CosName::new(b"First".to_vec()), CosObject::Integer(self.first as i64));
+        dict.set(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"ObjStm".to_vec())),
+        );
+        dict.set(
+            CosName::new(b"N".to_vec()),
+            CosObject::Integer(self.count as i64),
+        );
+        dict.set(
+            CosName::new(b"First".to_vec()),
+            CosObject::Integer(self.first as i64),
+        );
 
         CosStream::new(dict, self.data.clone())
     }
@@ -188,8 +207,8 @@ mod tests {
         data[30..40].copy_from_slice(b"obj7_data!");
 
         let mut stream = ObjectStream::new(20, 2, data);
-        stream.entries.insert(5, 0);   // obj5 at first+0 = byte 20
-        stream.entries.insert(7, 10);  // obj7 at first+10 = byte 30
+        stream.entries.insert(5, 0); // obj5 at first+0 = byte 20
+        stream.entries.insert(7, 10); // obj7 at first+10 = byte 30
 
         let obj5 = stream.get_object(5).unwrap();
         assert_eq!(obj5.len(), 10); // From offset 20 to offset 30
@@ -244,4 +263,3 @@ mod tests {
         assert!(obj3.len() > 0);
     }
 }
-

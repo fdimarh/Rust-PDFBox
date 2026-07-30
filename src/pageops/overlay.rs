@@ -151,7 +151,10 @@ impl PdfOverlay {
             base_doc.insert_object(stream_id, CosObject::Stream(stream));
             base_doc.xref.insert_if_absent(
                 stream_id,
-                XRefEntry::InUse { offset: 0, generation: 0 },
+                XRefEntry::InUse {
+                    offset: 0,
+                    generation: 0,
+                },
             );
 
             // Append to page contents
@@ -216,14 +219,28 @@ impl PdfOverlay {
                     let size = base_w.min(base_h) * 0.15;
                     match pos {
                         OverlayPosition::TopLeft => Ok((10.0, base_h - size - 10.0, size, size)),
-                        OverlayPosition::TopCenter => Ok(((base_w - size) / 2.0, base_h - size - 10.0, size, size)),
-                        OverlayPosition::TopRight => Ok((base_w - size - 10.0, base_h - size - 10.0, size, size)),
-                        OverlayPosition::CenterLeft => Ok((10.0, (base_h - size) / 2.0, size, size)),
-                        OverlayPosition::Center => Ok(((base_w - size) / 2.0, (base_h - size) / 2.0, size, size)),
-                        OverlayPosition::CenterRight => Ok((base_w - size - 10.0, (base_h - size) / 2.0, size, size)),
+                        OverlayPosition::TopCenter => {
+                            Ok(((base_w - size) / 2.0, base_h - size - 10.0, size, size))
+                        }
+                        OverlayPosition::TopRight => {
+                            Ok((base_w - size - 10.0, base_h - size - 10.0, size, size))
+                        }
+                        OverlayPosition::CenterLeft => {
+                            Ok((10.0, (base_h - size) / 2.0, size, size))
+                        }
+                        OverlayPosition::Center => {
+                            Ok(((base_w - size) / 2.0, (base_h - size) / 2.0, size, size))
+                        }
+                        OverlayPosition::CenterRight => {
+                            Ok((base_w - size - 10.0, (base_h - size) / 2.0, size, size))
+                        }
                         OverlayPosition::BottomLeft => Ok((10.0, 10.0, size, size)),
-                        OverlayPosition::BottomCenter => Ok(((base_w - size) / 2.0, 10.0, size, size)),
-                        OverlayPosition::BottomRight => Ok((base_w - size - 10.0, 10.0, size, size)),
+                        OverlayPosition::BottomCenter => {
+                            Ok(((base_w - size) / 2.0, 10.0, size, size))
+                        }
+                        OverlayPosition::BottomRight => {
+                            Ok((base_w - size - 10.0, 10.0, size, size))
+                        }
                         OverlayPosition::Absolute(_, _, _, _) => unreachable!(),
                     }
                 }
@@ -258,7 +275,8 @@ fn extract_page_content_stream(doc: &Document, page: &Page<'_>) -> PdfResult<Vec
             let mut combined = Vec::new();
             for item in arr {
                 if let Some(ref_id) = item.as_reference() {
-                    if let Some(stream) = doc.get_object_ref(ref_id).and_then(|obj| obj.as_stream()) {
+                    if let Some(stream) = doc.get_object_ref(ref_id).and_then(|obj| obj.as_stream())
+                    {
                         combined.extend_from_slice(&stream.data);
                     }
                 }
@@ -280,18 +298,36 @@ fn embed_overlay_as_form(
 ) -> PdfResult<()> {
     let form_id = doc.allocate_object_id();
     let mut form_dict = CosDictionary::new();
-    form_dict.insert(CosName::type_name(), CosObject::Name(CosName::new(b"XObject".to_vec())));
-    form_dict.insert(CosName::subtype(), CosObject::Name(CosName::new(b"Form".to_vec())));
-    form_dict.insert(CosName::new(b"BBox".to_vec()), CosObject::Array(vec![
-        CosObject::Real(0.0),
-        CosObject::Real(0.0),
-        CosObject::Real(w),
-        CosObject::Real(h),
-    ]));
-    form_dict.insert(CosName::new(b"Length".to_vec()), CosObject::Integer(content_bytes.len() as i64));
+    form_dict.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"XObject".to_vec())),
+    );
+    form_dict.insert(
+        CosName::subtype(),
+        CosObject::Name(CosName::new(b"Form".to_vec())),
+    );
+    form_dict.insert(
+        CosName::new(b"BBox".to_vec()),
+        CosObject::Array(vec![
+            CosObject::Real(0.0),
+            CosObject::Real(0.0),
+            CosObject::Real(w),
+            CosObject::Real(h),
+        ]),
+    );
+    form_dict.insert(
+        CosName::new(b"Length".to_vec()),
+        CosObject::Integer(content_bytes.len() as i64),
+    );
     let form_stream = crate::cos::CosStream::new(form_dict, content_bytes.to_vec());
     doc.insert_object(form_id, CosObject::Stream(form_stream));
-    doc.xref.insert_if_absent(form_id, XRefEntry::InUse { offset: 0, generation: 0 });
+    doc.xref.insert_if_absent(
+        form_id,
+        XRefEntry::InUse {
+            offset: 0,
+            generation: 0,
+        },
+    );
 
     // Register in the first page's resources
     if let Ok(tree) = doc.pages() {
@@ -315,7 +351,10 @@ fn embed_overlay_as_form(
                         CosName::new(name.as_bytes().to_vec()),
                         CosObject::Reference(form_id),
                     );
-                    resources_dict.insert(CosName::new(b"XObject".to_vec()), CosObject::Dictionary(xobjects));
+                    resources_dict.insert(
+                        CosName::new(b"XObject".to_vec()),
+                        CosObject::Dictionary(xobjects),
+                    );
                     dict.insert(CosName::resources(), CosObject::Dictionary(resources_dict));
                 }
             });

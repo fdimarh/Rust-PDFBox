@@ -51,7 +51,10 @@ impl MarkupAnnotation {
                     items.push(CosObject::Real(*value));
                 }
             }
-            dict.insert(CosName::new(b"QuadPoints".to_vec()), CosObject::Array(items));
+            dict.insert(
+                CosName::new(b"QuadPoints".to_vec()),
+                CosObject::Array(items),
+            );
         }
     }
 }
@@ -80,4 +83,3 @@ fn parse_quad_points(obj: &CosObject) -> Option<Vec<[f64; 8]>> {
 
     Some(quads)
 }
-

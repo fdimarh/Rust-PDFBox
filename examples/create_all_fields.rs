@@ -83,7 +83,10 @@ fn ensure_parent_dir(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn write_form(output_path: &Path, variant: VariantConfig) -> Result<(), Box<dyn std::error::Error>> {
+fn write_form(
+    output_path: &Path,
+    variant: VariantConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
 
     let acro_form_id = doc.allocate_object_id();
@@ -95,15 +98,30 @@ fn write_form(output_path: &Path, variant: VariantConfig) -> Result<(), Box<dyn 
     let mut add_field = |ft: &str, ff: i64, name: &str| {
         let field_id = doc.allocate_object_id();
         let mut field_dict = CosDictionary::new();
-        field_dict.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Annot".to_vec())));
-        field_dict.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Widget".to_vec())));
-        field_dict.insert(CosName::new(b"FT".to_vec()), CosObject::Name(CosName::new(ft.as_bytes().to_vec())));
-        field_dict.insert(CosName::new(b"T".to_vec()), CosObject::String(name.as_bytes().to_vec()));
+        field_dict.insert(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"Annot".to_vec())),
+        );
+        field_dict.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Widget".to_vec())),
+        );
+        field_dict.insert(
+            CosName::new(b"FT".to_vec()),
+            CosObject::Name(CosName::new(ft.as_bytes().to_vec())),
+        );
+        field_dict.insert(
+            CosName::new(b"T".to_vec()),
+            CosObject::String(name.as_bytes().to_vec()),
+        );
         field_dict.insert(CosName::new(b"F".to_vec()), CosObject::Integer(4));
         if ff != 0 {
             field_dict.insert(CosName::new(b"Ff".to_vec()), CosObject::Integer(ff));
         }
-        field_dict.insert(CosName::new(b"P".to_vec()), CosObject::Reference(parent_page_id));
+        field_dict.insert(
+            CosName::new(b"P".to_vec()),
+            CosObject::Reference(parent_page_id),
+        );
 
         let y_offset = 750.0 - (counter as f64 * 50.0);
         counter += 1;
@@ -126,20 +144,35 @@ fn write_form(output_path: &Path, variant: VariantConfig) -> Result<(), Box<dyn 
 
         if name == "TextField" {
             if let Some(v) = variant.text_value {
-                field_dict.insert(CosName::new(b"V".to_vec()), CosObject::String(v.as_bytes().to_vec()));
+                field_dict.insert(
+                    CosName::new(b"V".to_vec()),
+                    CosObject::String(v.as_bytes().to_vec()),
+                );
             }
         }
 
         if name == "CheckBox" {
             let state = if variant.checkbox_on { b"Yes" } else { b"Off" };
-            field_dict.insert(CosName::new(b"V".to_vec()), CosObject::Name(CosName::new(state.to_vec())));
-            field_dict.insert(CosName::new(b"AS".to_vec()), CosObject::Name(CosName::new(state.to_vec())));
+            field_dict.insert(
+                CosName::new(b"V".to_vec()),
+                CosObject::Name(CosName::new(state.to_vec())),
+            );
+            field_dict.insert(
+                CosName::new(b"AS".to_vec()),
+                CosObject::Name(CosName::new(state.to_vec())),
+            );
         }
 
         if name == "RadioButton" {
             let state: &[u8] = if variant.radio_on { b"On" } else { b"Off" };
-            field_dict.insert(CosName::new(b"V".to_vec()), CosObject::Name(CosName::new(state.to_vec())));
-            field_dict.insert(CosName::new(b"AS".to_vec()), CosObject::Name(CosName::new(state.to_vec())));
+            field_dict.insert(
+                CosName::new(b"V".to_vec()),
+                CosObject::Name(CosName::new(state.to_vec())),
+            );
+            field_dict.insert(
+                CosName::new(b"AS".to_vec()),
+                CosObject::Name(CosName::new(state.to_vec())),
+            );
         }
 
         if name == "ComboBox" || name == "ListBox" {
@@ -161,7 +194,13 @@ fn write_form(output_path: &Path, variant: VariantConfig) -> Result<(), Box<dyn 
         }
 
         doc.insert_object(field_id, CosObject::Dictionary(field_dict));
-        doc.xref.insert_if_absent(field_id, XRefEntry::InUse { offset: 0, generation: 0 });
+        doc.xref.insert_if_absent(
+            field_id,
+            XRefEntry::InUse {
+                offset: 0,
+                generation: 0,
+            },
+        );
         fields_array.push(CosObject::Reference(field_id));
     };
 
@@ -174,36 +213,66 @@ fn write_form(output_path: &Path, variant: VariantConfig) -> Result<(), Box<dyn 
     add_field("Sig", 0, "Signature");
 
     let mut acro_form = CosDictionary::new();
-    acro_form.insert(CosName::new(b"Fields".to_vec()), CosObject::Array(fields_array.clone()));
-    acro_form.insert(CosName::new(b"NeedAppearances".to_vec()), CosObject::Bool(true));
+    acro_form.insert(
+        CosName::new(b"Fields".to_vec()),
+        CosObject::Array(fields_array.clone()),
+    );
+    acro_form.insert(
+        CosName::new(b"NeedAppearances".to_vec()),
+        CosObject::Bool(true),
+    );
     acro_form.insert(
         CosName::new(b"DA".to_vec()),
         CosObject::String(b"/Helv 10 Tf 0 g".to_vec()),
     );
 
     let mut font = CosDictionary::new();
-    font.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Font".to_vec())));
-    font.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Type1".to_vec())));
-    font.insert(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Helvetica".to_vec())));
+    font.insert(
+        CosName::new(b"Type".to_vec()),
+        CosObject::Name(CosName::new(b"Font".to_vec())),
+    );
+    font.insert(
+        CosName::new(b"Subtype".to_vec()),
+        CosObject::Name(CosName::new(b"Type1".to_vec())),
+    );
+    font.insert(
+        CosName::new(b"BaseFont".to_vec()),
+        CosObject::Name(CosName::new(b"Helvetica".to_vec())),
+    );
     let mut dr_font = CosDictionary::new();
     dr_font.insert(CosName::new(b"Helv".to_vec()), CosObject::Dictionary(font));
     let mut dr = CosDictionary::new();
-    dr.insert(CosName::new(b"Font".to_vec()), CosObject::Dictionary(dr_font));
+    dr.insert(
+        CosName::new(b"Font".to_vec()),
+        CosObject::Dictionary(dr_font),
+    );
     acro_form.insert(CosName::new(b"DR".to_vec()), CosObject::Dictionary(dr));
 
     doc.insert_object(acro_form_id, CosObject::Dictionary(acro_form));
-    doc.xref.insert_if_absent(acro_form_id, XRefEntry::InUse { offset: 0, generation: 0 });
+    doc.xref.insert_if_absent(
+        acro_form_id,
+        XRefEntry::InUse {
+            offset: 0,
+            generation: 0,
+        },
+    );
 
     let catalog_id = doc.catalog_id().unwrap();
     doc.mutate_object(catalog_id, |obj| {
         if let CosObject::Dictionary(dict) = obj {
-            dict.insert(CosName::new(b"AcroForm".to_vec()), CosObject::Reference(acro_form_id));
+            dict.insert(
+                CosName::new(b"AcroForm".to_vec()),
+                CosObject::Reference(acro_form_id),
+            );
         }
     });
 
     doc.mutate_object(parent_page_id, |obj| {
         if let CosObject::Dictionary(dict) = obj {
-            dict.insert(CosName::new(b"Annots".to_vec()), CosObject::Array(fields_array.clone()));
+            dict.insert(
+                CosName::new(b"Annots".to_vec()),
+                CosObject::Array(fields_array.clone()),
+            );
         }
     });
 

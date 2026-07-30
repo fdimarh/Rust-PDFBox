@@ -5,10 +5,10 @@
 //! For R=6, the hash is computed via repeated AES-128-CBC (64 reps) + SHA-2.
 //! The file encryption key is stored in /UE (encrypted with intermediate key).
 
-use sha2::{Digest, Sha256, Sha384, Sha512};
 use aes::{Aes128Enc, Aes256Dec};
 use cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use digest::generic_array::GenericArray;
+use sha2::{Digest, Sha256, Sha384, Sha512};
 use std::convert::TryInto;
 
 /// Implements Algorithm 2.B from ISO 32000-2 §7.6.4.3.5 (qpdf's hash_V5).

@@ -59,7 +59,9 @@ mod tests {
     #[test]
     fn rfc1321_alphanumeric() {
         assert_eq!(
-            hex(&md5(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")),
+            hex(&md5(
+                b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+            )),
             "d174ab98d277d9f5a5611c2c9f419d9f"
         );
     }
@@ -74,4 +76,3 @@ mod tests {
         assert_ne!(md5(b"hello"), md5(b"world"));
     }
 }
-

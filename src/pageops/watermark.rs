@@ -118,9 +118,8 @@ pub fn add_watermark(doc: &mut Document, text: &str, config: WatermarkConfig) ->
             .as_bytes(),
         );
 
-        watermark_content.extend_from_slice(
-            format!("{} {} {} rg\n", config.r, config.g, config.b).as_bytes(),
-        );
+        watermark_content
+            .extend_from_slice(format!("{} {} {} rg\n", config.r, config.g, config.b).as_bytes());
         watermark_content.extend_from_slice(
             format!("/{} {} Tf\n", config.font_name, config.font_size).as_bytes(),
         );
@@ -128,9 +127,8 @@ pub fn add_watermark(doc: &mut Document, text: &str, config: WatermarkConfig) ->
         watermark_content.extend_from_slice(b"BT\n");
 
         let text_width_estimate = text.len() as f64 * config.font_size * 0.5;
-        watermark_content.extend_from_slice(
-            format!("{} 0 Td\n", -text_width_estimate / 2.0).as_bytes(),
-        );
+        watermark_content
+            .extend_from_slice(format!("{} 0 Td\n", -text_width_estimate / 2.0).as_bytes());
 
         watermark_content.push(b'(');
         for byte in text.as_bytes() {
@@ -155,7 +153,13 @@ pub fn add_watermark(doc: &mut Document, text: &str, config: WatermarkConfig) ->
         );
         let stream = crate::cos::CosStream::new(dict, watermark_content);
         doc.insert_object(stream_id, CosObject::Stream(stream));
-        doc.xref.insert_if_absent(stream_id, XRefEntry::InUse { offset: 0, generation: 0 });
+        doc.xref.insert_if_absent(
+            stream_id,
+            XRefEntry::InUse {
+                offset: 0,
+                generation: 0,
+            },
+        );
 
         // Append (or prepend) to page contents
         doc.mutate_object(pi.id, |obj| {
@@ -221,16 +225,28 @@ fn ensure_helvetica_font(doc: &mut Document, page_id: ObjectId) -> PdfResult<()>
 
             if !has_helvetica {
                 let mut helvetica = CosDictionary::new();
-                helvetica.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Font".to_vec())));
-                helvetica.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Type1".to_vec())));
-                helvetica.insert(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Helvetica".to_vec())));
+                helvetica.insert(
+                    CosName::type_name(),
+                    CosObject::Name(CosName::new(b"Font".to_vec())),
+                );
+                helvetica.insert(
+                    CosName::new(b"Subtype".to_vec()),
+                    CosObject::Name(CosName::new(b"Type1".to_vec())),
+                );
+                helvetica.insert(
+                    CosName::new(b"BaseFont".to_vec()),
+                    CosObject::Name(CosName::new(b"Helvetica".to_vec())),
+                );
 
                 let mut fonts = resources_dict
                     .get(&CosName::new(b"Font".to_vec()))
                     .and_then(|f| f.as_dictionary())
                     .cloned()
                     .unwrap_or_default();
-                fonts.insert(CosName::new(b"Helvetica".to_vec()), CosObject::Dictionary(helvetica));
+                fonts.insert(
+                    CosName::new(b"Helvetica".to_vec()),
+                    CosObject::Dictionary(helvetica),
+                );
                 resources_dict.insert(CosName::new(b"Font".to_vec()), CosObject::Dictionary(fonts));
                 dict.insert(CosName::resources(), CosObject::Dictionary(resources_dict));
             }

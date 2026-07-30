@@ -5,8 +5,8 @@ fn main() {
 
 #[cfg(feature = "image-extract")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use rust_pdfbox::image_extract::ImageExportFormat;
     use rust_pdfbox::Document;
+    use rust_pdfbox::image_extract::ImageExportFormat;
 
     let mut args = std::env::args();
     let _bin = args.next();
@@ -14,7 +14,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let input = match args.next() {
         Some(v) => v,
         None => {
-            eprintln!("Usage: cargo run --features image-extract --example extract_images -- <input.pdf> <output_dir> [page_index]");
+            eprintln!(
+                "Usage: cargo run --features image-extract --example extract_images -- <input.pdf> <output_dir> [page_index]"
+            );
             std::process::exit(2);
         }
     };
@@ -22,7 +24,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output_dir = match args.next() {
         Some(v) => v,
         None => {
-            eprintln!("Usage: cargo run --features image-extract --example extract_images -- <input.pdf> <output_dir> [page_index]");
+            eprintln!(
+                "Usage: cargo run --features image-extract --example extract_images -- <input.pdf> <output_dir> [page_index]"
+            );
             std::process::exit(2);
         }
     };
@@ -57,8 +61,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 (ImageExportFormat::Png, "png")
             };
 
-            let out_path = std::path::Path::new(&output_dir)
-                .join(format!("page_{:03}_img_{:03}.{ext}", page_index + 1, idx + 1));
+            let out_path = std::path::Path::new(&output_dir).join(format!(
+                "page_{:03}_img_{:03}.{ext}",
+                page_index + 1,
+                idx + 1
+            ));
 
             if let Err(err) = img.save_as(&out_path, format) {
                 eprintln!(
@@ -87,4 +94,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("done: exported {exported} images");
     Ok(())
 }
-

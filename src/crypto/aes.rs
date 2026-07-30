@@ -6,9 +6,9 @@
 //! Maps to Java PDFBox `AES128DecryptionFilter` and `AES256DecryptionFilter`.
 
 use aes::{Aes128, Aes256};
-use cbc::Decryptor;
-use cipher::{KeyIvInit, BlockDecryptMut};
 use block_padding::Pkcs7;
+use cbc::Decryptor;
+use cipher::{BlockDecryptMut, KeyIvInit};
 
 /// Decrypt data using AES-128 in CBC mode with PKCS#7 padding.
 pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
@@ -23,7 +23,7 @@ pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Vec<u
         Err(_) => {
             // Padding invalid — return raw decrypted bytes without padding removal
             Some(plaintext)
-        },
+        }
     }
 }
 
@@ -36,7 +36,7 @@ pub fn aes256_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Option<Ve
 
     let cipher = Decryptor::<Aes256>::new_from_slices(key, iv).ok()?;
     let mut plaintext = ciphertext.to_vec();
-    
+
     match cipher.decrypt_padded_mut::<Pkcs7>(&mut plaintext) {
         Ok(decrypted) => Some(decrypted.to_vec()),
         Err(_) => Some(plaintext),

@@ -1,6 +1,6 @@
 //! Phase 17 baseline: image XObject discovery and basic decode helpers.
-pub mod export;
 pub mod decode;
+pub mod export;
 pub mod lcms;
 use std::collections::HashSet;
 
@@ -137,8 +137,12 @@ impl Document {
         let mut seen_object_ids = HashSet::new();
         let mut seen_inline_names = HashSet::new();
 
-        let resources = resolve_dict(page_dict.get(&CosName::new(b"Resources".to_vec())), &self.objects);
-        let xobjects = resources.and_then(|r| resolve_dict(r.get(&CosName::new(b"XObject".to_vec())), &self.objects));
+        let resources = resolve_dict(
+            page_dict.get(&CosName::new(b"Resources".to_vec())),
+            &self.objects,
+        );
+        let xobjects = resources
+            .and_then(|r| resolve_dict(r.get(&CosName::new(b"XObject".to_vec())), &self.objects));
         let Some(xobjects) = xobjects else {
             return Ok(out);
         };
@@ -158,8 +162,12 @@ impl Document {
 
             let (object_id, stream) = match xobj_value {
                 CosObject::Reference(id) => {
-                    let Some(obj) = self.objects.get(id) else { continue };
-                    let Some(stream) = obj.as_stream() else { continue };
+                    let Some(obj) = self.objects.get(id) else {
+                        continue;
+                    };
+                    let Some(stream) = obj.as_stream() else {
+                        continue;
+                    };
                     (Some(*id), stream)
                 }
                 CosObject::Stream(stream) => (None, stream),
@@ -202,7 +210,10 @@ impl Document {
             );
             let color_space = parse_color_space_name(color_space_obj.as_ref());
             let smask = extract_smask(&stream.dictionary, &self.objects);
-            let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec())).cloned();
+            let filter = stream
+                .dictionary
+                .get(&CosName::new(b"Filter".to_vec()))
+                .cloned();
             let filter_names = parse_filter_names(filter.as_ref());
 
             out.push(PdImage {
@@ -224,7 +235,10 @@ impl Document {
     }
 }
 
-fn resolve_dict<'a>(obj: Option<&'a CosObject>, store: &'a crate::ObjectStore) -> Option<&'a CosDictionary> {
+fn resolve_dict<'a>(
+    obj: Option<&'a CosObject>,
+    store: &'a crate::ObjectStore,
+) -> Option<&'a CosDictionary> {
     match obj? {
         CosObject::Dictionary(d) => Some(d),
         CosObject::Reference(id) => store.get(id)?.as_dictionary(),
@@ -410,7 +424,10 @@ fn find_id_marker(content: &[u8], start: usize) -> Option<(usize, usize)> {
         {
             let mut data_start = i + 2;
             if data_start < content.len() {
-                if content[data_start] == b'\r' && data_start + 1 < content.len() && content[data_start + 1] == b'\n' {
+                if content[data_start] == b'\r'
+                    && data_start + 1 < content.len()
+                    && content[data_start + 1] == b'\n'
+                {
                     data_start += 2;
                 } else if is_white(content[data_start]) {
                     data_start += 1;
@@ -438,7 +455,10 @@ fn find_ei_marker(content: &[u8], start: usize) -> Option<usize> {
     None
 }
 
-fn resolve_color_space_obj(obj: Option<&CosObject>, store: &crate::ObjectStore) -> Option<CosObject> {
+fn resolve_color_space_obj(
+    obj: Option<&CosObject>,
+    store: &crate::ObjectStore,
+) -> Option<CosObject> {
     fn resolve(obj: &CosObject, store: &crate::ObjectStore) -> CosObject {
         match obj {
             CosObject::Reference(id) => store
@@ -505,23 +525,38 @@ mod tests {
     #[test]
     fn test_is_image_xobject_true() {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"XObject".to_vec())));
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Image".to_vec())));
+        d.insert(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"XObject".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Image".to_vec())),
+        );
         assert!(is_image_xobject(&d));
     }
 
     #[test]
     fn test_is_image_xobject_false_for_form() {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"XObject".to_vec())));
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Form".to_vec())));
+        d.insert(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"XObject".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Form".to_vec())),
+        );
         assert!(!is_image_xobject(&d));
     }
 
     #[test]
     fn test_is_image_xobject_missing_type() {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Image".to_vec())));
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Image".to_vec())),
+        );
         assert!(!is_image_xobject(&d));
     }
 
@@ -535,8 +570,11 @@ mod tests {
 
     #[test]
     fn test_parse_color_space_name_device_rgb() {
-            let obj = CosObject::Name(CosName::new(b"DeviceRGB".to_vec()));
-            assert_eq!(parse_color_space_name(Some(&obj)).as_deref(), Some("DeviceRGB"));
+        let obj = CosObject::Name(CosName::new(b"DeviceRGB".to_vec()));
+        assert_eq!(
+            parse_color_space_name(Some(&obj)).as_deref(),
+            Some("DeviceRGB")
+        );
     }
 
     #[test]
@@ -545,7 +583,10 @@ mod tests {
             CosObject::Name(CosName::new(b"ICCBased".to_vec())),
             CosObject::Reference(ObjectId::new(10, 0)),
         ]);
-        assert_eq!(parse_color_space_name(Some(&arr)).as_deref(), Some("ICCBased"));
+        assert_eq!(
+            parse_color_space_name(Some(&arr)).as_deref(),
+            Some("ICCBased")
+        );
     }
 
     #[test]
@@ -573,7 +614,10 @@ mod tests {
             CosObject::Name(CosName::new(b"FlateDecode".to_vec())),
             CosObject::Name(CosName::new(b"DCTDecode".to_vec())),
         ]);
-        assert_eq!(parse_filter_names(Some(&obj)), vec!["FlateDecode", "DCTDecode"]);
+        assert_eq!(
+            parse_filter_names(Some(&obj)),
+            vec!["FlateDecode", "DCTDecode"]
+        );
     }
 
     #[test]
@@ -590,13 +634,20 @@ mod tests {
         d.insert(CosName::new(b"W".to_vec()), CosObject::Integer(100));
         d.insert(CosName::new(b"H".to_vec()), CosObject::Integer(50));
         d.insert(CosName::new(b"BPC".to_vec()), CosObject::Integer(8));
-        d.insert(CosName::new(b"CS".to_vec()), CosObject::Name(CosName::new(b"RGB".to_vec())));
+        d.insert(
+            CosName::new(b"CS".to_vec()),
+            CosObject::Name(CosName::new(b"RGB".to_vec())),
+        );
         let norm = normalize_inline_dict(&d);
         assert_eq!(norm.get_int(&CosName::new(b"Width".to_vec())), Some(100));
         assert_eq!(norm.get_int(&CosName::new(b"Height".to_vec())), Some(50));
-        assert_eq!(norm.get_int(&CosName::new(b"BitsPerComponent".to_vec())), Some(8));
         assert_eq!(
-            norm.get_name(&CosName::new(b"ColorSpace".to_vec())).map(|n| n.as_bytes().to_vec()),
+            norm.get_int(&CosName::new(b"BitsPerComponent".to_vec())),
+            Some(8)
+        );
+        assert_eq!(
+            norm.get_name(&CosName::new(b"ColorSpace".to_vec()))
+                .map(|n| n.as_bytes().to_vec()),
             Some(b"DeviceRGB".to_vec())
         );
     }
@@ -612,7 +663,10 @@ mod tests {
 
     #[test]
     fn test_extract_inline_images_empty() {
-        let data = [66, 84, 32, 47, 70, 49, 32, 49, 50, 32, 84, 102, 32, 40, 104, 101, 108, 108, 111, 41, 32, 84, 106, 32, 69, 84, 32];
+        let data = [
+            66, 84, 32, 47, 70, 49, 32, 49, 50, 32, 84, 102, 32, 40, 104, 101, 108, 108, 111, 41,
+            32, 84, 106, 32, 69, 84, 32,
+        ];
         let result = extract_inline_images(&data);
         assert!(result.is_empty());
     }
@@ -659,13 +713,17 @@ mod tests {
 
     #[test]
     fn test_find_id_marker_not_found() {
-        let data = [110, 111, 32, 109, 97, 114, 107, 101, 114, 32, 104, 101, 114, 101, 32];
+        let data = [
+            110, 111, 32, 109, 97, 114, 107, 101, 114, 32, 104, 101, 114, 101, 32,
+        ];
         assert!(find_id_marker(&data, 0).is_none());
     }
 
     #[test]
     fn test_find_ei_marker_found() {
-        let data = [115, 111, 109, 101, 32, 100, 97, 116, 97, 32, 69, 73, 32, 101, 110, 100, 32];
+        let data = [
+            115, 111, 109, 101, 32, 100, 97, 116, 97, 32, 69, 73, 32, 101, 110, 100, 32,
+        ];
         let pos = find_ei_marker(&data, 0);
         assert!(pos.is_some());
     }

@@ -86,10 +86,11 @@ impl PdImage {
             });
         }
 
-        let decoded = io::decode_stream(&mask.data, mask.filter.as_ref()).map_err(|e| PdfError::Parse {
-            offset: None,
-            context: format!("SMask decode failed: {e}"),
-        })?;
+        let decoded =
+            io::decode_stream(&mask.data, mask.filter.as_ref()).map_err(|e| PdfError::Parse {
+                offset: None,
+                context: format!("SMask decode failed: {e}"),
+            })?;
 
         let expected = (self.width() * self.height()) as usize;
         if decoded.len() < expected {
@@ -125,7 +126,10 @@ impl PdImage {
             }
             "DeviceRGB" | "Indexed" => {
                 if let Some(alpha) = alpha.as_ref() {
-                    (interleave_rgb_alpha(&pixels, alpha), image::ColorType::Rgba8)
+                    (
+                        interleave_rgb_alpha(&pixels, alpha),
+                        image::ColorType::Rgba8,
+                    )
                 } else {
                     (pixels, image::ColorType::Rgb8)
                 }
@@ -188,4 +192,3 @@ fn cmyk_to_rgb8_for_png(cmyk: &[u8]) -> Vec<u8> {
 
     out
 }
-

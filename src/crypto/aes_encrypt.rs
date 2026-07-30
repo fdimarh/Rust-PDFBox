@@ -4,9 +4,9 @@
 //! Used by the serializer to re-encrypt objects in AES-encrypted PDFs.
 
 use aes::{Aes128, Aes256};
-use cbc::Encryptor;
-use cipher::{KeyIvInit, BlockEncryptMut};
 use block_padding::Pkcs7;
+use cbc::Encryptor;
+use cipher::{BlockEncryptMut, KeyIvInit};
 
 /// Encrypt data using AES-128 in CBC mode with PKCS#7 padding.
 /// Returns IV + ciphertext (PDF AES encryption format).
@@ -99,7 +99,8 @@ mod tests {
         assert!(encrypted.len() > plaintext.len());
 
         // Decrypt back (IV is first 16 bytes, then ciphertext)
-        let decrypted = super::super::aes::aes_cbc_decrypt(key, &encrypted[..16], &encrypted[16..]).unwrap();
+        let decrypted =
+            super::super::aes::aes_cbc_decrypt(key, &encrypted[..16], &encrypted[16..]).unwrap();
         assert_eq!(&decrypted, plaintext);
     }
 
@@ -112,7 +113,8 @@ mod tests {
         let encrypted = aes256_cbc_encrypt(key, iv, plaintext).unwrap();
         assert!(encrypted.len() > plaintext.len());
 
-        let decrypted = super::super::aes::aes256_cbc_decrypt(key, &encrypted[..16], &encrypted[16..]).unwrap();
+        let decrypted =
+            super::super::aes::aes256_cbc_decrypt(key, &encrypted[..16], &encrypted[16..]).unwrap();
         assert_eq!(&decrypted, plaintext);
     }
 }

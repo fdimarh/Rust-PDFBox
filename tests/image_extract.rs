@@ -14,10 +14,16 @@ fn temp_output_path(ext: &str) -> std::path::PathBuf {
         .as_nanos();
     let pid = std::process::id();
     let seq = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!("rust_pdfbox_image_extract_{pid}_{nonce}_{seq}.{ext}"))
+    std::env::temp_dir().join(format!(
+        "rust_pdfbox_image_extract_{pid}_{nonce}_{seq}.{ext}"
+    ))
 }
 
-fn build_single_image_pdf(image_dict_extra: &str, image_data: &[u8], content_stream: &[u8]) -> Vec<u8> {
+fn build_single_image_pdf(
+    image_dict_extra: &str,
+    image_data: &[u8],
+    content_stream: &[u8],
+) -> Vec<u8> {
     let mut pdf = b"%PDF-1.4\n".to_vec();
 
     let obj1_offset = pdf.len();
@@ -103,7 +109,12 @@ fn build_iccbased_image_pdf(
     let obj6_offset = pdf.len();
     let icc_stream = Vec::<u8>::new();
     pdf.extend_from_slice(
-        format!("6 0 obj\n<< {} /Length {} >>\nstream\n", icc_profile_dict_body, icc_stream.len()).as_bytes(),
+        format!(
+            "6 0 obj\n<< {} /Length {} >>\nstream\n",
+            icc_profile_dict_body,
+            icc_stream.len()
+        )
+        .as_bytes(),
     );
     pdf.extend_from_slice(&icc_stream);
     pdf.extend_from_slice(b"\nendstream\nendobj\n");
@@ -546,4 +557,3 @@ fn extract_indexed_non_rgb_base_is_rejected() {
     let err = images[0].decode_pixels().unwrap_err();
     assert!(matches!(err, PdfError::Unsupported { .. }));
 }
-

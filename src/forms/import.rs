@@ -39,7 +39,8 @@ pub fn import_fdf(doc: &mut Document, fdf_data: &[u8]) -> PdfResult<usize> {
     let form_fields = form.fields();
 
     // Build a lookup from field name to ObjectId
-    let mut field_map: std::collections::HashMap<String, ObjectId> = std::collections::HashMap::new();
+    let mut field_map: std::collections::HashMap<String, ObjectId> =
+        std::collections::HashMap::new();
     for field in &form_fields {
         let name = field.fully_qualified_name();
         if !name.is_empty() {
@@ -83,7 +84,8 @@ pub fn import_xfdf(doc: &mut Document, xfdf_data: &[u8]) -> PdfResult<usize> {
     let mut imported = 0usize;
     let form_fields = form.fields();
 
-    let mut field_map: std::collections::HashMap<String, ObjectId> = std::collections::HashMap::new();
+    let mut field_map: std::collections::HashMap<String, ObjectId> =
+        std::collections::HashMap::new();
     for field in &form_fields {
         let name = field.fully_qualified_name();
         if !name.is_empty() {
@@ -317,11 +319,17 @@ fn find_substring(data: &[u8], start: usize, needle: &[u8]) -> Option<usize> {
     if start >= data.len() {
         return None;
     }
-    data[start..].windows(needle.len()).position(|w| w == needle).map(|i| start + i)
+    data[start..]
+        .windows(needle.len())
+        .position(|w| w == needle)
+        .map(|i| start + i)
 }
 
 fn find_byte(data: &[u8], start: usize, byte: u8) -> Option<usize> {
-    data[start..].iter().position(|&b| b == byte).map(|i| start + i)
+    data[start..]
+        .iter()
+        .position(|&b| b == byte)
+        .map(|i| start + i)
 }
 
 fn xml_unescape(s: &str) -> String {
@@ -381,7 +389,10 @@ mod tests {
         // Verify the value was set
         let form = doc.acro_form().unwrap();
         let field = form.get_field("Name").unwrap();
-        let value = field.value().and_then(|v| v.as_string()).map(|s| String::from_utf8_lossy(s).to_string());
+        let value = field
+            .value()
+            .and_then(|v| v.as_string())
+            .map(|s| String::from_utf8_lossy(s).to_string());
         assert_eq!(value, Some("Charlie".to_string()));
     }
 
@@ -394,7 +405,10 @@ mod tests {
 
         let form = doc.acro_form().unwrap();
         let field = form.get_field("Name").unwrap();
-        let value = field.value().and_then(|v| v.as_string()).map(|s| String::from_utf8_lossy(s).to_string());
+        let value = field
+            .value()
+            .and_then(|v| v.as_string())
+            .map(|s| String::from_utf8_lossy(s).to_string());
         assert_eq!(value, Some("Dave".to_string()));
     }
 

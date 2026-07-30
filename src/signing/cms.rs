@@ -63,10 +63,10 @@ pub struct CmsOptions {
 impl Default for CmsOptions {
     fn default() -> Self {
         Self {
-            sub_filter:     "adbe.pkcs7.detached",
-            timestamp_url:  None,
-            include_crl:    false,
-            include_ocsp:   false,
+            sub_filter: "adbe.pkcs7.detached",
+            timestamp_url: None,
+            include_crl: false,
+            include_ocsp: false,
             cert_chain_pem: String::new(),
         }
     }
@@ -111,11 +111,12 @@ pub fn build_cms_signed_data_with_opts(
     use x509_certificate::{CapturedX509Certificate, InMemorySigningKeyPair};
 
     // ── parse cert chain ──────────────────────────────────────────────────
-    let certs = CapturedX509Certificate::from_pem_multiple(cert_chain_pem)
-        .map_err(|e| PdfError::Parse {
+    let certs = CapturedX509Certificate::from_pem_multiple(cert_chain_pem).map_err(|e| {
+        PdfError::Parse {
             offset: None,
             context: format!("cert chain PEM parse error: {e}"),
-        })?;
+        }
+    })?;
     if certs.is_empty() {
         return Err(PdfError::Parse {
             offset: None,
@@ -125,8 +126,8 @@ pub fn build_cms_signed_data_with_opts(
     let signer_cert = &certs[0];
 
     // ── parse private key ─────────────────────────────────────────────────
-    let signing_key = InMemorySigningKeyPair::from_pkcs8_pem(private_key_pem)
-        .map_err(|e| PdfError::Parse {
+    let signing_key =
+        InMemorySigningKeyPair::from_pkcs8_pem(private_key_pem).map_err(|e| PdfError::Parse {
             offset: None,
             context: format!("private key PEM parse error: {e}"),
         })?;
@@ -144,7 +145,8 @@ pub fn build_cms_signed_data_with_opts(
         // The signingCertificateV2 hash MUST be over the canonical DER form
         // of the certificate (same bytes that appear in the CMS certificates field).
         // Fall back to encode_ber() only for certs that cannot be re-encoded as DER.
-        let cert_der = signer_cert.encode_der()
+        let cert_der = signer_cert
+            .encode_der()
             .or_else(|_| signer_cert.encode_ber())
             .map_err(|e| PdfError::Parse {
                 offset: None,
@@ -156,7 +158,7 @@ pub fn build_cms_signed_data_with_opts(
         let hash_octet = OctetString::new(Bytes::from(cert_hash));
         let ess_cert_id_v2 = bcder::encode::sequence(hash_octet.encode());
         let signing_cert_v2 = bcder::encode::sequence(ess_cert_id_v2);
-        let attr_value    = bcder::encode::sequence(signing_cert_v2);
+        let attr_value = bcder::encode::sequence(signing_cert_v2);
         attr_value.to_captured(Der)
     };
     signer = signer.signed_attribute(
@@ -205,11 +207,10 @@ pub fn build_cms_signed_data_with_opts(
         builder = builder.certificate(cert.clone());
     }
 
-    let cms_der = builder.build_der()
-        .map_err(|e| PdfError::Parse {
-            offset: None,
-            context: format!("CMS SignedData build error: {e}"),
-        })?;
+    let cms_der = builder.build_der().map_err(|e| PdfError::Parse {
+        offset: None,
+        context: format!("CMS SignedData build error: {e}"),
+    })?;
 
     Ok(cms_der)
 }
@@ -220,21 +221,21 @@ pub fn build_cms_signed_data_with_opts(
 
 /// Result of verifying one CMS signature against given content bytes.
 pub struct CmsVerifyResult {
-    pub digest_valid:      bool,
-    pub signature_valid:   bool,
-    pub has_timestamp:     bool,
-    pub certificates:      Vec<CmsCertInfo>,
-    pub chain_warnings:    Vec<String>,
-    pub chain_valid:       bool,
+    pub digest_valid: bool,
+    pub signature_valid: bool,
+    pub has_timestamp: bool,
+    pub certificates: Vec<CmsCertInfo>,
+    pub chain_warnings: Vec<String>,
+    pub chain_valid: bool,
 }
 
 pub struct CmsCertInfo {
-    pub subject:       String,
-    pub issuer:        String,
-    pub serial:        String,
-    pub not_before:    Option<String>,
-    pub not_after:     Option<String>,
-    pub is_expired:    bool,
+    pub subject: String,
+    pub issuer: String,
+    pub serial: String,
+    pub not_before: Option<String>,
+    pub not_after: Option<String>,
+    pub is_expired: bool,
     pub is_self_signed: bool,
 }
 
@@ -247,12 +248,12 @@ pub fn verify_cms(cms_der: &[u8], signed_content: &[u8]) -> CmsVerifyResult {
     use x509_certificate::CapturedX509Certificate;
 
     let mut result = CmsVerifyResult {
-        digest_valid:    false,
+        digest_valid: false,
         signature_valid: false,
-        has_timestamp:   false,
-        certificates:    vec![],
-        chain_warnings:  vec![],
-        chain_valid:     false,
+        has_timestamp: false,
+        certificates: vec![],
+        chain_warnings: vec![],
+        chain_valid: false,
     };
 
     // ── parse SignedData ──────────────────────────────────────────────────
@@ -274,9 +275,13 @@ pub fn verify_cms(cms_der: &[u8], signed_content: &[u8]) -> CmsVerifyResult {
         }
         // Check for timestamp unsigned attribute
         // OID 1.2.840.113549.1.9.16.2.14  id-smime-aa-signatureTimeStampToken
-        let ts_oid_bytes: &[u8] = &[0x06, 0x0b, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d,
-                                     0x01, 0x09, 0x10, 0x02, 0x0e];
-        if cms_der.windows(ts_oid_bytes.len()).any(|w| w == ts_oid_bytes) {
+        let ts_oid_bytes: &[u8] = &[
+            0x06, 0x0b, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x10, 0x02, 0x0e,
+        ];
+        if cms_der
+            .windows(ts_oid_bytes.len())
+            .any(|w| w == ts_oid_bytes)
+        {
             result.has_timestamp = true;
         }
     }
@@ -286,26 +291,31 @@ pub fn verify_cms(cms_der: &[u8], signed_content: &[u8]) -> CmsVerifyResult {
     let mut chain_ok = true;
 
     for cert in &certs {
-        let subject = cert.subject_common_name()
-            .unwrap_or_else(|| cert.subject_name().user_friendly_str()
-                .unwrap_or_else(|_| "Unknown".to_string()));
-        let issuer = cert.issuer_name().user_friendly_str()
+        let subject = cert.subject_common_name().unwrap_or_else(|| {
+            cert.subject_name()
+                .user_friendly_str()
+                .unwrap_or_else(|_| "Unknown".to_string())
+        });
+        let issuer = cert
+            .issuer_name()
+            .user_friendly_str()
             .unwrap_or_else(|_| "Unknown".to_string());
         // Extract serial from the raw DER: Certificate/TBSCertificate/serialNumber
         let serial = extract_serial_hex(cert);
 
-        let (not_before, not_after, is_expired) =
-            extract_validity(cert);
+        let (not_before, not_after, is_expired) = extract_validity(cert);
         let is_self_signed = subject == issuer;
 
         if is_expired {
             chain_ok = false;
-            result.chain_warnings.push(format!("Certificate '{subject}' is expired"));
+            result
+                .chain_warnings
+                .push(format!("Certificate '{subject}' is expired"));
         }
         if is_self_signed {
-            result.chain_warnings.push(
-                format!("Root CA '{subject}' is self-signed but not a recognized public CA")
-            );
+            result.chain_warnings.push(format!(
+                "Root CA '{subject}' is self-signed but not a recognized public CA"
+            ));
         }
 
         result.certificates.push(CmsCertInfo {
@@ -332,25 +342,31 @@ fn extract_serial_hex(cert: &x509_certificate::CapturedX509Certificate) -> Strin
         if let Some((_, tbs)) = parse_tlv(outer) {
             let mut pos = 0;
             if tbs.len() > pos && tbs[pos] == 0xa0 {
-                if let Some((used, _)) = parse_tlv_at(tbs, pos) { pos += used; }
+                if let Some((used, _)) = parse_tlv_at(tbs, pos) {
+                    pos += used;
+                }
             }
             if let Some((_, serial_val)) = parse_tlv_at(tbs, pos) {
-                return serial_val.iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>().join("");
+                return serial_val
+                    .iter()
+                    .map(|b| format!("{b:02X}"))
+                    .collect::<Vec<_>>()
+                    .join("");
             }
         }
     }
     "?".to_string()
 }
 
-fn extract_validity(cert: &x509_certificate::CapturedX509Certificate)
-    -> (Option<String>, Option<String>, bool)
-{
+fn extract_validity(
+    cert: &x509_certificate::CapturedX509Certificate,
+) -> (Option<String>, Option<String>, bool) {
     use std::time::SystemTime;
     let now = SystemTime::now();
 
     // validity_not_before / validity_not_after return DateTime<Utc> directly
     let not_before = Some(format!("{}", cert.validity_not_before()));
-    let not_after  = Some(format!("{}", cert.validity_not_after()));
+    let not_after = Some(format!("{}", cert.validity_not_after()));
 
     // is_expired: not_after < now
     let not_after_systime: SystemTime = cert.validity_not_after().into();
@@ -367,7 +383,10 @@ fn extract_validity(cert: &x509_certificate::CapturedX509Certificate)
 /// Returns `(parseable, Option<digest_bytes>)`.
 pub fn extract_message_digest(cms_der: &[u8]) -> (bool, Option<Vec<u8>>) {
     let md_oid = der_oid(OID_MESSAGE_DIGEST);
-    if let Some(pos) = cms_der.windows(md_oid.len()).position(|w| w == md_oid.as_slice()) {
+    if let Some(pos) = cms_der
+        .windows(md_oid.len())
+        .position(|w| w == md_oid.as_slice())
+    {
         let after_oid = &cms_der[pos + md_oid.len()..];
         if let Some((_, set_body)) = parse_tlv(after_oid) {
             if let Some((_, digest)) = parse_tlv(set_body) {

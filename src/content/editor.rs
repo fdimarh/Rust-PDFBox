@@ -13,7 +13,7 @@
 //! - All public types implement `Send` (no `Rc` / `RefCell`).
 //! - The editor is usable as a state machine: load → edit page(s) → save.
 
-use crate::content::edit::{parse_content_operators, serialise_content_stream, ContentOperator};
+use crate::content::edit::{ContentOperator, parse_content_operators, serialise_content_stream};
 use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
 use crate::io::decode_stream;
 use crate::{Document, PdfError, PdfResult};
@@ -264,7 +264,7 @@ impl PdfEditor {
                         context: format!(
                             "XObject '{resource_name}' is neither stream nor reference"
                         ),
-                    })
+                    });
                 }
             }
         };
@@ -288,7 +288,7 @@ impl PdfEditor {
                             context: format!(
                                 "XObject '{resource_name}' ref resolves to non-stream"
                             ),
-                        })
+                        });
                     }
                 }
             }

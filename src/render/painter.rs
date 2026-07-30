@@ -1,12 +1,12 @@
 //! Bridging PDF Content Stream operators to Tiny-Skia Canvas.
 
-use crate::content::{parse_content_stream, Instruction};
+use crate::PdfResult;
+use crate::content::{Instruction, parse_content_stream};
 use crate::cos::{CosDictionary, CosName, CosObject};
 use crate::pdmodel::page::Page;
-use crate::PdfResult;
+use ab_glyph::Font as AbFont;
 use std::collections::HashMap;
 use tiny_skia::{Color, Paint, PathBuilder, PixmapMut, Stroke, Transform};
-use ab_glyph::Font as AbFont;
 
 /// Represents the complete graphics state (PDF §8.4).
 #[derive(Debug, Clone)]
@@ -98,8 +98,12 @@ impl FontMetrics {
             .map(|n| String::from_utf8_lossy(n.as_bytes()).to_string())
             .unwrap_or_else(|| String::from_utf8_lossy(name).to_string());
 
-        let first_char = dict.get_int(&CosName::new(b"FirstChar".to_vec())).unwrap_or(0) as u8;
-        let last_char = dict.get_int(&CosName::new(b"LastChar".to_vec())).unwrap_or(0) as u8;
+        let first_char = dict
+            .get_int(&CosName::new(b"FirstChar".to_vec()))
+            .unwrap_or(0) as u8;
+        let last_char = dict
+            .get_int(&CosName::new(b"LastChar".to_vec()))
+            .unwrap_or(0) as u8;
 
         let widths: Vec<f64> = dict
             .get_array(&CosName::new(b"Widths".to_vec()))
@@ -123,10 +127,18 @@ impl FontMetrics {
                 _ => None,
             })
         {
-            ascent = desc_dict.get_number(&CosName::new(b"Ascent".to_vec())).unwrap_or(ascent);
-            descent = desc_dict.get_number(&CosName::new(b"Descent".to_vec())).unwrap_or(descent);
-            cap_height = desc_dict.get_number(&CosName::new(b"CapHeight".to_vec())).unwrap_or(cap_height);
-            missing_width = desc_dict.get_number(&CosName::new(b"MissingWidth".to_vec())).unwrap_or(0.0);
+            ascent = desc_dict
+                .get_number(&CosName::new(b"Ascent".to_vec()))
+                .unwrap_or(ascent);
+            descent = desc_dict
+                .get_number(&CosName::new(b"Descent".to_vec()))
+                .unwrap_or(descent);
+            cap_height = desc_dict
+                .get_number(&CosName::new(b"CapHeight".to_vec()))
+                .unwrap_or(cap_height);
+            missing_width = desc_dict
+                .get_number(&CosName::new(b"MissingWidth".to_vec()))
+                .unwrap_or(0.0);
 
             if let Some(arr) = desc_dict.get_array(&CosName::new(b"FontBBox".to_vec())) {
                 let nums: Vec<f64> = arr.iter().filter_map(|v| v.as_number()).collect();
@@ -147,20 +159,16 @@ impl FontMetrics {
                     _ => None,
                 })
                 .or_else(|| {
-                    desc_dict
-                        .get(&ff3_name)
-                        .and_then(|v| match v {
-                            CosObject::Stream(s) => Some(s.data.clone()),
-                            _ => None,
-                        })
+                    desc_dict.get(&ff3_name).and_then(|v| match v {
+                        CosObject::Stream(s) => Some(s.data.clone()),
+                        _ => None,
+                    })
                 })
                 .or_else(|| {
-                    desc_dict
-                        .get(&ff_name)
-                        .and_then(|v| match v {
-                            CosObject::Stream(s) => Some(s.data.clone()),
-                            _ => None,
-                        })
+                    desc_dict.get(&ff_name).and_then(|v| match v {
+                        CosObject::Stream(s) => Some(s.data.clone()),
+                        _ => None,
+                    })
                 });
 
             if let Some(data) = font_program {
@@ -171,14 +179,26 @@ impl FontMetrics {
             // Standard font defaults
             match base_font.as_str() {
                 "Helvetica" | "Helvetica-Bold" | "Helvetica-Oblique" | "Helvetica-BoldOblique" => {
-                    ascent = 718.0; descent = -207.0; cap_height = 718.0;
-                    bbox_width = if base_font.contains("Bold") { 1000.0 } else { 1000.0 };
+                    ascent = 718.0;
+                    descent = -207.0;
+                    cap_height = 718.0;
+                    bbox_width = if base_font.contains("Bold") {
+                        1000.0
+                    } else {
+                        1000.0
+                    };
                 }
                 "Times-Roman" | "Times-Bold" | "Times-Italic" | "Times-BoldItalic" => {
-                    ascent = 683.0; descent = -217.0; cap_height = 662.0; bbox_width = 1000.0;
+                    ascent = 683.0;
+                    descent = -217.0;
+                    cap_height = 662.0;
+                    bbox_width = 1000.0;
                 }
                 "Courier" | "Courier-Bold" | "Courier-Oblique" | "Courier-BoldOblique" => {
-                    ascent = 629.0; descent = -157.0; cap_height = 562.0; bbox_width = 1000.0;
+                    ascent = 629.0;
+                    descent = -157.0;
+                    cap_height = 562.0;
+                    bbox_width = 1000.0;
                 }
                 _ => {}
             }
@@ -226,7 +246,10 @@ impl<'a> PagePainter<'a> {
     pub fn new(pixmap: PixmapMut<'a>, initial_transform: Transform) -> Self {
         Self {
             pixmap,
-            gs: GraphicsState { ctm: initial_transform, ..Default::default() },
+            gs: GraphicsState {
+                ctm: initial_transform,
+                ..Default::default()
+            },
             gs_stack: Vec::new(),
             path_builder: PathBuilder::new(),
             current_pos: (0.0, 0.0),
@@ -272,8 +295,11 @@ impl<'a> PagePainter<'a> {
                 }
                 _ => return Ok(()),
             };
-            let instructions = parse_content_stream(&content_bytes)
-                .map_err(|e| crate::PdfError::Parse { offset: None, context: format!("render: {e}") })?;
+            let instructions =
+                parse_content_stream(&content_bytes).map_err(|e| crate::PdfError::Parse {
+                    offset: None,
+                    context: format!("render: {e}"),
+                })?;
             for instruction in &instructions {
                 self.execute_instruction(instruction);
             }
@@ -287,7 +313,11 @@ impl<'a> PagePainter<'a> {
         match op {
             // ── Graphics State Stack ──────────────────────────────────
             Some("q") => self.gs_stack.push(self.gs.clone()),
-            Some("Q") => { if let Some(saved) = self.gs_stack.pop() { self.gs = saved; } }
+            Some("Q") => {
+                if let Some(saved) = self.gs_stack.pop() {
+                    self.gs = saved;
+                }
+            }
 
             // ── Path Construction ─────────────────────────────────────
             Some("m") => {
@@ -307,14 +337,23 @@ impl<'a> PagePainter<'a> {
             Some("c") => {
                 if ops.len() >= 6 {
                     let points: Vec<f32> = ops.iter().take(6).map(|o| num_f32(o)).collect();
-                    self.path_builder.cubic_to(points[0], points[1], points[2], points[3], points[4], points[5]);
+                    self.path_builder.cubic_to(
+                        points[0], points[1], points[2], points[3], points[4], points[5],
+                    );
                     self.current_pos = (points[4], points[5]);
                 }
             }
             Some("v") => {
                 if ops.len() >= 4 {
                     let (cx, cy) = self.current_pos;
-                    self.path_builder.cubic_to(cx, cy, num_f32(&ops[0]), num_f32(&ops[1]), num_f32(&ops[2]), num_f32(&ops[3]));
+                    self.path_builder.cubic_to(
+                        cx,
+                        cy,
+                        num_f32(&ops[0]),
+                        num_f32(&ops[1]),
+                        num_f32(&ops[2]),
+                        num_f32(&ops[3]),
+                    );
                     self.current_pos = (num_f32(&ops[2]), num_f32(&ops[3]));
                 }
             }
@@ -329,8 +368,10 @@ impl<'a> PagePainter<'a> {
             Some("h") => self.path_builder.close(),
             Some("re") => {
                 if ops.len() >= 4 {
-                    let x = num_f32(&ops[0]); let y = num_f32(&ops[1]);
-                    let w = num_f32(&ops[2]); let h = num_f32(&ops[3]);
+                    let x = num_f32(&ops[0]);
+                    let y = num_f32(&ops[1]);
+                    let w = num_f32(&ops[2]);
+                    let h = num_f32(&ops[3]);
                     self.path_builder.move_to(x, y);
                     self.path_builder.line_to(x + w, y);
                     self.path_builder.line_to(x + w, y + h);
@@ -341,14 +382,33 @@ impl<'a> PagePainter<'a> {
 
             // ── Path Painting ─────────────────────────────────────────
             Some("S") => self.stroke(),
-            Some("s") => { self.path_builder.close(); self.stroke(); }
+            Some("s") => {
+                self.path_builder.close();
+                self.stroke();
+            }
             Some("f") | Some("F") => self.fill(tiny_skia::FillRule::Winding),
             Some("f*") => self.fill(tiny_skia::FillRule::EvenOdd),
-            Some("B") => { self.fill(tiny_skia::FillRule::Winding); self.stroke(); }
-            Some("B*") => { self.fill(tiny_skia::FillRule::EvenOdd); self.stroke(); }
-            Some("b") => { self.path_builder.close(); self.fill(tiny_skia::FillRule::Winding); self.stroke(); }
-            Some("b*") => { self.path_builder.close(); self.fill(tiny_skia::FillRule::EvenOdd); self.stroke(); }
-            Some("n") => { self.path_builder = PathBuilder::new(); }
+            Some("B") => {
+                self.fill(tiny_skia::FillRule::Winding);
+                self.stroke();
+            }
+            Some("B*") => {
+                self.fill(tiny_skia::FillRule::EvenOdd);
+                self.stroke();
+            }
+            Some("b") => {
+                self.path_builder.close();
+                self.fill(tiny_skia::FillRule::Winding);
+                self.stroke();
+            }
+            Some("b*") => {
+                self.path_builder.close();
+                self.fill(tiny_skia::FillRule::EvenOdd);
+                self.stroke();
+            }
+            Some("n") => {
+                self.path_builder = PathBuilder::new();
+            }
 
             // ── Clipping ──────────────────────────────────────────────
             Some("W") => {
@@ -369,22 +429,28 @@ impl<'a> PagePainter<'a> {
             // ── Color Operators ───────────────────────────────────────
             Some("rg") => {
                 if ops.len() >= 3 {
-                    if let Some(c) = Color::from_rgba(num_f32(&ops[0]), num_f32(&ops[1]), num_f32(&ops[2]), 1.0) {
+                    if let Some(c) =
+                        Color::from_rgba(num_f32(&ops[0]), num_f32(&ops[1]), num_f32(&ops[2]), 1.0)
+                    {
                         self.gs.fill_color = c;
                     }
                 }
             }
             Some("RG") => {
                 if ops.len() >= 3 {
-                    if let Some(c) = Color::from_rgba(num_f32(&ops[0]), num_f32(&ops[1]), num_f32(&ops[2]), 1.0) {
+                    if let Some(c) =
+                        Color::from_rgba(num_f32(&ops[0]), num_f32(&ops[1]), num_f32(&ops[2]), 1.0)
+                    {
                         self.gs.stroke_color = c;
                     }
                 }
             }
             Some("k") => {
                 if ops.len() >= 4 {
-                    let c = num_f32(&ops[0]); let m = num_f32(&ops[1]);
-                    let y = num_f32(&ops[2]); let k = num_f32(&ops[3]);
+                    let c = num_f32(&ops[0]);
+                    let m = num_f32(&ops[1]);
+                    let y = num_f32(&ops[2]);
+                    let k = num_f32(&ops[3]);
                     let r = 1.0 - (c + k).min(1.0);
                     let g = 1.0 - (m + k).min(1.0);
                     let b = 1.0 - (y + k).min(1.0);
@@ -395,8 +461,10 @@ impl<'a> PagePainter<'a> {
             }
             Some("K") => {
                 if ops.len() >= 4 {
-                    let c = num_f32(&ops[0]); let m = num_f32(&ops[1]);
-                    let y = num_f32(&ops[2]); let k = num_f32(&ops[3]);
+                    let c = num_f32(&ops[0]);
+                    let m = num_f32(&ops[1]);
+                    let y = num_f32(&ops[2]);
+                    let k = num_f32(&ops[3]);
                     let r = 1.0 - (c + k).min(1.0);
                     let g = 1.0 - (m + k).min(1.0);
                     let b = 1.0 - (y + k).min(1.0);
@@ -407,19 +475,27 @@ impl<'a> PagePainter<'a> {
             }
             Some("g") => {
                 if let Some(g) = ops.get(0).map(|o| num_f32(o)) {
-                    if let Some(c) = Color::from_rgba(g, g, g, 1.0) { self.gs.fill_color = c; }
+                    if let Some(c) = Color::from_rgba(g, g, g, 1.0) {
+                        self.gs.fill_color = c;
+                    }
                 }
             }
             Some("G") => {
                 if let Some(g) = ops.get(0).map(|o| num_f32(o)) {
-                    if let Some(c) = Color::from_rgba(g, g, g, 1.0) { self.gs.stroke_color = c; }
+                    if let Some(c) = Color::from_rgba(g, g, g, 1.0) {
+                        self.gs.stroke_color = c;
+                    }
                 }
             }
             Some("sc") | Some("SC") => {}
             Some("scn") | Some("SCN") => {}
 
             // ── Graphics State Params ─────────────────────────────────
-            Some("w") => { if let Some(w) = ops.get(0).map(|o| num_f32(o)) { self.gs.line_width = w; } }
+            Some("w") => {
+                if let Some(w) = ops.get(0).map(|o| num_f32(o)) {
+                    self.gs.line_width = w;
+                }
+            }
             Some("J") | Some("j") | Some("d") | Some("i") => {}
             Some("gs") => {
                 if let Some(name) = ops.get(0).and_then(|o| o.as_name()) {
@@ -433,7 +509,10 @@ impl<'a> PagePainter<'a> {
                     let (a, b) = (num_f32(&ops[0]), num_f32(&ops[1]));
                     let (c, d) = (num_f32(&ops[2]), num_f32(&ops[3]));
                     let (e, f) = (num_f32(&ops[4]), num_f32(&ops[5]));
-                    self.gs.ctm = self.gs.ctm.pre_concat(Transform::from_row(a, b, c, d, e, f));
+                    self.gs.ctm = self
+                        .gs
+                        .ctm
+                        .pre_concat(Transform::from_row(a, b, c, d, e, f));
                 }
             }
 
@@ -445,8 +524,13 @@ impl<'a> PagePainter<'a> {
             }
 
             // ── Text Objects ───────────────────────────────────────────
-            Some("BT") => { self.text = TextState::default(); self.in_text_object = true; }
-            Some("ET") => { self.in_text_object = false; }
+            Some("BT") => {
+                self.text = TextState::default();
+                self.in_text_object = true;
+            }
+            Some("ET") => {
+                self.in_text_object = false;
+            }
             Some("Tf") => {
                 if ops.len() >= 2 {
                     if let Some(name) = ops.get(0).and_then(|o| o.as_name()) {
@@ -458,17 +542,21 @@ impl<'a> PagePainter<'a> {
             Some("Tm") => {
                 if ops.len() >= 6 {
                     let vals: Vec<f32> = ops.iter().take(6).map(|o| num_f32(o)).collect();
-                    self.text.tm = Transform::from_row(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+                    self.text.tm =
+                        Transform::from_row(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
                     self.text.tlm = self.text.tm;
                 }
             }
             Some("Td") | Some("TD") => {
                 if ops.len() >= 2 {
-                    let t = Transform::from_row(1.0, 0.0, 0.0, 1.0, num_f32(&ops[0]), num_f32(&ops[1]));
+                    let t =
+                        Transform::from_row(1.0, 0.0, 0.0, 1.0, num_f32(&ops[0]), num_f32(&ops[1]));
                     self.text.tlm = self.text.tlm.pre_concat(t);
                     self.text.tm = self.text.tlm;
                 }
-                if op == Some("TD") && ops.len() >= 2 { self.text.leading = -num_f32(&ops[1]); }
+                if op == Some("TD") && ops.len() >= 2 {
+                    self.text.leading = -num_f32(&ops[1]);
+                }
             }
             Some("T*") => {
                 let t = Transform::from_row(1.0, 0.0, 0.0, 1.0, 0.0, -self.text.leading);
@@ -486,7 +574,10 @@ impl<'a> PagePainter<'a> {
                         self.render_text(bytes);
                     } else if let Some(num) = operand.as_number() {
                         let adjust = -(num as f32) / 1000.0 * self.text.font_size;
-                        self.text.tm = self.text.tm.pre_concat(Transform::from_row(1.0, 0.0, 0.0, 1.0, adjust, 0.0));
+                        self.text.tm = self
+                            .text
+                            .tm
+                            .pre_concat(Transform::from_row(1.0, 0.0, 0.0, 1.0, adjust, 0.0));
                     }
                 }
             }
@@ -494,7 +585,9 @@ impl<'a> PagePainter<'a> {
                 let t = Transform::from_row(1.0, 0.0, 0.0, 1.0, 0.0, -self.text.leading);
                 self.text.tlm = self.text.tlm.pre_concat(t);
                 self.text.tm = self.text.tlm;
-                if let Some(text) = ops.get(0).and_then(|o| o.as_string()) { self.render_text(text); }
+                if let Some(text) = ops.get(0).and_then(|o| o.as_string()) {
+                    self.render_text(text);
+                }
             }
             Some("\"") => {
                 if ops.len() >= 3 {
@@ -503,15 +596,41 @@ impl<'a> PagePainter<'a> {
                     let t = Transform::from_row(1.0, 0.0, 0.0, 1.0, 0.0, -self.text.leading);
                     self.text.tlm = self.text.tlm.pre_concat(t);
                     self.text.tm = self.text.tlm;
-                    if let Some(text) = ops.get(2).and_then(|o| o.as_string()) { self.render_text(text); }
+                    if let Some(text) = ops.get(2).and_then(|o| o.as_string()) {
+                        self.render_text(text);
+                    }
                 }
             }
-            Some("Tc") => { if let Some(tc) = ops.get(0).map(|o| num_f32(o)) { self.text.char_spacing = tc; } }
-            Some("Tw") => { if let Some(tw) = ops.get(0).map(|o| num_f32(o)) { self.text.word_spacing = tw; } }
-            Some("Tz") => { if let Some(tz) = ops.get(0).map(|o| num_f32(o)) { self.text.horizontal_scale = tz / 100.0; } }
-            Some("TL") => { if let Some(tl) = ops.get(0).map(|o| num_f32(o)) { self.text.leading = tl; } }
-            Some("Tr") => { if let Some(tr) = ops.get(0).and_then(|o| o.as_integer()) { self.text.render_mode = tr as i32; } }
-            Some("Ts") => { if let Some(ts) = ops.get(0).map(|o| num_f32(o)) { self.text.rise = ts; } }
+            Some("Tc") => {
+                if let Some(tc) = ops.get(0).map(|o| num_f32(o)) {
+                    self.text.char_spacing = tc;
+                }
+            }
+            Some("Tw") => {
+                if let Some(tw) = ops.get(0).map(|o| num_f32(o)) {
+                    self.text.word_spacing = tw;
+                }
+            }
+            Some("Tz") => {
+                if let Some(tz) = ops.get(0).map(|o| num_f32(o)) {
+                    self.text.horizontal_scale = tz / 100.0;
+                }
+            }
+            Some("TL") => {
+                if let Some(tl) = ops.get(0).map(|o| num_f32(o)) {
+                    self.text.leading = tl;
+                }
+            }
+            Some("Tr") => {
+                if let Some(tr) = ops.get(0).and_then(|o| o.as_integer()) {
+                    self.text.render_mode = tr as i32;
+                }
+            }
+            Some("Ts") => {
+                if let Some(ts) = ops.get(0).map(|o| num_f32(o)) {
+                    self.text.rise = ts;
+                }
+            }
 
             // ── Inline Images ──────────────────────────────────────────
             Some("BI") | Some("ID") | Some("EI") => {}
@@ -523,13 +642,22 @@ impl<'a> PagePainter<'a> {
     fn apply_ext_gstate(&mut self, _name: &CosName) {}
 
     fn render_xobject(&mut self, name: &CosName) {
-        let resources = match self.resources { Some(ref r) => r, None => return };
+        let resources = match self.resources {
+            Some(ref r) => r,
+            None => return,
+        };
         let xobject_dict = resources.xobject_dict().cloned();
-        let xobject_entry = match xobject_dict { Some(ref d) => d.get(name), None => return };
+        let xobject_entry = match xobject_dict {
+            Some(ref d) => d.get(name),
+            None => return,
+        };
         match xobject_entry {
             Some(CosObject::Stream(stream)) => {
-                let subtype = stream.dictionary.get(&CosName::new(b"Subtype".to_vec()))
-                    .and_then(|o| o.as_name()).map(|n| n.as_bytes());
+                let subtype = stream
+                    .dictionary
+                    .get(&CosName::new(b"Subtype".to_vec()))
+                    .and_then(|o| o.as_name())
+                    .map(|n| n.as_bytes());
                 match subtype {
                     Some(b"Image") => self.render_image_xobject(stream),
                     Some(b"Form") => self.render_form_xobject(stream),
@@ -542,18 +670,25 @@ impl<'a> PagePainter<'a> {
 
     fn render_image_xobject(&mut self, stream: &crate::cos::CosStream) {
         let dict = &stream.dictionary;
-        let width = dict.get(&CosName::new(b"Width".to_vec()))
-            .and_then(|o| o.as_integer()).unwrap_or(0) as u32;
-        let height = dict.get(&CosName::new(b"Height".to_vec()))
-            .and_then(|o| o.as_integer()).unwrap_or(0) as u32;
-        if width == 0 || height == 0 { return; }
+        let width = dict
+            .get(&CosName::new(b"Width".to_vec()))
+            .and_then(|o| o.as_integer())
+            .unwrap_or(0) as u32;
+        let height = dict
+            .get(&CosName::new(b"Height".to_vec()))
+            .and_then(|o| o.as_integer())
+            .unwrap_or(0) as u32;
+        if width == 0 || height == 0 {
+            return;
+        }
         if let Ok(img) = raw_to_image(&stream.data, width, height, dict) {
             if let Some(pixmap) = tiny_skia::Pixmap::from_vec(
                 img.to_vec(),
                 tiny_skia::IntSize::from_wh(width, height).unwrap(),
             ) {
                 let paint = tiny_skia::PixmapPaint::default();
-                self.pixmap.draw_pixmap(0, 0, pixmap.as_ref(), &paint, self.gs.ctm, None);
+                self.pixmap
+                    .draw_pixmap(0, 0, pixmap.as_ref(), &paint, self.gs.ctm, None);
             }
         }
     }
@@ -564,19 +699,27 @@ impl<'a> PagePainter<'a> {
         if let Some(CosObject::Array(m)) = dict.get(&CosName::new(b"Matrix".to_vec())) {
             if m.len() == 6 {
                 let vals: Vec<f32> = m.iter().map(|o| num_f32(o)).collect();
-                self.gs.ctm = self.gs.ctm.pre_concat(Transform::from_row(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]));
+                self.gs.ctm = self.gs.ctm.pre_concat(Transform::from_row(
+                    vals[0], vals[1], vals[2], vals[3], vals[4], vals[5],
+                ));
             }
         }
         if let Ok(insts) = parse_content_stream(&stream.data) {
-            for inst in &insts { self.execute_instruction(inst); }
+            for inst in &insts {
+                self.execute_instruction(inst);
+            }
         }
-        if let Some(saved) = self.gs_stack.pop() { self.gs = saved; }
+        if let Some(saved) = self.gs_stack.pop() {
+            self.gs = saved;
+        }
     }
 
     /// Render text with glyph outline rendering via ab_glyph (when available).
     /// Falls back to proportional rectangles when no font program is embedded.
     fn render_text(&mut self, text: &[u8]) {
-        if text.is_empty() { return; }
+        if text.is_empty() {
+            return;
+        }
 
         let font_size = self.text.font_size;
         let hscale = self.text.horizontal_scale.max(0.001);
@@ -584,7 +727,10 @@ impl<'a> PagePainter<'a> {
         let word_spacing = self.text.word_spacing;
 
         // Look up font metrics from parsed resources
-        let metrics = self.text.font_name.as_ref()
+        let metrics = self
+            .text
+            .font_name
+            .as_ref()
             .and_then(|name| self.font_metrics.get(name));
 
         // ── ab_glyph outline rendering path ──
@@ -607,10 +753,10 @@ impl<'a> PagePainter<'a> {
                                     cp.line_to(to.x, -to.y);
                                 }
                                 ab_glyph::OutlineCurve::Quad(fr, ctrl, to) => {
-                                    let c0_x = fr.x + (2.0/3.0) * (ctrl.x - fr.x);
-                                    let c0_y = fr.y + (2.0/3.0) * (ctrl.y - fr.y);
-                                    let c1_x = to.x + (2.0/3.0) * (ctrl.x - to.x);
-                                    let c1_y = to.y + (2.0/3.0) * (ctrl.y - to.y);
+                                    let c0_x = fr.x + (2.0 / 3.0) * (ctrl.x - fr.x);
+                                    let c0_y = fr.y + (2.0 / 3.0) * (ctrl.y - fr.y);
+                                    let c1_x = to.x + (2.0 / 3.0) * (ctrl.x - to.x);
+                                    let c1_y = to.y + (2.0 / 3.0) * (ctrl.y - to.y);
                                     cp.cubic_to(c0_x, -c0_y, c1_x, -c1_y, to.x, -to.y);
                                 }
                                 ab_glyph::OutlineCurve::Cubic(_from, c1, c2, to) => {
@@ -623,16 +769,23 @@ impl<'a> PagePainter<'a> {
                             let mut paint = Paint::default();
                             paint.set_color(self.gs.fill_color);
 
-                            let glyph_tm = self.gs.ctm.pre_concat(self.text.tm)
-                                .pre_concat(Transform::from_row(
-                                    scale * hscale, 0.0, 0.0, scale,
-                                    total_advance, 0.0,
-                                ));
+                            let glyph_tm = self.gs.ctm.pre_concat(self.text.tm).pre_concat(
+                                Transform::from_row(
+                                    scale * hscale,
+                                    0.0,
+                                    0.0,
+                                    scale,
+                                    total_advance,
+                                    0.0,
+                                ),
+                            );
 
                             self.pixmap.fill_path(
-                                &path, &paint,
+                                &path,
+                                &paint,
                                 tiny_skia::FillRule::Winding,
-                                glyph_tm, None,
+                                glyph_tm,
+                                None,
                             );
                         }
 
@@ -650,9 +803,14 @@ impl<'a> PagePainter<'a> {
                     total_advance += char_spacing;
                 }
 
-                self.text.tm = self.text.tm.pre_concat(
-                    Transform::from_row(1.0, 0.0, 0.0, 1.0, total_advance, 0.0)
-                );
+                self.text.tm = self.text.tm.pre_concat(Transform::from_row(
+                    1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    total_advance,
+                    0.0,
+                ));
                 return;
             }
         }
@@ -667,8 +825,18 @@ impl<'a> PagePainter<'a> {
         let font_scale = font_size / 1000.0;
         let glyph_height = (ascent - descent) * font_scale;
 
-        let final_tm = self.gs.ctm.pre_concat(self.text.tm)
-            .pre_concat(Transform::from_row(font_size * hscale, 0.0, 0.0, font_size, 0.0, 0.0));
+        let final_tm = self
+            .gs
+            .ctm
+            .pre_concat(self.text.tm)
+            .pre_concat(Transform::from_row(
+                font_size * hscale,
+                0.0,
+                0.0,
+                font_size,
+                0.0,
+                0.0,
+            ));
 
         let mut total_advance = 0.0f32;
 
@@ -690,7 +858,8 @@ impl<'a> PagePainter<'a> {
             if let Some(path) = cp.finish() {
                 let mut paint = Paint::default();
                 paint.set_color(self.gs.fill_color);
-                self.pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, final_tm, None);
+                self.pixmap
+                    .fill_path(&path, &paint, tiny_skia::FillRule::Winding, final_tm, None);
             }
 
             let advance = glyph_width * font_scale * hscale;
@@ -704,9 +873,10 @@ impl<'a> PagePainter<'a> {
             }
         }
 
-        self.text.tm = self.text.tm.pre_concat(
-            Transform::from_row(1.0, 0.0, 0.0, 1.0, total_advance, 0.0)
-        );
+        self.text.tm =
+            self.text
+                .tm
+                .pre_concat(Transform::from_row(1.0, 0.0, 0.0, 1.0, total_advance, 0.0));
     }
 
     pub fn fill(&mut self, rule: tiny_skia::FillRule) {
@@ -726,7 +896,8 @@ impl<'a> PagePainter<'a> {
             paint.set_color(self.gs.stroke_color);
             let mut stroke = Stroke::default();
             stroke.width = self.gs.line_width;
-            self.pixmap.stroke_path(&p, &paint, &stroke, self.gs.ctm, None);
+            self.pixmap
+                .stroke_path(&p, &paint, &stroke, self.gs.ctm, None);
         }
         self.path_builder = PathBuilder::new();
     }
@@ -740,29 +911,65 @@ fn num_f32(obj: &CosObject) -> f32 {
     }
 }
 
-fn raw_to_image(data: &[u8], width: u32, height: u32, dict: &crate::cos::CosDictionary) -> Result<Vec<u8>, String> {
-    let color_space = dict.get(&CosName::new(b"ColorSpace".to_vec()))
-        .and_then(|o| o.as_name()).map(|n| n.as_bytes());
-    let bpc = dict.get(&CosName::new(b"BitsPerComponent".to_vec()))
-        .and_then(|o| o.as_integer()).unwrap_or(8);
+fn raw_to_image(
+    data: &[u8],
+    width: u32,
+    height: u32,
+    dict: &crate::cos::CosDictionary,
+) -> Result<Vec<u8>, String> {
+    let color_space = dict
+        .get(&CosName::new(b"ColorSpace".to_vec()))
+        .and_then(|o| o.as_name())
+        .map(|n| n.as_bytes());
+    let bpc = dict
+        .get(&CosName::new(b"BitsPerComponent".to_vec()))
+        .and_then(|o| o.as_integer())
+        .unwrap_or(8);
     let (spp, channels) = match color_space {
         Some(b"DeviceGray") => (1, 1),
-        Some(b"DeviceRGB")  => (3, 3),
+        Some(b"DeviceRGB") => (3, 3),
         Some(b"DeviceCMYK") => (4, 4),
-        _ => if data.len() >= (width * height * 3) as usize { (3, 3) } else { (1, 1) },
+        _ => {
+            if data.len() >= (width * height * 3) as usize {
+                (3, 3)
+            } else {
+                (1, 1)
+            }
+        }
     };
     if data.len() < (width * height * spp * (bpc as u32 / 8)) as usize {
         return Err(format!("Insufficient image data"));
     }
     let mut rgba = Vec::with_capacity((width * height * 4) as usize);
     match channels {
-        1 => { for p in data.chunks(spp as usize) { let g = p[0]; rgba.extend_from_slice(&[g, g, g, 255]); } }
-        3 => { for p in data.chunks(3) { if p.len() >= 3 { rgba.extend_from_slice(&[p[0], p[1], p[2], 255]); } } }
+        1 => {
+            for p in data.chunks(spp as usize) {
+                let g = p[0];
+                rgba.extend_from_slice(&[g, g, g, 255]);
+            }
+        }
+        3 => {
+            for p in data.chunks(3) {
+                if p.len() >= 3 {
+                    rgba.extend_from_slice(&[p[0], p[1], p[2], 255]);
+                }
+            }
+        }
         4 => {
             for p in data.chunks(4) {
                 if p.len() >= 4 {
-                    let (c,m,y,k) = (p[0] as f32/255.0, p[1] as f32/255.0, p[2] as f32/255.0, p[3] as f32/255.0);
-                    rgba.extend_from_slice(&[(255.0*(1.0-c)*(1.0-k)) as u8, (255.0*(1.0-m)*(1.0-k)) as u8, (255.0*(1.0-y)*(1.0-k)) as u8, 255]);
+                    let (c, m, y, k) = (
+                        p[0] as f32 / 255.0,
+                        p[1] as f32 / 255.0,
+                        p[2] as f32 / 255.0,
+                        p[3] as f32 / 255.0,
+                    );
+                    rgba.extend_from_slice(&[
+                        (255.0 * (1.0 - c) * (1.0 - k)) as u8,
+                        (255.0 * (1.0 - m) * (1.0 - k)) as u8,
+                        (255.0 * (1.0 - y) * (1.0 - k)) as u8,
+                        255,
+                    ]);
                 }
             }
         }
@@ -779,7 +986,10 @@ mod tests {
     #[test]
     fn test_font_metrics_from_dict() {
         let mut d = CosDictionary::new();
-        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Helvetica".to_vec())));
+        d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(b"Helvetica".to_vec())),
+        );
         d.set(CosName::new(b"FirstChar".to_vec()), CosObject::Integer(32));
         d.set(CosName::new(b"LastChar".to_vec()), CosObject::Integer(122));
         let widths: Vec<CosObject> = (32u8..=122u8).map(|_| CosObject::Integer(600)).collect();
@@ -796,7 +1006,10 @@ mod tests {
     #[test]
     fn test_font_metrics_standard_font_defaults() {
         let mut d = CosDictionary::new();
-        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Times-Roman".to_vec())));
+        d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(b"Times-Roman".to_vec())),
+        );
 
         let metrics = FontMetrics::from_dict(b"F1", &d).unwrap();
         assert_eq!(metrics.base_font, "Times-Roman");
@@ -809,11 +1022,20 @@ mod tests {
         let mut desc = CosDictionary::new();
         desc.set(CosName::new(b"Ascent".to_vec()), CosObject::Integer(900));
         desc.set(CosName::new(b"Descent".to_vec()), CosObject::Integer(-300));
-        desc.set(CosName::new(b"MissingWidth".to_vec()), CosObject::Integer(500));
+        desc.set(
+            CosName::new(b"MissingWidth".to_vec()),
+            CosObject::Integer(500),
+        );
 
         let mut d = CosDictionary::new();
-        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"CustomFont".to_vec())));
-        d.set(CosName::new(b"FontDescriptor".to_vec()), CosObject::Dictionary(desc));
+        d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(b"CustomFont".to_vec())),
+        );
+        d.set(
+            CosName::new(b"FontDescriptor".to_vec()),
+            CosObject::Dictionary(desc),
+        );
 
         let metrics = FontMetrics::from_dict(b"F1", &d).unwrap();
         assert_eq!(metrics.ascent, 900.0);

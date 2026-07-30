@@ -1,6 +1,6 @@
 use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
-use crate::{Document, PdfResult};
 use crate::parser::xref::XRefEntry;
+use crate::{Document, PdfResult};
 
 #[derive(Debug, Clone, Copy)]
 pub enum PageSize {
@@ -13,7 +13,7 @@ pub enum PageSize {
 impl PageSize {
     pub fn dimensions(&self) -> (f64, f64) {
         match self {
-            Self::A4 => (595.28, 841.89), // 210 x 297 mm
+            Self::A4 => (595.28, 841.89),   // 210 x 297 mm
             Self::Letter => (612.0, 792.0), // 8.5 x 11 inches
             Self::Custom(w, h) => (*w, *h),
         }
@@ -57,36 +57,66 @@ impl DocumentBuilder {
 
         // 2. Catalog
         let mut catalog = CosDictionary::new();
-        catalog.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Catalog".to_vec())));
+        catalog.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Catalog".to_vec())),
+        );
         catalog.insert(CosName::pages(), CosObject::Reference(pages_id));
         doc.insert_object(catalog_id, CosObject::Dictionary(catalog));
 
         // 3. Pages
         let mut pages = CosDictionary::new();
-        pages.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Pages".to_vec())));
-        pages.insert(CosName::kids(), CosObject::Array(vec![CosObject::Reference(page_id)]));
+        pages.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Pages".to_vec())),
+        );
+        pages.insert(
+            CosName::kids(),
+            CosObject::Array(vec![CosObject::Reference(page_id)]),
+        );
         pages.insert(CosName::count(), CosObject::Integer(1));
 
         // Add basic resources so fonts like Helvetica work out-of-the box
         let mut helvetica = CosDictionary::new();
-        helvetica.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Font".to_vec())));
-        helvetica.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Type1".to_vec())));
-        helvetica.insert(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(b"Helvetica".to_vec())));
+        helvetica.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Font".to_vec())),
+        );
+        helvetica.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Type1".to_vec())),
+        );
+        helvetica.insert(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(b"Helvetica".to_vec())),
+        );
 
         let mut fonts = CosDictionary::new();
-        fonts.insert(CosName::new(b"Helvetica".to_vec()), CosObject::Dictionary(helvetica));
+        fonts.insert(
+            CosName::new(b"Helvetica".to_vec()),
+            CosObject::Dictionary(helvetica),
+        );
 
         let mut resources = CosDictionary::new();
         resources.insert(CosName::new(b"Font".to_vec()), CosObject::Dictionary(fonts));
 
-        pages.insert(CosName::new(b"Resources".to_vec()), CosObject::Dictionary(resources));
+        pages.insert(
+            CosName::new(b"Resources".to_vec()),
+            CosObject::Dictionary(resources),
+        );
 
         doc.insert_object(pages_id, CosObject::Dictionary(pages));
 
         // 4. Page
         let mut page = CosDictionary::new();
-        page.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Page".to_vec())));
-        page.insert(CosName::new(b"Parent".to_vec()), CosObject::Reference(pages_id));
+        page.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Page".to_vec())),
+        );
+        page.insert(
+            CosName::new(b"Parent".to_vec()),
+            CosObject::Reference(pages_id),
+        );
         let (w, h) = self.page_size.dimensions();
         page.insert(
             CosName::new(b"MediaBox".to_vec()),
@@ -100,9 +130,27 @@ impl DocumentBuilder {
         doc.insert_object(page_id, CosObject::Dictionary(page));
 
         // 5. XRef Entries (InUse entries so it can be saved)
-        doc.xref.insert_if_absent(catalog_id, XRefEntry::InUse { offset: 0, generation: 0 });
-        doc.xref.insert_if_absent(pages_id, XRefEntry::InUse { offset: 0, generation: 0 });
-        doc.xref.insert_if_absent(page_id, XRefEntry::InUse { offset: 0, generation: 0 });
+        doc.xref.insert_if_absent(
+            catalog_id,
+            XRefEntry::InUse {
+                offset: 0,
+                generation: 0,
+            },
+        );
+        doc.xref.insert_if_absent(
+            pages_id,
+            XRefEntry::InUse {
+                offset: 0,
+                generation: 0,
+            },
+        );
+        doc.xref.insert_if_absent(
+            page_id,
+            XRefEntry::InUse {
+                offset: 0,
+                generation: 0,
+            },
+        );
 
         Ok(doc)
     }

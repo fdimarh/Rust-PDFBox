@@ -18,9 +18,9 @@ use flate2::Compression;
 use flate2::write::ZlibEncoder;
 use std::io::Write;
 
+use super::CompressOptions;
 use crate::cos::{CosName, CosObject};
 use crate::{Document, PdfResult};
-use super::CompressOptions;
 
 // ---------------------------------------------------------------------------
 // Public report
@@ -47,7 +47,11 @@ pub fn run(doc: &mut Document, opts: &CompressOptions) -> PdfResult<StreamsRepor
     let stream_ids: Vec<crate::cos::ObjectId> = doc
         .objects()
         .filter_map(|(id, obj)| {
-            if matches!(obj, CosObject::Stream(_)) { Some(id) } else { None }
+            if matches!(obj, CosObject::Stream(_)) {
+                Some(id)
+            } else {
+                None
+            }
         })
         .collect();
 
@@ -114,7 +118,9 @@ fn try_recompress_stream(
                 CosObject::Name(CosName::new(b"FlateDecode".to_vec())),
             );
             // Remove /DecodeParms for old filter (level 9 needs none)
-            stream.dictionary.remove(&CosName::new(b"DecodeParms".to_vec()));
+            stream
+                .dictionary
+                .remove(&CosName::new(b"DecodeParms".to_vec()));
             // Update /Length
             stream.dictionary.set(
                 CosName::new(b"Length".to_vec()),
@@ -170,12 +176,12 @@ fn is_image_with_dct_or_jpx(doc: &Document, id: crate::cos::ObjectId) -> bool {
 pub(crate) fn deflate_best(data: &[u8], use_zopfli: bool) -> Result<Vec<u8>, std::io::Error> {
     #[cfg(feature = "compress-zopfli")]
     if use_zopfli {
-        use zopfli::{BlockType, ZlibEncoder};
         use std::io::Write;
+        use zopfli::{BlockType, ZlibEncoder};
 
         let mut out = Vec::with_capacity(data.len() / 2);
         let mut encoder = ZlibEncoder::new(
-            Default::default(),   // Options (iterations = 15 by default)
+            Default::default(), // Options (iterations = 15 by default)
             BlockType::Dynamic,
             &mut out,
         )?;
@@ -204,7 +210,10 @@ mod tests {
     fn deflate_best_compresses_repetitive_data() {
         let data = b"Hello, World! ".repeat(100);
         let compressed = deflate_best(&data, false).unwrap();
-        assert!(compressed.len() < data.len(), "deflate should compress repetitive data");
+        assert!(
+            compressed.len() < data.len(),
+            "deflate should compress repetitive data"
+        );
     }
 
     #[test]
@@ -249,4 +258,3 @@ mod tests {
         assert!(compressed.len() > data.len());
     }
 }
-

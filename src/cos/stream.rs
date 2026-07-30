@@ -88,4 +88,3 @@ mod tests {
         assert!(display.contains("endstream"));
     }
 }
-

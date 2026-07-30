@@ -1,5 +1,5 @@
-use crate::cos::{CosDictionary, ObjectId};
 use crate::ObjectStore;
+use crate::cos::{CosDictionary, ObjectId};
 
 /// Represents a widget annotation linking a form field to the visual page.
 ///

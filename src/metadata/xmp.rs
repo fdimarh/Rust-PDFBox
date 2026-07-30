@@ -101,37 +101,61 @@ pub fn build_basic_xmp(fields: XmpFields<'_>) -> String {
             "<rdf:li xml:lang=\"x-default\">{}</rdf:li>",
             escape_xml(title)
         );
-        parts.push(format!("<dc:title><rdf:Alt>{}</rdf:Alt></dc:title>", title_li));
+        parts.push(format!(
+            "<dc:title><rdf:Alt>{}</rdf:Alt></dc:title>",
+            title_li
+        ));
     }
 
     if let Some(creator) = fields.creator {
         let creator_li = format!("<rdf:li>{}</rdf:li>", escape_xml(creator));
-        parts.push(format!("<dc:creator><rdf:Seq>{}</rdf:Seq></dc:creator>", creator_li));
+        parts.push(format!(
+            "<dc:creator><rdf:Seq>{}</rdf:Seq></dc:creator>",
+            creator_li
+        ));
     }
 
     if let Some(subject) = fields.subject {
         let subject_li = format!("<rdf:li>{}</rdf:li>", escape_xml(subject));
-        parts.push(format!("<dc:subject><rdf:Bag>{}</rdf:Bag></dc:subject>", subject_li));
+        parts.push(format!(
+            "<dc:subject><rdf:Bag>{}</rdf:Bag></dc:subject>",
+            subject_li
+        ));
     }
 
     if let Some(keywords) = fields.keywords {
-        parts.push(format!("<pdf:Keywords>{}</pdf:Keywords>", escape_xml(keywords)));
+        parts.push(format!(
+            "<pdf:Keywords>{}</pdf:Keywords>",
+            escape_xml(keywords)
+        ));
     }
 
     if let Some(tool) = fields.creator_tool {
-        parts.push(format!("<xmp:CreatorTool>{}</xmp:CreatorTool>", escape_xml(tool)));
+        parts.push(format!(
+            "<xmp:CreatorTool>{}</xmp:CreatorTool>",
+            escape_xml(tool)
+        ));
     }
 
     if let Some(producer) = fields.producer {
-        parts.push(format!("<pdf:Producer>{}</pdf:Producer>", escape_xml(producer)));
+        parts.push(format!(
+            "<pdf:Producer>{}</pdf:Producer>",
+            escape_xml(producer)
+        ));
     }
 
     if let Some(date) = fields.create_date {
-        parts.push(format!("<xmp:CreateDate>{}</xmp:CreateDate>", escape_xml(date)));
+        parts.push(format!(
+            "<xmp:CreateDate>{}</xmp:CreateDate>",
+            escape_xml(date)
+        ));
     }
 
     if let Some(date) = fields.modify_date {
-        parts.push(format!("<xmp:ModifyDate>{}</xmp:ModifyDate>", escape_xml(date)));
+        parts.push(format!(
+            "<xmp:ModifyDate>{}</xmp:ModifyDate>",
+            escape_xml(date)
+        ));
     }
 
     let description = if parts.is_empty() {
@@ -224,4 +248,3 @@ fn escape_xml(s: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
 }
-

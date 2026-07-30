@@ -3,9 +3,9 @@
 //! Mirrors `acro_form.rs` in rust_pdf_signing.
 //! Adds a /Sig field to the document's /AcroForm (creating one if absent).
 
-use std::collections::BTreeMap;
-use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 use crate::Document;
+use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+use std::collections::BTreeMap;
 
 /// Build or update the `/AcroForm` dictionary to include `widget_id` in `/Fields`.
 ///
@@ -20,7 +20,8 @@ pub fn build_acroform(
     _changed: &mut BTreeMap<ObjectId, CosObject>,
 ) -> CosObject {
     // Retrieve existing AcroForm if present
-    let existing: Option<CosDictionary> = doc.catalog()
+    let existing: Option<CosDictionary> = doc
+        .catalog()
         .and_then(|cat| cat.get(&CosName::new(b"AcroForm")))
         .and_then(|v| match v {
             CosObject::Reference(r) => doc.objects.get(r)?.as_dictionary().cloned(),
@@ -43,4 +44,3 @@ pub fn build_acroform(
 
     CosObject::Dictionary(acroform)
 }
-

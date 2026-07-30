@@ -1,14 +1,12 @@
-use rust_pdfbox::pdmodel::{DocumentBuilder, PageSize};
+use rust_pdfbox::PdfResult;
 use rust_pdfbox::content::parse_content_stream;
 use rust_pdfbox::content::writer::{ContentStreamWriter, TextShowElement};
 use rust_pdfbox::cos::CosObject;
-use rust_pdfbox::PdfResult;
+use rust_pdfbox::pdmodel::{DocumentBuilder, PageSize};
 
 #[test]
 fn test_create_and_read_pdf() -> PdfResult<()> {
-    let mut doc = DocumentBuilder::new()
-        .page_size(PageSize::A4)
-        .build()?;
+    let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
 
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
     writer.begin_text()?;
@@ -34,9 +32,7 @@ fn test_create_and_read_pdf() -> PdfResult<()> {
 
 #[test]
 fn test_content_stream_writer_extended_operators_roundtrip() -> PdfResult<()> {
-    let mut doc = DocumentBuilder::new()
-        .page_size(PageSize::A4)
-        .build()?;
+    let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
 
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
     writer.save_state()?;
@@ -111,11 +107,15 @@ fn test_content_stream_writer_extended_operators_roundtrip() -> PdfResult<()> {
     ));
 
     assert!(
-        instructions.iter().any(|ins| ins.operator.name.as_slice() == b"W"),
+        instructions
+            .iter()
+            .any(|ins| ins.operator.name.as_slice() == b"W"),
         "expected clipping operator W"
     );
     assert!(
-        instructions.iter().any(|ins| ins.operator.name.as_slice() == b"W*"),
+        instructions
+            .iter()
+            .any(|ins| ins.operator.name.as_slice() == b"W*"),
         "expected clipping operator W*"
     );
 
@@ -180,7 +180,9 @@ fn test_content_stream_writer_register_and_draw_image_xobject() -> PdfResult<()>
         .and_then(|obj| obj.as_dictionary())
         .expect("resources should contain XObject dictionary");
     let image_ref = xobjects
-        .get(&rust_pdfbox::cos::CosName::new(image_name.as_bytes().to_vec()))
+        .get(&rust_pdfbox::cos::CosName::new(
+            image_name.as_bytes().to_vec(),
+        ))
         .and_then(|obj| obj.as_reference())
         .expect("registered image should be present in XObject dictionary");
 
@@ -250,13 +252,17 @@ fn test_content_stream_writer_image_registration_validation() -> PdfResult<()> {
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
     let bad_rgb = vec![255, 0, 0];
-    assert!(writer
-        .register_image_xobject_rgb(Some("Bad"), 2, 2, &bad_rgb)
-        .is_err());
+    assert!(
+        writer
+            .register_image_xobject_rgb(Some("Bad"), 2, 2, &bad_rgb)
+            .is_err()
+    );
 
-    assert!(writer
-        .draw_registered_image("Missing", 10.0, 10.0, 20.0, 20.0)
-        .is_err());
+    assert!(
+        writer
+            .draw_registered_image("Missing", 10.0, 10.0, 20.0, 20.0)
+            .is_err()
+    );
 
     Ok(())
 }
@@ -266,8 +272,10 @@ fn test_content_stream_writer_register_encoded_images() -> PdfResult<()> {
     let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
-    let dct_name = writer.register_image_xobject_dct_rgb8(Some("Jpeg"), 1, 1, &[0xFF, 0xD8, 0xFF])?;
-    let flate_name = writer.register_image_xobject_flate_rgb8(Some("Fl"), 1, 1, &[0x78, 0x9C, 0x00])?;
+    let dct_name =
+        writer.register_image_xobject_dct_rgb8(Some("Jpeg"), 1, 1, &[0xFF, 0xD8, 0xFF])?;
+    let flate_name =
+        writer.register_image_xobject_flate_rgb8(Some("Fl"), 1, 1, &[0x78, 0x9C, 0x00])?;
     writer.draw_registered_image(&dct_name, 50.0, 520.0, 24.0, 24.0)?;
     writer.draw_registered_image(&flate_name, 80.0, 520.0, 24.0, 24.0)?;
     writer.close()?;
@@ -288,11 +296,15 @@ fn test_content_stream_writer_register_encoded_images() -> PdfResult<()> {
         .expect("xobject dictionary should exist");
 
     let dct_ref = xobjects
-        .get(&rust_pdfbox::cos::CosName::new(dct_name.as_bytes().to_vec()))
+        .get(&rust_pdfbox::cos::CosName::new(
+            dct_name.as_bytes().to_vec(),
+        ))
         .and_then(|obj| obj.as_reference())
         .expect("dct xobject should be present");
     let flate_ref = xobjects
-        .get(&rust_pdfbox::cos::CosName::new(flate_name.as_bytes().to_vec()))
+        .get(&rust_pdfbox::cos::CosName::new(
+            flate_name.as_bytes().to_vec(),
+        ))
         .and_then(|obj| obj.as_reference())
         .expect("flate xobject should be present");
 
@@ -330,12 +342,16 @@ fn test_content_stream_writer_register_encoded_images_validation() -> PdfResult<
     let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
-    assert!(writer
-        .register_image_xobject_dct_rgb8(Some("J"), 0, 1, &[1])
-        .is_err());
-    assert!(writer
-        .register_image_xobject_flate_rgb8(Some("F"), 1, 1, &[])
-        .is_err());
+    assert!(
+        writer
+            .register_image_xobject_dct_rgb8(Some("J"), 0, 1, &[1])
+            .is_err()
+    );
+    assert!(
+        writer
+            .register_image_xobject_flate_rgb8(Some("F"), 1, 1, &[])
+            .is_err()
+    );
 
     Ok(())
 }
@@ -346,12 +362,8 @@ fn test_content_stream_writer_register_gray_and_cmyk_images() -> PdfResult<()> {
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
     let gray_name = writer.register_image_xobject_gray8(Some("Gray"), 2, 1, &[0x00, 0xFF])?;
-    let cmyk_name = writer.register_image_xobject_cmyk8(
-        Some("Cmyk"),
-        1,
-        1,
-        &[0x00, 0x00, 0x00, 0x00],
-    )?;
+    let cmyk_name =
+        writer.register_image_xobject_cmyk8(Some("Cmyk"), 1, 1, &[0x00, 0x00, 0x00, 0x00])?;
     writer.draw_registered_image(&gray_name, 110.0, 520.0, 24.0, 12.0)?;
     writer.draw_registered_image(&cmyk_name, 140.0, 520.0, 24.0, 24.0)?;
     writer.close()?;
@@ -372,11 +384,15 @@ fn test_content_stream_writer_register_gray_and_cmyk_images() -> PdfResult<()> {
         .expect("xobject dictionary should exist");
 
     let gray_ref = xobjects
-        .get(&rust_pdfbox::cos::CosName::new(gray_name.as_bytes().to_vec()))
+        .get(&rust_pdfbox::cos::CosName::new(
+            gray_name.as_bytes().to_vec(),
+        ))
         .and_then(|obj| obj.as_reference())
         .expect("gray xobject should be present");
     let cmyk_ref = xobjects
-        .get(&rust_pdfbox::cos::CosName::new(cmyk_name.as_bytes().to_vec()))
+        .get(&rust_pdfbox::cos::CosName::new(
+            cmyk_name.as_bytes().to_vec(),
+        ))
         .and_then(|obj| obj.as_reference())
         .expect("cmyk xobject should be present");
 
@@ -414,12 +430,16 @@ fn test_content_stream_writer_register_gray_and_cmyk_validation() -> PdfResult<(
     let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
-    assert!(writer
-        .register_image_xobject_gray8(Some("GrayBad"), 2, 2, &[0x00, 0xFF])
-        .is_err());
-    assert!(writer
-        .register_image_xobject_cmyk8(Some("CmykBad"), 1, 1, &[0x00, 0x00, 0x00])
-        .is_err());
+    assert!(
+        writer
+            .register_image_xobject_gray8(Some("GrayBad"), 2, 2, &[0x00, 0xFF])
+            .is_err()
+    );
+    assert!(
+        writer
+            .register_image_xobject_cmyk8(Some("CmykBad"), 1, 1, &[0x00, 0x00, 0x00])
+            .is_err()
+    );
 
     Ok(())
 }
@@ -429,10 +449,14 @@ fn test_content_stream_writer_register_encoded_gray_and_cmyk_images() -> PdfResu
     let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
-    let dct_gray = writer.register_image_xobject_dct_gray8(Some("Dg"), 1, 1, &[0xFF, 0xD8, 0xFF])?;
-    let flate_gray = writer.register_image_xobject_flate_gray8(Some("Fg"), 1, 1, &[0x78, 0x9C, 0x00])?;
-    let dct_cmyk = writer.register_image_xobject_dct_cmyk8(Some("Dc"), 1, 1, &[0xFF, 0xD8, 0xFF])?;
-    let flate_cmyk = writer.register_image_xobject_flate_cmyk8(Some("Fc"), 1, 1, &[0x78, 0x9C, 0x00])?;
+    let dct_gray =
+        writer.register_image_xobject_dct_gray8(Some("Dg"), 1, 1, &[0xFF, 0xD8, 0xFF])?;
+    let flate_gray =
+        writer.register_image_xobject_flate_gray8(Some("Fg"), 1, 1, &[0x78, 0x9C, 0x00])?;
+    let dct_cmyk =
+        writer.register_image_xobject_dct_cmyk8(Some("Dc"), 1, 1, &[0xFF, 0xD8, 0xFF])?;
+    let flate_cmyk =
+        writer.register_image_xobject_flate_cmyk8(Some("Fc"), 1, 1, &[0x78, 0x9C, 0x00])?;
 
     writer.draw_registered_image(&dct_gray, 170.0, 520.0, 20.0, 20.0)?;
     writer.draw_registered_image(&flate_gray, 195.0, 520.0, 20.0, 20.0)?;
@@ -515,12 +539,16 @@ fn test_content_stream_writer_register_encoded_gray_and_cmyk_validation() -> Pdf
     let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
-    assert!(writer
-        .register_image_xobject_dct_gray8(Some("bad"), 0, 1, &[1])
-        .is_err());
-    assert!(writer
-        .register_image_xobject_flate_cmyk8(Some("bad"), 1, 1, &[])
-        .is_err());
+    assert!(
+        writer
+            .register_image_xobject_dct_gray8(Some("bad"), 0, 1, &[1])
+            .is_err()
+    );
+    assert!(
+        writer
+            .register_image_xobject_flate_cmyk8(Some("bad"), 1, 1, &[])
+            .is_err()
+    );
 
     Ok(())
 }
@@ -570,7 +598,9 @@ fn test_content_stream_writer_flate_decode_parms_persisted() -> PdfResult<()> {
         .and_then(|obj| obj.as_dictionary())
         .expect("xobject dictionary should exist");
     let image_stream = xobjects
-        .get(&rust_pdfbox::cos::CosName::new(image_name.as_bytes().to_vec()))
+        .get(&rust_pdfbox::cos::CosName::new(
+            image_name.as_bytes().to_vec(),
+        ))
         .and_then(|obj| obj.as_reference())
         .and_then(|id| doc.get_object_ref(id))
         .and_then(|obj| obj.as_stream())
@@ -602,15 +632,17 @@ fn test_content_stream_writer_flate_decode_parms_validation() -> PdfResult<()> {
         rust_pdfbox::cos::CosObject::Integer(99),
     );
 
-    assert!(writer
-        .register_image_xobject_flate_rgb8_with_decode_parms(
-            Some("BadParms"),
-            1,
-            1,
-            &[0x78, 0x9C, 0x00],
-            Some(invalid),
-        )
-        .is_err());
+    assert!(
+        writer
+            .register_image_xobject_flate_rgb8_with_decode_parms(
+                Some("BadParms"),
+                1,
+                1,
+                &[0x78, 0x9C, 0x00],
+                Some(invalid),
+            )
+            .is_err()
+    );
 
     Ok(())
 }
@@ -622,12 +654,16 @@ fn test_content_stream_writer_register_png_convenience() -> PdfResult<()> {
 
     let rgba = image::RgbaImage::from_raw(1, 1, vec![10, 20, 30, 128]).expect("rgba image");
     let mut rgba_cursor = std::io::Cursor::new(Vec::new());
-    image::DynamicImage::ImageRgba8(rgba).write_to(&mut rgba_cursor, image::ImageFormat::Png).unwrap();
+    image::DynamicImage::ImageRgba8(rgba)
+        .write_to(&mut rgba_cursor, image::ImageFormat::Png)
+        .unwrap();
     let rgba_png = rgba_cursor.into_inner();
 
     let gray = image::GrayImage::from_raw(1, 1, vec![150]).expect("gray image");
     let mut gray_cursor = std::io::Cursor::new(Vec::new());
-    image::DynamicImage::ImageLuma8(gray).write_to(&mut gray_cursor, image::ImageFormat::Png).unwrap();
+    image::DynamicImage::ImageLuma8(gray)
+        .write_to(&mut gray_cursor, image::ImageFormat::Png)
+        .unwrap();
     let gray_png = gray_cursor.into_inner();
 
     let rgb_name = writer.register_image_xobject_png(Some("PngRgb"), &rgba_png)?;
@@ -711,10 +747,16 @@ fn test_content_stream_writer_register_png_convenience_validation() -> PdfResult
     let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
     let mut writer = ContentStreamWriter::new(&mut doc, 0)?;
 
-    assert!(writer.register_image_xobject_png(Some("BadPng"), &[]).is_err());
-    assert!(writer
-        .register_image_xobject_png(Some("BadPng"), b"not-a-png")
-        .is_err());
+    assert!(
+        writer
+            .register_image_xobject_png(Some("BadPng"), &[])
+            .is_err()
+    );
+    assert!(
+        writer
+            .register_image_xobject_png(Some("BadPng"), b"not-a-png")
+            .is_err()
+    );
 
     Ok(())
 }
@@ -798,7 +840,9 @@ fn test_content_stream_writer_register_indexed_png_preserves_palette() -> PdfRes
         .and_then(|obj| obj.as_dictionary())
         .expect("xobject dictionary should exist");
     let stream = xobjects
-        .get(&rust_pdfbox::cos::CosName::new(image_name.as_bytes().to_vec()))
+        .get(&rust_pdfbox::cos::CosName::new(
+            image_name.as_bytes().to_vec(),
+        ))
         .and_then(|obj| obj.as_reference())
         .and_then(|id| doc.get_object_ref(id))
         .and_then(|obj| obj.as_stream())
@@ -824,4 +868,3 @@ fn test_content_stream_writer_register_indexed_png_preserves_palette() -> PdfRes
 
     Ok(())
 }
-

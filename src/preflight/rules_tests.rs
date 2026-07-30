@@ -1,14 +1,16 @@
 use super::*;
-use crate::cos::{CosObject, CosName, CosDictionary, CosStream, ObjectId};
 use crate::Document;
+use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
 
 // Build a Document with minimal trailer + catalog structure
 fn doc_with_catalog() -> Document {
     let mut doc = Document::empty();
     let cat_id = ObjectId::new(1, 0);
     let trailer_cat_key = CosName::new(b"Root".to_vec());
-    doc.objects.insert(cat_id, CosObject::Dictionary(CosDictionary::new()));
-    doc.trailer_mut().insert(trailer_cat_key, CosObject::Reference(cat_id));
+    doc.objects
+        .insert(cat_id, CosObject::Dictionary(CosDictionary::new()));
+    doc.trailer_mut()
+        .insert(trailer_cat_key, CosObject::Reference(cat_id));
     doc
 }
 
@@ -31,7 +33,13 @@ fn inject_dict(doc: &mut Document, dict: CosDictionary) {
 
 fn inject_stream_dict(doc: &mut Document, dict: CosDictionary) {
     let id = ObjectId::new(998, 0);
-    doc.objects.insert(id, CosObject::Stream(CosStream { dictionary: dict, data: vec![] }));
+    doc.objects.insert(
+        id,
+        CosObject::Stream(CosStream {
+            dictionary: dict,
+            data: vec![],
+        }),
+    );
 }
 
 // =======================================================================
@@ -47,7 +55,10 @@ fn test_no_encryption_pass() {
 #[test]
 fn test_no_encryption_fail() {
     let mut doc = doc_with_catalog();
-    doc.trailer_mut().insert(CosName::new(b"Encrypt".to_vec()), CosObject::Dictionary(CosDictionary::new()));
+    doc.trailer_mut().insert(
+        CosName::new(b"Encrypt".to_vec()),
+        CosObject::Dictionary(CosDictionary::new()),
+    );
     let errs = NoEncryptionRule.validate(&doc);
     assert_eq!(errs.len(), 1);
     assert_eq!(errs[0].rule_id, "1.0");
@@ -60,7 +71,10 @@ fn test_no_encryption_fail() {
 fn test_no_lzw_filter_pass() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(b"FlateDecode".to_vec())));
+    dict.insert(
+        CosName::new(b"Filter".to_vec()),
+        CosObject::Name(CosName::new(b"FlateDecode".to_vec())),
+    );
     inject_stream_dict(&mut doc, dict);
     let errs = NoLzwFilterRule.validate(&doc);
     assert!(errs.is_empty());
@@ -70,7 +84,10 @@ fn test_no_lzw_filter_pass() {
 fn test_no_lzw_filter_fail_name() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(b"LZWDecode".to_vec())));
+    dict.insert(
+        CosName::new(b"Filter".to_vec()),
+        CosObject::Name(CosName::new(b"LZWDecode".to_vec())),
+    );
     inject_stream_dict(&mut doc, dict);
     let errs = NoLzwFilterRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -81,7 +98,10 @@ fn test_no_lzw_filter_fail_name() {
 fn test_no_lzw_filter_fail_array() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"Filter".to_vec()), CosObject::Array(vec![CosObject::Name(CosName::new(b"LZW".to_vec()))]));
+    dict.insert(
+        CosName::new(b"Filter".to_vec()),
+        CosObject::Array(vec![CosObject::Name(CosName::new(b"LZW".to_vec()))]),
+    );
     inject_stream_dict(&mut doc, dict);
     let errs = NoLzwFilterRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -95,7 +115,10 @@ fn test_no_lzw_filter_fail_array() {
 fn test_no_deprecated_filters_pass() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(b"FlateDecode".to_vec())));
+    dict.insert(
+        CosName::new(b"Filter".to_vec()),
+        CosObject::Name(CosName::new(b"FlateDecode".to_vec())),
+    );
     inject_stream_dict(&mut doc, dict);
     let errs = NoDeprecatedFiltersRule.validate(&doc);
     assert!(errs.is_empty());
@@ -105,7 +128,10 @@ fn test_no_deprecated_filters_pass() {
 fn test_no_deprecated_filters_fail_ascii85() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"Filter".to_vec()), CosObject::Name(CosName::new(b"ASCII85Decode".to_vec())));
+    dict.insert(
+        CosName::new(b"Filter".to_vec()),
+        CosObject::Name(CosName::new(b"ASCII85Decode".to_vec())),
+    );
     inject_stream_dict(&mut doc, dict);
     let errs = NoDeprecatedFiltersRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -137,7 +163,10 @@ fn test_no_javascript_fail_js_entry() {
 fn test_no_javascript_fail_action() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"S".to_vec()), CosObject::Name(CosName::new(b"JavaScript".to_vec())));
+    dict.insert(
+        CosName::new(b"S".to_vec()),
+        CosObject::Name(CosName::new(b"JavaScript".to_vec())),
+    );
     inject_dict(&mut doc, dict);
     let errs = NoJavaScriptRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -158,7 +187,10 @@ fn test_no_opi_pass() {
 fn test_no_opi_fail_dict() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"OPI".to_vec()), CosObject::Dictionary(CosDictionary::new()));
+    dict.insert(
+        CosName::new(b"OPI".to_vec()),
+        CosObject::Dictionary(CosDictionary::new()),
+    );
     inject_dict(&mut doc, dict);
     let errs = NoOpiRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -183,10 +215,13 @@ fn test_no_opi_fail_stream_dict() {
 fn test_metadata_pass() {
     let mut doc = doc_with_catalog();
     if let Some(cat) = catalog_mut(&mut doc) {
-        cat.insert(CosName::new(b"Metadata".to_vec()), CosObject::Stream(CosStream {
-            dictionary: CosDictionary::new(),
-            data: b"<?xml ...>".to_vec(),
-        }));
+        cat.insert(
+            CosName::new(b"Metadata".to_vec()),
+            CosObject::Stream(CosStream {
+                dictionary: CosDictionary::new(),
+                data: b"<?xml ...>".to_vec(),
+            }),
+        );
     }
     let errs = MetadataRule.validate(&doc);
     assert!(errs.is_empty());
@@ -217,11 +252,17 @@ fn test_metadata_fail_not_stream() {
 fn test_font_embedding_pass() {
     let mut doc = doc_with_catalog();
     let mut fd = CosDictionary::new();
-    fd.insert(CosName::type_name(), CosObject::Name(CosName::new(b"FontDescriptor".to_vec())));
-    fd.insert(CosName::new(b"FontFile2".to_vec()), CosObject::Stream(CosStream {
-        dictionary: CosDictionary::new(),
-        data: vec![0; 100],
-    }));
+    fd.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"FontDescriptor".to_vec())),
+    );
+    fd.insert(
+        CosName::new(b"FontFile2".to_vec()),
+        CosObject::Stream(CosStream {
+            dictionary: CosDictionary::new(),
+            data: vec![0; 100],
+        }),
+    );
     inject_dict(&mut doc, fd);
     let errs = FontEmbeddingRule.validate(&doc);
     assert!(errs.is_empty());
@@ -231,7 +272,10 @@ fn test_font_embedding_pass() {
 fn test_font_embedding_fail_unembedded() {
     let mut doc = doc_with_catalog();
     let mut fd = CosDictionary::new();
-    fd.insert(CosName::type_name(), CosObject::Name(CosName::new(b"FontDescriptor".to_vec())));
+    fd.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"FontDescriptor".to_vec())),
+    );
     fd.insert(CosName::new(b"Flags".to_vec()), CosObject::Integer(0));
     inject_dict(&mut doc, fd);
     let errs = FontEmbeddingRule.validate(&doc);
@@ -243,7 +287,10 @@ fn test_font_embedding_fail_unembedded() {
 fn test_font_embedding_symbolic_exempt() {
     let mut doc = doc_with_catalog();
     let mut fd = CosDictionary::new();
-    fd.insert(CosName::type_name(), CosObject::Name(CosName::new(b"FontDescriptor".to_vec())));
+    fd.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"FontDescriptor".to_vec())),
+    );
     fd.insert(CosName::new(b"Flags".to_vec()), CosObject::Integer(4));
     inject_dict(&mut doc, fd);
     let errs = FontEmbeddingRule.validate(&doc);
@@ -275,9 +322,15 @@ fn test_no_transparency_fail_smask() {
 fn test_no_transparency_fail_group() {
     let mut doc = doc_with_catalog();
     let mut group = CosDictionary::new();
-    group.insert(CosName::new(b"S".to_vec()), CosObject::Name(CosName::new(b"Transparency".to_vec())));
+    group.insert(
+        CosName::new(b"S".to_vec()),
+        CosObject::Name(CosName::new(b"Transparency".to_vec())),
+    );
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"Group".to_vec()), CosObject::Dictionary(group));
+    dict.insert(
+        CosName::new(b"Group".to_vec()),
+        CosObject::Dictionary(group),
+    );
     inject_dict(&mut doc, dict);
     let errs = NoTransparencyRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -291,7 +344,10 @@ fn test_no_transparency_fail_group() {
 fn test_annotation_pass() {
     let mut doc = doc_with_catalog();
     let mut annot = CosDictionary::new();
-    annot.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Annot".to_vec())));
+    annot.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"Annot".to_vec())),
+    );
     annot.insert(CosName::new(b"F".to_vec()), CosObject::Integer(4));
     inject_dict(&mut doc, annot);
     let errs = AnnotationRule.validate(&doc);
@@ -302,7 +358,10 @@ fn test_annotation_pass() {
 fn test_annotation_fail_no_print() {
     let mut doc = doc_with_catalog();
     let mut annot = CosDictionary::new();
-    annot.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Annot".to_vec())));
+    annot.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"Annot".to_vec())),
+    );
     annot.insert(CosName::new(b"F".to_vec()), CosObject::Integer(0));
     inject_dict(&mut doc, annot);
     let errs = AnnotationRule.validate(&doc);
@@ -317,12 +376,18 @@ fn test_annotation_fail_no_print() {
 fn test_output_intent_pass() {
     let mut doc = doc_with_catalog();
     let mut oi = CosDictionary::new();
-    oi.insert(CosName::new(b"DestOutputProfile".to_vec()), CosObject::Stream(CosStream {
-        dictionary: CosDictionary::new(),
-        data: vec![0; 10],
-    }));
+    oi.insert(
+        CosName::new(b"DestOutputProfile".to_vec()),
+        CosObject::Stream(CosStream {
+            dictionary: CosDictionary::new(),
+            data: vec![0; 10],
+        }),
+    );
     if let Some(cat) = catalog_mut(&mut doc) {
-        cat.insert(CosName::new(b"OutputIntents".to_vec()), CosObject::Array(vec![CosObject::Dictionary(oi)]));
+        cat.insert(
+            CosName::new(b"OutputIntents".to_vec()),
+            CosObject::Array(vec![CosObject::Dictionary(oi)]),
+        );
     }
     let errs = OutputIntentRule.validate(&doc);
     assert!(errs.is_empty());
@@ -340,9 +405,15 @@ fn test_output_intent_fail_missing() {
 fn test_output_intent_fail_missing_profile() {
     let mut doc = doc_with_catalog();
     let mut oi = CosDictionary::new();
-    oi.insert(CosName::new(b"S".to_vec()), CosObject::Name(CosName::new(b"GTS_PDFA1".to_vec())));
+    oi.insert(
+        CosName::new(b"S".to_vec()),
+        CosObject::Name(CosName::new(b"GTS_PDFA1".to_vec())),
+    );
     if let Some(cat) = catalog_mut(&mut doc) {
-        cat.insert(CosName::new(b"OutputIntents".to_vec()), CosObject::Array(vec![CosObject::Dictionary(oi)]));
+        cat.insert(
+            CosName::new(b"OutputIntents".to_vec()),
+            CosObject::Array(vec![CosObject::Dictionary(oi)]),
+        );
     }
     let errs = OutputIntentRule.validate(&doc);
     assert!(errs.iter().any(|e| e.rule_id == "10.1"));
@@ -362,7 +433,10 @@ fn test_no_launch_actions_pass() {
 fn test_no_launch_actions_fail() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"S".to_vec()), CosObject::Name(CosName::new(b"Launch".to_vec())));
+    dict.insert(
+        CosName::new(b"S".to_vec()),
+        CosObject::Name(CosName::new(b"Launch".to_vec())),
+    );
     inject_dict(&mut doc, dict);
     let errs = NoLaunchActionsRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -376,7 +450,10 @@ fn test_no_launch_actions_fail() {
 fn test_color_space_pass() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"ColorSpace".to_vec()), CosObject::Name(CosName::new(b"DeviceRGB".to_vec())));
+    dict.insert(
+        CosName::new(b"ColorSpace".to_vec()),
+        CosObject::Name(CosName::new(b"DeviceRGB".to_vec())),
+    );
     inject_dict(&mut doc, dict);
     let errs = ColorSpaceRule.validate(&doc);
     assert!(errs.is_empty());
@@ -386,7 +463,10 @@ fn test_color_space_pass() {
 fn test_color_space_fail_calrgb() {
     let mut doc = doc_with_catalog();
     let mut dict = CosDictionary::new();
-    dict.insert(CosName::new(b"ColorSpace".to_vec()), CosObject::Name(CosName::new(b"CalRGB".to_vec())));
+    dict.insert(
+        CosName::new(b"ColorSpace".to_vec()),
+        CosObject::Name(CosName::new(b"CalRGB".to_vec())),
+    );
     inject_dict(&mut doc, dict);
     let errs = ColorSpaceRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -407,7 +487,10 @@ fn test_page_rule_pass() {
 fn test_page_rule_fail_openaction() {
     let mut doc = doc_with_catalog();
     if let Some(cat) = catalog_mut(&mut doc) {
-        cat.insert(CosName::new(b"OpenAction".to_vec()), CosObject::Dictionary(CosDictionary::new()));
+        cat.insert(
+            CosName::new(b"OpenAction".to_vec()),
+            CosObject::Dictionary(CosDictionary::new()),
+        );
     }
     let errs = PageRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -418,8 +501,14 @@ fn test_page_rule_fail_openaction() {
 fn test_page_rule_fail_additional_actions() {
     let mut doc = doc_with_catalog();
     let mut page_dict = CosDictionary::new();
-    page_dict.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Page".to_vec())));
-    page_dict.insert(CosName::new(b"AA".to_vec()), CosObject::Dictionary(CosDictionary::new()));
+    page_dict.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"Page".to_vec())),
+    );
+    page_dict.insert(
+        CosName::new(b"AA".to_vec()),
+        CosObject::Dictionary(CosDictionary::new()),
+    );
     inject_dict(&mut doc, page_dict);
     let errs = PageRule.validate(&doc);
     assert_eq!(errs.len(), 1);
@@ -440,8 +529,14 @@ fn test_embedded_file_stub() {
 fn test_embedded_file_detects_non_pdf() {
     let mut doc = doc_with_catalog();
     let mut d = CosDictionary::new();
-    d.insert(CosName::type_name(), CosObject::Name(CosName::new(b"EmbeddedFile".to_vec())));
-    d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"text/plain".to_vec())));
+    d.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"EmbeddedFile".to_vec())),
+    );
+    d.insert(
+        CosName::new(b"Subtype".to_vec()),
+        CosObject::Name(CosName::new(b"text/plain".to_vec())),
+    );
     inject_stream_dict(&mut doc, d);
     let errs = EmbeddedFileRule.validate(&doc);
     assert!(errs.iter().any(|e| e.rule_id == "14.1"));
@@ -451,8 +546,14 @@ fn test_embedded_file_detects_non_pdf() {
 fn test_embedded_file_passes_pdf() {
     let mut doc = doc_with_catalog();
     let mut d = CosDictionary::new();
-    d.insert(CosName::type_name(), CosObject::Name(CosName::new(b"EmbeddedFile".to_vec())));
-    d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"application/pdf".to_vec())));
+    d.insert(
+        CosName::type_name(),
+        CosObject::Name(CosName::new(b"EmbeddedFile".to_vec())),
+    );
+    d.insert(
+        CosName::new(b"Subtype".to_vec()),
+        CosObject::Name(CosName::new(b"application/pdf".to_vec())),
+    );
     inject_stream_dict(&mut doc, d);
     let errs = EmbeddedFileRule.validate(&doc);
     assert!(errs.is_empty(), "PDF embedded file should pass: {:?}", errs);
@@ -466,6 +567,9 @@ fn test_validate_all_rules_loaded() {
     let validator = crate::preflight::PreflightValidator::pdf_a1b();
     let doc = doc_with_catalog();
     let result = validator.validate(&doc);
-    assert!(!result.is_valid, "doc with catalog but no Metadata should fail");
+    assert!(
+        !result.is_valid,
+        "doc with catalog but no Metadata should fail"
+    );
     assert!(!result.errors.is_empty(), "should produce errors");
 }

@@ -10,9 +10,9 @@ use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
+use super::CompressOptions;
 use crate::cos::{CosObject, ObjectId};
 use crate::{Document, PdfResult};
-use super::CompressOptions;
 
 // ---------------------------------------------------------------------------
 // Public report
@@ -227,9 +227,11 @@ mod tests {
     fn dedup_count_field_accurate() {
         // Synthesise two identical stream objects and verify dedup collapses them.
         // (Full integration test covered in tests/compress_integration.rs)
-        let report = DedupReport { objects_deduped: 5, bytes_saved: 1000 };
+        let report = DedupReport {
+            objects_deduped: 5,
+            bytes_saved: 1000,
+        };
         assert_eq!(report.objects_deduped, 5);
         assert_eq!(report.bytes_saved, 1000);
     }
 }
-

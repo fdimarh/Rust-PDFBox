@@ -32,7 +32,7 @@
 pub mod layout;
 
 use crate::content::graphics_state::GraphicsState;
-use crate::content::{parse_content_stream, Instruction};
+use crate::content::{Instruction, parse_content_stream};
 use crate::cos::CosObject;
 use crate::font::ToUnicodeCMap;
 pub use layout::LayoutConfig;
@@ -117,8 +117,8 @@ fn process_instruction(
 
     match op {
         // Graphics state
-        b"q"  => gs.save(),
-        b"Q"  => gs.restore(),
+        b"q" => gs.save(),
+        b"Q" => gs.restore(),
         b"cm" => {
             if let Some([a, b, c, d, e, f]) = six_reals(&instr.operands) {
                 gs.concat_matrix(a, b, c, d, e, f);
@@ -132,18 +132,39 @@ fn process_instruction(
         // Text state operators
         b"Tf" => {
             if instr.operands.len() >= 2 {
-                let name = instr.operands[0].as_name().map(|n| {
-                    String::from_utf8_lossy(n.as_bytes()).to_string()
-                }).unwrap_or_default();
+                let name = instr.operands[0]
+                    .as_name()
+                    .map(|n| String::from_utf8_lossy(n.as_bytes()).to_string())
+                    .unwrap_or_default();
                 let size = real_at(&instr.operands, 1).unwrap_or(0.0);
                 gs.set_font(name, size);
             }
         }
-        b"TL" => { if let Some(v) = real_at(&instr.operands, 0) { gs.set_leading(v); } }
-        b"Tc" => { if let Some(v) = real_at(&instr.operands, 0) { gs.set_char_spacing(v); } }
-        b"Tw" => { if let Some(v) = real_at(&instr.operands, 0) { gs.set_word_spacing(v); } }
-        b"Tz" => { if let Some(v) = real_at(&instr.operands, 0) { gs.set_horizontal_scaling(v); } }
-        b"Ts" => { if let Some(v) = real_at(&instr.operands, 0) { gs.set_text_rise(v); } }
+        b"TL" => {
+            if let Some(v) = real_at(&instr.operands, 0) {
+                gs.set_leading(v);
+            }
+        }
+        b"Tc" => {
+            if let Some(v) = real_at(&instr.operands, 0) {
+                gs.set_char_spacing(v);
+            }
+        }
+        b"Tw" => {
+            if let Some(v) = real_at(&instr.operands, 0) {
+                gs.set_word_spacing(v);
+            }
+        }
+        b"Tz" => {
+            if let Some(v) = real_at(&instr.operands, 0) {
+                gs.set_horizontal_scaling(v);
+            }
+        }
+        b"Ts" => {
+            if let Some(v) = real_at(&instr.operands, 0) {
+                gs.set_text_rise(v);
+            }
+        }
 
         // Text position
         b"Tm" => {
@@ -170,7 +191,12 @@ fn process_instruction(
                 if !text.is_empty() {
                     let (x, y) = gs.text_position();
                     let fs = gs.effective_font_size();
-                    chunks.push(TextChunk { text, x, y, font_size: fs });
+                    chunks.push(TextChunk {
+                        text,
+                        x,
+                        y,
+                        font_size: fs,
+                    });
                 }
             }
         }
@@ -184,10 +210,14 @@ fn process_instruction(
                         }
                         CosObject::Integer(n) => {
                             // Negative kern > threshold → insert space
-                            if *n < -250 { text.push(' '); }
+                            if *n < -250 {
+                                text.push(' ');
+                            }
                         }
                         CosObject::Real(r) => {
-                            if *r < -250.0 { text.push(' '); }
+                            if *r < -250.0 {
+                                text.push(' ');
+                            }
                         }
                         _ => {}
                     }
@@ -195,7 +225,12 @@ fn process_instruction(
                 if !text.is_empty() {
                     let (x, y) = gs.text_position();
                     let fs = gs.effective_font_size();
-                    chunks.push(TextChunk { text, x, y, font_size: fs });
+                    chunks.push(TextChunk {
+                        text,
+                        x,
+                        y,
+                        font_size: fs,
+                    });
                 }
             }
         }
@@ -207,22 +242,36 @@ fn process_instruction(
                 if !text.is_empty() {
                     let (x, y) = gs.text_position();
                     let fs = gs.effective_font_size();
-                    chunks.push(TextChunk { text, x, y, font_size: fs });
+                    chunks.push(TextChunk {
+                        text,
+                        x,
+                        y,
+                        font_size: fs,
+                    });
                 }
             }
         }
         // Set-spacing, move, show
         b"\"" => {
             if instr.operands.len() >= 3 {
-                if let Some(aw) = real_at(&instr.operands, 0) { gs.set_word_spacing(aw); }
-                if let Some(ac) = real_at(&instr.operands, 1) { gs.set_char_spacing(ac); }
+                if let Some(aw) = real_at(&instr.operands, 0) {
+                    gs.set_word_spacing(aw);
+                }
+                if let Some(ac) = real_at(&instr.operands, 1) {
+                    gs.set_char_spacing(ac);
+                }
                 gs.next_line();
                 if let Some(bytes) = string_bytes_at(&instr.operands, 2) {
                     let text = decode_bytes(&bytes, cmap, &gs);
                     if !text.is_empty() {
                         let (x, y) = gs.text_position();
                         let fs = gs.effective_font_size();
-                        chunks.push(TextChunk { text, x, y, font_size: fs });
+                        chunks.push(TextChunk {
+                            text,
+                            x,
+                            y,
+                            font_size: fs,
+                        });
                     }
                 }
             }
@@ -237,7 +286,9 @@ fn process_instruction(
 
 /// Convert sorted TextChunks to a plain string with line breaks.
 pub fn chunks_to_string(chunks: &[TextChunk]) -> String {
-    if chunks.is_empty() { return String::new(); }
+    if chunks.is_empty() {
+        return String::new();
+    }
 
     // Sort: Y descending (top of page first), then X ascending
     let mut sorted = chunks.to_vec();
@@ -252,7 +303,11 @@ pub fn chunks_to_string(chunks: &[TextChunk]) -> String {
     let mut prev_x = 0.0_f64;
 
     for chunk in &sorted {
-        let line_height = if chunk.font_size > 0.0 { chunk.font_size } else { 12.0 };
+        let line_height = if chunk.font_size > 0.0 {
+            chunk.font_size
+        } else {
+            12.0
+        };
         let y_diff = (prev_y - chunk.y).abs();
 
         if prev_y == f64::MAX {
@@ -305,7 +360,9 @@ fn decode_with_cmap(bytes: &[u8], cmap: &ToUnicodeCMap) -> String {
             s.push_str(&u);
         } else {
             // Fallback: treat as Latin-1
-            if let Some(c) = char::from_u32(code1) { s.push(c); }
+            if let Some(c) = char::from_u32(code1) {
+                s.push(c);
+            }
         }
         i += 1;
     }
@@ -313,7 +370,8 @@ fn decode_with_cmap(bytes: &[u8], cmap: &ToUnicodeCMap) -> String {
 }
 
 fn decode_latin1(bytes: &[u8]) -> String {
-    bytes.iter()
+    bytes
+        .iter()
         .filter_map(|&b| char::from_u32(b as u32))
         .filter(|c| !c.is_control() || *c == '\n' || *c == '\r')
         .collect()
@@ -333,9 +391,12 @@ fn two_reals(ops: &[CosObject]) -> Option<[f64; 2]> {
 
 fn six_reals(ops: &[CosObject]) -> Option<[f64; 6]> {
     Some([
-        real_at(ops, 0)?, real_at(ops, 1)?,
-        real_at(ops, 2)?, real_at(ops, 3)?,
-        real_at(ops, 4)?, real_at(ops, 5)?,
+        real_at(ops, 0)?,
+        real_at(ops, 1)?,
+        real_at(ops, 2)?,
+        real_at(ops, 3)?,
+        real_at(ops, 4)?,
+        real_at(ops, 5)?,
     ])
 }
 
@@ -355,7 +416,9 @@ fn array_at(ops: &[CosObject], idx: usize) -> Option<&[CosObject]> {
 mod tests {
     use super::*;
 
-    fn make_stream(ops: &str) -> Vec<u8> { ops.as_bytes().to_vec() }
+    fn make_stream(ops: &str) -> Vec<u8> {
+        ops.as_bytes().to_vec()
+    }
 
     #[test]
     fn empty_stream_returns_empty_string() {
@@ -400,7 +463,7 @@ mod tests {
 
     #[test]
     fn tj_with_cmap() {
-        use crate::font::cmap::{parse_to_unicode_cmap};
+        use crate::font::cmap::parse_to_unicode_cmap;
         let cmap_data = b"begincmap\n1 beginbfchar\n<48><0048>\n<69><0069>\nendbfchar\nendcmap\n";
         let cmap = parse_to_unicode_cmap(cmap_data);
         let stream = make_stream("BT /F1 12 Tf 0 700 Td (Hi) Tj ET");
@@ -428,15 +491,30 @@ mod tests {
 
     #[test]
     fn chunks_to_string_single_chunk() {
-        let chunks = vec![TextChunk { text: "Hello".to_string(), x: 0.0, y: 700.0, font_size: 12.0 }];
+        let chunks = vec![TextChunk {
+            text: "Hello".to_string(),
+            x: 0.0,
+            y: 700.0,
+            font_size: 12.0,
+        }];
         assert_eq!(chunks_to_string(&chunks), "Hello");
     }
 
     #[test]
     fn chunks_to_string_two_lines() {
         let chunks = vec![
-            TextChunk { text: "Line1".to_string(), x: 0.0, y: 700.0, font_size: 12.0 },
-            TextChunk { text: "Line2".to_string(), x: 0.0, y: 680.0, font_size: 12.0 },
+            TextChunk {
+                text: "Line1".to_string(),
+                x: 0.0,
+                y: 700.0,
+                font_size: 12.0,
+            },
+            TextChunk {
+                text: "Line2".to_string(),
+                x: 0.0,
+                y: 680.0,
+                font_size: 12.0,
+            },
         ];
         let s = chunks_to_string(&chunks);
         assert!(s.contains('\n'), "expected newline, got: {s:?}");

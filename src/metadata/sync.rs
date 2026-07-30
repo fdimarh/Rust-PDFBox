@@ -1,4 +1,4 @@
-use crate::metadata::xmp::{build_basic_xmp, XmpFields};
+use crate::metadata::xmp::{XmpFields, build_basic_xmp};
 use crate::{Document, PdfResult};
 
 #[derive(Debug, Clone, Copy)]
@@ -208,4 +208,3 @@ pub(crate) fn pdf_date_to_xmp(input: &str) -> Option<String> {
 
     Some(iso)
 }
-

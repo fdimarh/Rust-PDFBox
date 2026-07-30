@@ -12,19 +12,24 @@ pub struct Permissions(u32);
 
 impl Permissions {
     // Bit masks (0-based)
-    pub const PRINT:                    u32 = 1 << 2;  // bit 3
-    pub const MODIFY_CONTENT:           u32 = 1 << 3;  // bit 4
-    pub const COPY:                     u32 = 1 << 4;  // bit 5
-    pub const MODIFY_ANNOTATIONS:       u32 = 1 << 5;  // bit 6
-    pub const FILL_FORMS:               u32 = 1 << 8;  // bit 9
-    pub const EXTRACT_ACCESSIBILITY:    u32 = 1 << 9;  // bit 10
-    pub const ASSEMBLE:                 u32 = 1 << 10; // bit 11
-    pub const PRINT_HIGH_QUALITY:       u32 = 1 << 11; // bit 12
+    pub const PRINT: u32 = 1 << 2; // bit 3
+    pub const MODIFY_CONTENT: u32 = 1 << 3; // bit 4
+    pub const COPY: u32 = 1 << 4; // bit 5
+    pub const MODIFY_ANNOTATIONS: u32 = 1 << 5; // bit 6
+    pub const FILL_FORMS: u32 = 1 << 8; // bit 9
+    pub const EXTRACT_ACCESSIBILITY: u32 = 1 << 9; // bit 10
+    pub const ASSEMBLE: u32 = 1 << 10; // bit 11
+    pub const PRINT_HIGH_QUALITY: u32 = 1 << 11; // bit 12
 
     /// All user-controllable permission bits.
-    const ALL_USER_BITS: u32 = Self::PRINT | Self::MODIFY_CONTENT | Self::COPY
-        | Self::MODIFY_ANNOTATIONS | Self::FILL_FORMS | Self::EXTRACT_ACCESSIBILITY
-        | Self::ASSEMBLE | Self::PRINT_HIGH_QUALITY;
+    const ALL_USER_BITS: u32 = Self::PRINT
+        | Self::MODIFY_CONTENT
+        | Self::COPY
+        | Self::MODIFY_ANNOTATIONS
+        | Self::FILL_FORMS
+        | Self::EXTRACT_ACCESSIBILITY
+        | Self::ASSEMBLE
+        | Self::PRINT_HIGH_QUALITY;
 
     /// Creates a `Permissions` value from the raw signed /P integer.
     pub fn from_bits_p(p: i32) -> Self {
@@ -54,14 +59,30 @@ impl Permissions {
         self.0 & flag != 0
     }
 
-    pub fn can_print(&self)                    -> bool { self.has(Self::PRINT) }
-    pub fn can_modify_content(&self)           -> bool { self.has(Self::MODIFY_CONTENT) }
-    pub fn can_copy(&self)                     -> bool { self.has(Self::COPY) }
-    pub fn can_modify_annotations(&self)       -> bool { self.has(Self::MODIFY_ANNOTATIONS) }
-    pub fn can_fill_forms(&self)               -> bool { self.has(Self::FILL_FORMS) }
-    pub fn can_extract_for_accessibility(&self)-> bool { self.has(Self::EXTRACT_ACCESSIBILITY) }
-    pub fn can_assemble(&self)                 -> bool { self.has(Self::ASSEMBLE) }
-    pub fn can_print_high_quality(&self)       -> bool { self.has(Self::PRINT_HIGH_QUALITY) }
+    pub fn can_print(&self) -> bool {
+        self.has(Self::PRINT)
+    }
+    pub fn can_modify_content(&self) -> bool {
+        self.has(Self::MODIFY_CONTENT)
+    }
+    pub fn can_copy(&self) -> bool {
+        self.has(Self::COPY)
+    }
+    pub fn can_modify_annotations(&self) -> bool {
+        self.has(Self::MODIFY_ANNOTATIONS)
+    }
+    pub fn can_fill_forms(&self) -> bool {
+        self.has(Self::FILL_FORMS)
+    }
+    pub fn can_extract_for_accessibility(&self) -> bool {
+        self.has(Self::EXTRACT_ACCESSIBILITY)
+    }
+    pub fn can_assemble(&self) -> bool {
+        self.has(Self::ASSEMBLE)
+    }
+    pub fn can_print_high_quality(&self) -> bool {
+        self.has(Self::PRINT_HIGH_QUALITY)
+    }
 }
 
 #[cfg(test)]
@@ -108,4 +129,3 @@ mod tests {
         assert_eq!(p & 0b1100_0000, 0b1100_0000, "bits 6-7 must be 1");
     }
 }
-

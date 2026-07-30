@@ -170,4 +170,3 @@ mod tests {
         assert_eq!(CosName::count().as_str(), Some("Count"));
     }
 }
-

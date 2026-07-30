@@ -11,8 +11,8 @@
 //! Output: signed_encrypted_multi.pdf  (open with password: admin123)
 
 use rust_pdfbox::{
-    signing::{sign_pdf, validate_pdf_full, PadesLevel, SignatureFormat, SignOptions},
     Document,
+    signing::{PadesLevel, SignOptions, SignatureFormat, sign_pdf, validate_pdf_full},
 };
 use std::{fs, path::PathBuf, process};
 
@@ -98,13 +98,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let results = validate_pdf_full(&current_bytes, Some("admin123"))?;
     for (i, r) in results.iter().enumerate() {
         println!("\n--- Signature #{} ---", i + 1);
-        println!("  Field Name       : {}", r.field_name.as_deref().unwrap_or("unnamed"));
-        println!("  SubFilter        : {}", r.sub_filter.as_deref().unwrap_or("-"));
-        println!("  Digest Match     : {}", if r.digest_match { "✅ VALID" } else { "❌ INVALID" });
-        println!("  CMS Valid        : {}", if r.cms_signature_valid { "✅ VALID" } else { "❌ INVALID" });
-        println!("  Cert Chain Valid : {}", if r.certificate_chain_valid { "✅ VALID" } else { "❌ INVALID" });
-        println!("  Time Valid       : {}", if r.has_timestamp { "✅ VALID" } else { "❌ INVALID/MISSING" });
-        println!("  LTV Enabled      : {}", if r.is_ltv_enabled { "✅ YES" } else { "❌ NO" });
+        println!(
+            "  Field Name       : {}",
+            r.field_name.as_deref().unwrap_or("unnamed")
+        );
+        println!(
+            "  SubFilter        : {}",
+            r.sub_filter.as_deref().unwrap_or("-")
+        );
+        println!(
+            "  Digest Match     : {}",
+            if r.digest_match {
+                "✅ VALID"
+            } else {
+                "❌ INVALID"
+            }
+        );
+        println!(
+            "  CMS Valid        : {}",
+            if r.cms_signature_valid {
+                "✅ VALID"
+            } else {
+                "❌ INVALID"
+            }
+        );
+        println!(
+            "  Cert Chain Valid : {}",
+            if r.certificate_chain_valid {
+                "✅ VALID"
+            } else {
+                "❌ INVALID"
+            }
+        );
+        println!(
+            "  Time Valid       : {}",
+            if r.has_timestamp {
+                "✅ VALID"
+            } else {
+                "❌ INVALID/MISSING"
+            }
+        );
+        println!(
+            "  LTV Enabled      : {}",
+            if r.is_ltv_enabled {
+                "✅ YES"
+            } else {
+                "❌ NO"
+            }
+        );
         for w in &r.security_warnings {
             println!("  ⚠️  Warning: {}", w);
         }

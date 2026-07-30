@@ -28,7 +28,9 @@ fn make_pdf_with_single_stream_xfa() -> Vec<u8> {
 
     let xfa_payload = b"<xdp:xdp xmlns:xdp='http://ns.adobe.com/xdp/'><xfa/></xdp:xdp>";
     let obj6_offset = pdf.len();
-    pdf.extend_from_slice(format!("6 0 obj\n<< /Length {} >>\nstream\n", xfa_payload.len()).as_bytes());
+    pdf.extend_from_slice(
+        format!("6 0 obj\n<< /Length {} >>\nstream\n", xfa_payload.len()).as_bytes(),
+    );
     pdf.extend_from_slice(xfa_payload);
     pdf.extend_from_slice(b"\nendstream\nendobj\n");
 
@@ -66,13 +68,25 @@ fn make_pdf_with_packet_array_xfa() -> Vec<u8> {
 
     let template_payload = b"<template/>";
     let obj6_offset = pdf.len();
-    pdf.extend_from_slice(format!("6 0 obj\n<< /Length {} >>\nstream\n", template_payload.len()).as_bytes());
+    pdf.extend_from_slice(
+        format!(
+            "6 0 obj\n<< /Length {} >>\nstream\n",
+            template_payload.len()
+        )
+        .as_bytes(),
+    );
     pdf.extend_from_slice(template_payload);
     pdf.extend_from_slice(b"\nendstream\nendobj\n");
 
     let datasets_payload = b"<datasets><name>Bob</name></datasets>";
     let obj7_offset = pdf.len();
-    pdf.extend_from_slice(format!("7 0 obj\n<< /Length {} >>\nstream\n", datasets_payload.len()).as_bytes());
+    pdf.extend_from_slice(
+        format!(
+            "7 0 obj\n<< /Length {} >>\nstream\n",
+            datasets_payload.len()
+        )
+        .as_bytes(),
+    );
     pdf.extend_from_slice(datasets_payload);
     pdf.extend_from_slice(b"\nendstream\nendobj\n");
 
@@ -135,4 +149,3 @@ fn tiny_hybrid_xfa_fixture_smoke() {
     assert_eq!(xfa.packets().len(), 1);
     assert!(xfa.raw_xml().starts_with(b"<xdp:xdp"));
 }
-

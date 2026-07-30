@@ -5,7 +5,10 @@ use std::env;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 4 {
-        eprintln!("Usage: {} <input.pdf> <output.pdf> <field_name> <value>", args[0]);
+        eprintln!(
+            "Usage: {} <input.pdf> <output.pdf> <field_name> <value>",
+            args[0]
+        );
         std::process::exit(1);
     }
 
@@ -24,7 +27,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         field.id()
     };
 
-    println!("Found field '{}', setting value to '{}'", field_name, field_value);
+    println!(
+        "Found field '{}', setting value to '{}'",
+        field_name, field_value
+    );
     set_field_value(&mut doc, field_id, field_value);
 
     println!("Saving to {}", output_path);
@@ -33,4 +39,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Done!");
     Ok(())
 }
-

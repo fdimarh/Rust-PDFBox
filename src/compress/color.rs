@@ -26,9 +26,9 @@
 #[cfg(feature = "compress-color")]
 use lcms2::{Intent, PixelFormat, Profile, Transform};
 
+use super::CompressOptions;
 use crate::cos::{CosName, CosObject, ObjectId};
 use crate::{Document, PdfResult};
-use super::CompressOptions;
 
 // ---------------------------------------------------------------------------
 // Public report
@@ -93,11 +93,7 @@ fn collect_image_ids(doc: &Document) -> Vec<ObjectId> {
 // ---------------------------------------------------------------------------
 
 /// Returns `true` if the image was converted, `false` if skipped.
-fn try_convert_image(
-    doc: &mut Document,
-    id: ObjectId,
-    opts: &CompressOptions,
-) -> PdfResult<bool> {
+fn try_convert_image(doc: &mut Document, id: ObjectId, opts: &CompressOptions) -> PdfResult<bool> {
     // Determine colour space.
     let cs = {
         let obj = doc.get_object_ref(id);
@@ -176,9 +172,16 @@ fn detect_colorspace(dict: &crate::cos::CosDictionary, doc: &Document) -> ImageC
                                 .unwrap_or_else(|_| s.data.clone());
                             // Only treat as CMYK ICC if the profile is a CMYK input profile.
                             // Check /N (number of components) — 4 = CMYK.
-                            let n_components = s.dictionary
+                            let n_components = s
+                                .dictionary
                                 .get(&CosName::new(b"N".to_vec()))
-                                .and_then(|v| if let CosObject::Integer(n) = v { Some(*n) } else { None })
+                                .and_then(|v| {
+                                    if let CosObject::Integer(n) = v {
+                                        Some(*n)
+                                    } else {
+                                        None
+                                    }
+                                })
                                 .unwrap_or(0);
                             if n_components == 4 {
                                 return ImageColorSpace::ICCBased(decoded);
@@ -221,7 +224,11 @@ fn detect_colorspace(dict: &crate::cos::CosDictionary, doc: &Document) -> ImageC
 ///
 /// Formula: `R = (1-C)(1-K)`, `G = (1-M)(1-K)`, `B = (1-Y)(1-K)`.
 pub fn cmyk_to_srgb_pixels(cmyk_bytes: &[u8]) -> Vec<u8> {
-    assert_eq!(cmyk_bytes.len() % 4, 0, "CMYK data must be a multiple of 4 bytes");
+    assert_eq!(
+        cmyk_bytes.len() % 4,
+        0,
+        "CMYK data must be a multiple of 4 bytes"
+    );
     let mut rgb = Vec::with_capacity((cmyk_bytes.len() / 4) * 3);
 
     for chunk in cmyk_bytes.chunks_exact(4) {
@@ -243,11 +250,7 @@ pub fn cmyk_to_srgb_pixels(cmyk_bytes: &[u8]) -> Vec<u8> {
     rgb
 }
 
-fn convert_cmyk_no_icc(
-    doc: &mut Document,
-    id: ObjectId,
-    _opts: &CompressOptions,
-) -> PdfResult<()> {
+fn convert_cmyk_no_icc(doc: &mut Document, id: ObjectId, _opts: &CompressOptions) -> PdfResult<()> {
     // Read raw pixel data and dimensions.
     let (raw_data, _width, _height) = read_raw_image_data(doc, id)?;
 
@@ -326,9 +329,8 @@ fn convert_via_lcms2(icc_bytes: &[u8], cmyk_bytes: &[u8]) -> Vec<u8> {
         return cmyk_to_srgb_pixels(cmyk_bytes);
     }
     let pixel_count = cmyk_bytes.len() / 4;
-    let src_pixels: &[[u8; 4]] = unsafe {
-        std::slice::from_raw_parts(cmyk_bytes.as_ptr() as *const [u8; 4], pixel_count)
-    };
+    let src_pixels: &[[u8; 4]] =
+        unsafe { std::slice::from_raw_parts(cmyk_bytes.as_ptr() as *const [u8; 4], pixel_count) };
 
     let mut rgb_out = vec![[0u8; 3]; pixel_count];
     transform.transform_pixels(src_pixels, &mut rgb_out);
@@ -365,7 +367,9 @@ fn convert_spot_to_gray(
                 CosObject::Integer(8),
             );
             stream.dictionary.remove(&CosName::new(b"Filter".to_vec()));
-            stream.dictionary.remove(&CosName::new(b"DecodeParms".to_vec()));
+            stream
+                .dictionary
+                .remove(&CosName::new(b"DecodeParms".to_vec()));
         }
     });
 
@@ -386,18 +390,32 @@ fn read_raw_image_data(doc: &Document, id: ObjectId) -> PdfResult<(Vec<u8>, u32,
         context: format!("image object {:?} is not a stream", id),
     })?;
 
-    let width = stream.dictionary
+    let width = stream
+        .dictionary
         .get(&CosName::new(b"Width".to_vec()))
-        .and_then(|v| if let CosObject::Integer(n) = v { Some(*n as u32) } else { None })
+        .and_then(|v| {
+            if let CosObject::Integer(n) = v {
+                Some(*n as u32)
+            } else {
+                None
+            }
+        })
         .unwrap_or(0);
-    let height = stream.dictionary
+    let height = stream
+        .dictionary
         .get(&CosName::new(b"Height".to_vec()))
-        .and_then(|v| if let CosObject::Integer(n) = v { Some(*n as u32) } else { None })
+        .and_then(|v| {
+            if let CosObject::Integer(n) = v {
+                Some(*n as u32)
+            } else {
+                None
+            }
+        })
         .unwrap_or(0);
 
     let filter = stream.dictionary.get(&CosName::new(b"Filter".to_vec()));
-    let decoded = crate::io::decode_stream(&stream.data, filter)
-        .unwrap_or_else(|_| stream.data.clone());
+    let decoded =
+        crate::io::decode_stream(&stream.data, filter).unwrap_or_else(|_| stream.data.clone());
 
     Ok((decoded, width, height))
 }
@@ -416,13 +434,14 @@ fn write_rgb_back(doc: &mut Document, id: ObjectId, rgb_bytes: Vec<u8>) {
                 CosName::new(b"BitsPerComponent".to_vec()),
                 CosObject::Integer(8),
             );
-            stream.dictionary.set(
-                CosName::new(b"Length".to_vec()),
-                CosObject::Integer(len),
-            );
+            stream
+                .dictionary
+                .set(CosName::new(b"Length".to_vec()), CosObject::Integer(len));
             // Remove old compressed filter — data is now raw pixels.
             stream.dictionary.remove(&CosName::new(b"Filter".to_vec()));
-            stream.dictionary.remove(&CosName::new(b"DecodeParms".to_vec()));
+            stream
+                .dictionary
+                .remove(&CosName::new(b"DecodeParms".to_vec()));
         }
     });
 }
@@ -465,8 +484,8 @@ mod tests {
         let cmyk = vec![0u8, 255, 255, 0];
         let rgb = cmyk_to_srgb_pixels(&cmyk);
         assert_eq!(rgb[0], 255); // R should be high
-        assert_eq!(rgb[1], 0);   // G should be 0
-        assert_eq!(rgb[2], 0);   // B should be 0
+        assert_eq!(rgb[1], 0); // G should be 0
+        assert_eq!(rgb[2], 0); // B should be 0
     }
 
     #[test]
@@ -514,15 +533,30 @@ mod tests {
         // Build a minimal CMYK image PDF inline.
         let cmyk_pixels: Vec<u8> = vec![0, 0, 0, 0]; // 1 white pixel
         let mut dict = crate::cos::CosDictionary::new();
-        dict.set(CosName::new(b"Type".to_vec()),    CosObject::Name(CosName::new(b"XObject".to_vec())));
-        dict.set(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Image".to_vec())));
-        dict.set(CosName::new(b"Width".to_vec()),   CosObject::Integer(1));
-        dict.set(CosName::new(b"Height".to_vec()),  CosObject::Integer(1));
-        dict.set(CosName::new(b"ColorSpace".to_vec()), CosObject::Name(CosName::new(b"DeviceCMYK".to_vec())));
-        dict.set(CosName::new(b"BitsPerComponent".to_vec()), CosObject::Integer(8));
+        dict.set(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"XObject".to_vec())),
+        );
+        dict.set(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Image".to_vec())),
+        );
+        dict.set(CosName::new(b"Width".to_vec()), CosObject::Integer(1));
+        dict.set(CosName::new(b"Height".to_vec()), CosObject::Integer(1));
+        dict.set(
+            CosName::new(b"ColorSpace".to_vec()),
+            CosObject::Name(CosName::new(b"DeviceCMYK".to_vec())),
+        );
+        dict.set(
+            CosName::new(b"BitsPerComponent".to_vec()),
+            CosObject::Integer(8),
+        );
         dict.set(CosName::new(b"Length".to_vec()), CosObject::Integer(4));
 
-        let stream = crate::cos::CosStream { dictionary: dict, data: cmyk_pixels };
+        let stream = crate::cos::CosStream {
+            dictionary: dict,
+            data: cmyk_pixels,
+        };
         let pdf = crate::tests::minimal_pdf();
         // We can't easily inject objects — just verify that the standalone
         // cmyk_to_srgb_pixels function produces the correct output instead.
@@ -533,4 +567,3 @@ mod tests {
         let _ = pdf;
     }
 }
-

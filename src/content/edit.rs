@@ -185,7 +185,10 @@ pub enum ContentOperator {
     // ── Unknown ───────────────────────────────────────────────────────────
     /// Any operator we didn't explicitly model.  Operands are kept as raw
     /// CosObjects so re-serialisation is lossless.
-    Unknown { operands: Vec<CosObject>, operator_bytes: Vec<u8> },
+    Unknown {
+        operands: Vec<CosObject>,
+        operator_bytes: Vec<u8>,
+    },
 }
 
 /// Represents an item inside a TJ array: either a literal string to display
@@ -200,74 +203,74 @@ impl fmt::Display for ContentOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use ContentOperator::*;
         let name = match self {
-            SaveState                            => "q",
-            RestoreState                         => "Q",
-            ConcatMatrix(..)                     => "cm",
-            SetLineWidth(..)                     => "w",
-            SetLineCap(..)                       => "J",
-            SetLineJoin(..)                      => "j",
-            SetMiterLimit(..)                    => "M",
-            SetDashPattern(..)                   => "d",
-            SetRenderingIntent(..)               => "ri",
-            MoveTo(..)                           => "m",
-            LineTo(..)                           => "l",
-            CurveC(..)                           => "c",
-            CurveV(..)                           => "v",
-            CurveY(..)                           => "y",
-            Rectangle(..)                        => "re",
-            Stroke                               => "S",
-            CloseStroke                          => "s",
-            Fill | FillOld                       => "f",
-            FillEvenOdd                          => "f*",
-            FillStroke                           => "B",
-            FillStrokeEvenOdd                    => "B*",
-            CloseFillStroke                      => "b",
-            CloseFillStrokeEvenOdd               => "b*",
-            EndPath                              => "n",
-            Clip                                 => "W",
-            ClipEvenOdd                          => "W*",
-            BeginText                            => "BT",
-            EndText                              => "ET",
-            SetCharSpacing(..)                   => "Tc",
-            SetWordSpacing(..)                   => "Tw",
-            SetHorizontalScaling(..)             => "Tz",
-            SetLeading(..)                       => "TL",
-            SetFont(..)                          => "Tf",
-            SetTextRenderingMode(..)             => "Tr",
-            SetTextRise(..)                      => "Ts",
-            MoveText(..)                         => "Td",
-            MoveTextSetLeading(..)               => "TD",
-            SetTextMatrix(..)                    => "Tm",
-            NextLine                             => "T*",
-            ShowText(..)                         => "Tj",
-            ShowTextPositioned(..)               => "TJ",
-            MoveNextLineShowText(..)             => "'",
-            SetSpacingMoveNextLineShowText(..)   => "\"",
-            InvokeXObject(..)                    => "Do",
-            BeginInlineImage                     => "BI",
-            InlineImageData(..)                  => "ID",
-            EndInlineImage                       => "EI",
-            BeginMarkedContent(..)               => "BMC",
-            BeginMarkedContentWithDict(..)       => "BDC",
-            EndMarkedContent                     => "EMC",
-            MarkPoint(..)                        => "MP",
-            MarkPointWithDict(..)                => "DP",
-            SetColorSpaceNonStroking(..)         => "cs",
-            SetColorSpaceStroking(..)            => "CS",
-            SetColorNonStroking(..)              => "sc",
-            SetColorStroking(..)                 => "SC",
-            SetRgbColorNonStroking(..)           => "rg",
-            SetRgbColorStroking(..)              => "RG",
-            SetGrayNonStroking(..)               => "g",
-            SetGrayStroking(..)                  => "G",
-            SetCmykNonStroking(..)               => "k",
-            SetCmykStroking(..)                  => "K",
-            ShadeFill(..)                        => "sh",
-            BeginCompatibility                   => "BX",
-            EndCompatibility                     => "EX",
-            Unknown { operator_bytes, .. }       => return write!(
-                f, "{}", String::from_utf8_lossy(operator_bytes)
-            ),
+            SaveState => "q",
+            RestoreState => "Q",
+            ConcatMatrix(..) => "cm",
+            SetLineWidth(..) => "w",
+            SetLineCap(..) => "J",
+            SetLineJoin(..) => "j",
+            SetMiterLimit(..) => "M",
+            SetDashPattern(..) => "d",
+            SetRenderingIntent(..) => "ri",
+            MoveTo(..) => "m",
+            LineTo(..) => "l",
+            CurveC(..) => "c",
+            CurveV(..) => "v",
+            CurveY(..) => "y",
+            Rectangle(..) => "re",
+            Stroke => "S",
+            CloseStroke => "s",
+            Fill | FillOld => "f",
+            FillEvenOdd => "f*",
+            FillStroke => "B",
+            FillStrokeEvenOdd => "B*",
+            CloseFillStroke => "b",
+            CloseFillStrokeEvenOdd => "b*",
+            EndPath => "n",
+            Clip => "W",
+            ClipEvenOdd => "W*",
+            BeginText => "BT",
+            EndText => "ET",
+            SetCharSpacing(..) => "Tc",
+            SetWordSpacing(..) => "Tw",
+            SetHorizontalScaling(..) => "Tz",
+            SetLeading(..) => "TL",
+            SetFont(..) => "Tf",
+            SetTextRenderingMode(..) => "Tr",
+            SetTextRise(..) => "Ts",
+            MoveText(..) => "Td",
+            MoveTextSetLeading(..) => "TD",
+            SetTextMatrix(..) => "Tm",
+            NextLine => "T*",
+            ShowText(..) => "Tj",
+            ShowTextPositioned(..) => "TJ",
+            MoveNextLineShowText(..) => "'",
+            SetSpacingMoveNextLineShowText(..) => "\"",
+            InvokeXObject(..) => "Do",
+            BeginInlineImage => "BI",
+            InlineImageData(..) => "ID",
+            EndInlineImage => "EI",
+            BeginMarkedContent(..) => "BMC",
+            BeginMarkedContentWithDict(..) => "BDC",
+            EndMarkedContent => "EMC",
+            MarkPoint(..) => "MP",
+            MarkPointWithDict(..) => "DP",
+            SetColorSpaceNonStroking(..) => "cs",
+            SetColorSpaceStroking(..) => "CS",
+            SetColorNonStroking(..) => "sc",
+            SetColorStroking(..) => "SC",
+            SetRgbColorNonStroking(..) => "rg",
+            SetRgbColorStroking(..) => "RG",
+            SetGrayNonStroking(..) => "g",
+            SetGrayStroking(..) => "G",
+            SetCmykNonStroking(..) => "k",
+            SetCmykStroking(..) => "K",
+            ShadeFill(..) => "sh",
+            BeginCompatibility => "BX",
+            EndCompatibility => "EX",
+            Unknown { operator_bytes, .. } => {
+                return write!(f, "{}", String::from_utf8_lossy(operator_bytes));
+            }
         };
         write!(f, "{name}")
     }
@@ -282,7 +285,9 @@ impl fmt::Display for ContentOperator {
 /// This is the main entry point.  The returned list faithfully represents
 /// every operation in the stream; round-tripping through
 /// [`serialise_content_stream`] produces identical bytes.
-pub fn parse_content_operators(data: &[u8]) -> Result<Vec<ContentOperator>, crate::parser::LexError> {
+pub fn parse_content_operators(
+    data: &[u8],
+) -> Result<Vec<ContentOperator>, crate::parser::LexError> {
     let instrs = crate::content::parse_content_stream(data)?;
     let mut out = Vec::with_capacity(instrs.len());
     for instr in &instrs {
@@ -298,14 +303,14 @@ fn instruction_to_operator(instr: &Instruction) -> ContentOperator {
     let name = op.name.as_slice();
 
     match name {
-        b"q"   => SaveState,
-        b"Q"   => RestoreState,
-        b"cm"  => nums_6(ops, |a,b,c,d,e,f| ConcatMatrix(a,b,c,d,e,f)),
-        b"w"   => num_1(ops, SetLineWidth),
-        b"J"   => int_1(ops, SetLineCap),
-        b"j"   => int_1(ops, SetLineJoin),
-        b"M"   => num_1(ops, SetMiterLimit),
-        b"d"   => {
+        b"q" => SaveState,
+        b"Q" => RestoreState,
+        b"cm" => nums_6(ops, |a, b, c, d, e, f| ConcatMatrix(a, b, c, d, e, f)),
+        b"w" => num_1(ops, SetLineWidth),
+        b"J" => int_1(ops, SetLineCap),
+        b"j" => int_1(ops, SetLineJoin),
+        b"M" => num_1(ops, SetMiterLimit),
+        b"d" => {
             if let (Some(CosObject::Array(arr)), Some(CosObject::Real(ph))) =
                 (ops.first(), ops.get(1))
             {
@@ -320,30 +325,30 @@ fn instruction_to_operator(instr: &Instruction) -> ContentOperator {
                 raw(instr)
             }
         }
-        b"m"   => nums_2(ops, MoveTo),
-        b"l"   => nums_2(ops, LineTo),
-        b"c"   => nums_6(ops, CurveC),
-        b"v"   => nums_4(ops, CurveV),
-        b"y"   => nums_4(ops, CurveY),
-        b"re"  => nums_4(ops, Rectangle),
-        b"S"   => Stroke,
-        b"s"   => CloseStroke,
+        b"m" => nums_2(ops, MoveTo),
+        b"l" => nums_2(ops, LineTo),
+        b"c" => nums_6(ops, CurveC),
+        b"v" => nums_4(ops, CurveV),
+        b"y" => nums_4(ops, CurveY),
+        b"re" => nums_4(ops, Rectangle),
+        b"S" => Stroke,
+        b"s" => CloseStroke,
         b"f" | b"F" => Fill,
-        b"f*"  => FillEvenOdd,
-        b"B"   => FillStroke,
-        b"B*"  => FillStrokeEvenOdd,
-        b"b"   => CloseFillStroke,
-        b"b*"  => CloseFillStrokeEvenOdd,
-        b"n"   => EndPath,
-        b"W"   => Clip,
-        b"W*"  => ClipEvenOdd,
-        b"BT"  => BeginText,
-        b"ET"  => EndText,
-        b"Tc"  => num_1(ops, SetCharSpacing),
-        b"Tw"  => num_1(ops, SetWordSpacing),
-        b"Tz"  => num_1(ops, SetHorizontalScaling),
-        b"TL"  => num_1(ops, SetLeading),
-        b"Tf"  => {
+        b"f*" => FillEvenOdd,
+        b"B" => FillStroke,
+        b"B*" => FillStrokeEvenOdd,
+        b"b" => CloseFillStroke,
+        b"b*" => CloseFillStrokeEvenOdd,
+        b"n" => EndPath,
+        b"W" => Clip,
+        b"W*" => ClipEvenOdd,
+        b"BT" => BeginText,
+        b"ET" => EndText,
+        b"Tc" => num_1(ops, SetCharSpacing),
+        b"Tw" => num_1(ops, SetWordSpacing),
+        b"Tz" => num_1(ops, SetHorizontalScaling),
+        b"TL" => num_1(ops, SetLeading),
+        b"Tf" => {
             if let (Some(CosObject::Name(font)), Some(CosObject::Real(sz))) =
                 (ops.first(), ops.get(1))
             {
@@ -356,51 +361,54 @@ fn instruction_to_operator(instr: &Instruction) -> ContentOperator {
                 raw(instr)
             }
         }
-        b"Tr"  => int_1(ops, SetTextRenderingMode),
-        b"Ts"  => num_1(ops, SetTextRise),
-        b"Td"  => nums_2(ops, MoveText),
-        b"TD"  => nums_2(ops, MoveTextSetLeading),
-        b"Tm"  => nums_6(ops, SetTextMatrix),
-        b"T*"  => NextLine,
-        b"Tj"  => {
+        b"Tr" => int_1(ops, SetTextRenderingMode),
+        b"Ts" => num_1(ops, SetTextRise),
+        b"Td" => nums_2(ops, MoveText),
+        b"TD" => nums_2(ops, MoveTextSetLeading),
+        b"Tm" => nums_6(ops, SetTextMatrix),
+        b"T*" => NextLine,
+        b"Tj" => {
             if let Some(s) = ops.first().and_then(|o| o.as_string()) {
                 ShowText(s.to_vec())
             } else {
                 raw(instr)
             }
         }
-        b"TJ"  => {
+        b"TJ" => {
             if let Some(CosObject::Array(arr)) = ops.first() {
                 ShowTextPositioned(arr.iter().map(tj_item_from_cos).collect())
             } else {
                 raw(instr)
             }
         }
-        b"'"   => {
+        b"'" => {
             if let Some(s) = ops.first().and_then(|o| o.as_string()) {
                 MoveNextLineShowText(s.to_vec())
             } else {
                 raw(instr)
             }
         }
-        b"\""  => {
-            if let (Some(CosObject::Real(aw)), Some(CosObject::Real(ac)), Some(CosObject::String(s)))
-                = (ops.first(), ops.get(1), ops.get(2))
+        b"\"" => {
+            if let (
+                Some(CosObject::Real(aw)),
+                Some(CosObject::Real(ac)),
+                Some(CosObject::String(s)),
+            ) = (ops.first(), ops.get(1), ops.get(2))
             {
                 SetSpacingMoveNextLineShowText(*aw, *ac, s.to_vec())
             } else {
                 raw(instr)
             }
         }
-        b"Do"  => {
+        b"Do" => {
             if let Some(CosObject::Name(n)) = ops.first() {
                 InvokeXObject(n.clone())
             } else {
                 raw(instr)
             }
         }
-        b"BI"  => BeginInlineImage,
-        b"ID"  => {
+        b"BI" => BeginInlineImage,
+        b"ID" => {
             // inline image data is everything between ID and EI
             // (we keep the raw operand which the tokenizer put there)
             if let Some(CosObject::String(s)) = ops.first() {
@@ -409,7 +417,7 @@ fn instruction_to_operator(instr: &Instruction) -> ContentOperator {
                 raw(instr)
             }
         }
-        b"EI"  => EndInlineImage,
+        b"EI" => EndInlineImage,
         b"BMC" => {
             if let Some(CosObject::Name(tag)) = ops.first() {
                 BeginMarkedContent(tag.as_bytes().to_vec())
@@ -418,8 +426,8 @@ fn instruction_to_operator(instr: &Instruction) -> ContentOperator {
             }
         }
         b"BDC" => {
-            if let (Some(CosObject::Name(tag)), Some(CosObject::Dictionary(d)))
-                = (ops.first(), ops.get(1))
+            if let (Some(CosObject::Name(tag)), Some(CosObject::Dictionary(d))) =
+                (ops.first(), ops.get(1))
             {
                 BeginMarkedContentWithDict(tag.as_bytes().to_vec(), d.clone())
             } else {
@@ -427,24 +435,24 @@ fn instruction_to_operator(instr: &Instruction) -> ContentOperator {
             }
         }
         b"EMC" => EndMarkedContent,
-        b"MP"  => {
+        b"MP" => {
             if let Some(CosObject::Name(tag)) = ops.first() {
                 MarkPoint(tag.as_bytes().to_vec())
             } else {
                 raw(instr)
             }
         }
-        b"DP"  => {
-            if let (Some(CosObject::Name(tag)), Some(CosObject::Dictionary(d)))
-                = (ops.first(), ops.get(1))
+        b"DP" => {
+            if let (Some(CosObject::Name(tag)), Some(CosObject::Dictionary(d))) =
+                (ops.first(), ops.get(1))
             {
                 MarkPointWithDict(tag.as_bytes().to_vec(), d.clone())
             } else {
                 raw(instr)
             }
         }
-        b"cs"  => name_1(ops, SetColorSpaceNonStroking),
-        b"CS"  => name_1(ops, SetColorSpaceStroking),
+        b"cs" => name_1(ops, SetColorSpaceNonStroking),
+        b"CS" => name_1(ops, SetColorSpaceStroking),
         b"sc" | b"scn" => {
             let nums: Vec<f64> = ops.iter().filter_map(|o| o.as_number()).collect();
             SetColorNonStroking(nums)
@@ -453,16 +461,16 @@ fn instruction_to_operator(instr: &Instruction) -> ContentOperator {
             let nums: Vec<f64> = ops.iter().filter_map(|o| o.as_number()).collect();
             SetColorStroking(nums)
         }
-        b"rg"  => nums_3(ops, SetRgbColorNonStroking),
-        b"RG"  => nums_3(ops, SetRgbColorStroking),
-        b"g"   => num_1(ops, SetGrayNonStroking),
-        b"G"   => num_1(ops, SetGrayStroking),
-        b"k"   => nums_4(ops, SetCmykNonStroking),
-        b"K"   => nums_4(ops, SetCmykStroking),
-        b"sh"  => name_1(ops, ShadeFill),
-        b"BX"  => BeginCompatibility,
-        b"EX"  => EndCompatibility,
-        _      => Unknown {
+        b"rg" => nums_3(ops, SetRgbColorNonStroking),
+        b"RG" => nums_3(ops, SetRgbColorStroking),
+        b"g" => num_1(ops, SetGrayNonStroking),
+        b"G" => num_1(ops, SetGrayStroking),
+        b"k" => nums_4(ops, SetCmykNonStroking),
+        b"K" => nums_4(ops, SetCmykStroking),
+        b"sh" => name_1(ops, ShadeFill),
+        b"BX" => BeginCompatibility,
+        b"EX" => EndCompatibility,
+        _ => Unknown {
             operands: ops.clone(),
             operator_bytes: op.name.clone(),
         },
@@ -481,67 +489,71 @@ pub fn serialise_content_stream(ops: &[ContentOperator]) -> Vec<u8> {
     for op in ops {
         match op {
             // operators with no operands
-            SaveState   => buf.extend_from_slice(b"q\n"),
-            RestoreState=> buf.extend_from_slice(b"Q\n"),
-            Stroke      => buf.extend_from_slice(b"S\n"),
+            SaveState => buf.extend_from_slice(b"q\n"),
+            RestoreState => buf.extend_from_slice(b"Q\n"),
+            Stroke => buf.extend_from_slice(b"S\n"),
             CloseStroke => buf.extend_from_slice(b"s\n"),
             Fill | FillOld => buf.extend_from_slice(b"f\n"),
             FillEvenOdd => buf.extend_from_slice(b"f*\n"),
-            FillStroke  => buf.extend_from_slice(b"B\n"),
+            FillStroke => buf.extend_from_slice(b"B\n"),
             FillStrokeEvenOdd => buf.extend_from_slice(b"B*\n"),
-            CloseFillStroke    => buf.extend_from_slice(b"b\n"),
+            CloseFillStroke => buf.extend_from_slice(b"b\n"),
             CloseFillStrokeEvenOdd => buf.extend_from_slice(b"b*\n"),
-            EndPath     => buf.extend_from_slice(b"n\n"),
-            Clip        => buf.extend_from_slice(b"W\n"),
+            EndPath => buf.extend_from_slice(b"n\n"),
+            Clip => buf.extend_from_slice(b"W\n"),
             ClipEvenOdd => buf.extend_from_slice(b"W*\n"),
-            BeginText   => buf.extend_from_slice(b"BT\n"),
-            EndText     => buf.extend_from_slice(b"ET\n"),
-            NextLine    => buf.extend_from_slice(b"T*\n"),
+            BeginText => buf.extend_from_slice(b"BT\n"),
+            EndText => buf.extend_from_slice(b"ET\n"),
+            NextLine => buf.extend_from_slice(b"T*\n"),
             BeginInlineImage => buf.extend_from_slice(b"BI\n"),
-            EndInlineImage   => buf.extend_from_slice(b"EI\n"),
+            EndInlineImage => buf.extend_from_slice(b"EI\n"),
             EndMarkedContent => buf.extend_from_slice(b"EMC\n"),
             BeginCompatibility => buf.extend_from_slice(b"BX\n"),
-            EndCompatibility   => buf.extend_from_slice(b"EX\n"),
+            EndCompatibility => buf.extend_from_slice(b"EX\n"),
 
             // single-number operators
-            SetLineWidth(v)       => write_num(&mut buf, *v, b" w\n"),
-            SetCharSpacing(v)     => write_num(&mut buf, *v, b" Tc\n"),
-            SetWordSpacing(v)     => write_num(&mut buf, *v, b" Tw\n"),
+            SetLineWidth(v) => write_num(&mut buf, *v, b" w\n"),
+            SetCharSpacing(v) => write_num(&mut buf, *v, b" Tc\n"),
+            SetWordSpacing(v) => write_num(&mut buf, *v, b" Tw\n"),
             SetHorizontalScaling(v) => write_num(&mut buf, *v, b" Tz\n"),
-            SetLeading(v)         => write_num(&mut buf, *v, b" TL\n"),
-            SetTextRise(v)        => write_num(&mut buf, *v, b" Ts\n"),
-            SetMiterLimit(v)      => write_num(&mut buf, *v, b" M\n"),
+            SetLeading(v) => write_num(&mut buf, *v, b" TL\n"),
+            SetTextRise(v) => write_num(&mut buf, *v, b" Ts\n"),
+            SetMiterLimit(v) => write_num(&mut buf, *v, b" M\n"),
             SetGrayNonStroking(v) => write_num(&mut buf, *v, b" g\n"),
-            SetGrayStroking(v)    => write_num(&mut buf, *v, b" G\n"),
+            SetGrayStroking(v) => write_num(&mut buf, *v, b" G\n"),
 
             // single-int operators
-            SetLineCap(v)  => write_int(&mut buf, *v as i64, b" J\n"),
+            SetLineCap(v) => write_int(&mut buf, *v as i64, b" J\n"),
             SetLineJoin(v) => write_int(&mut buf, *v as i64, b" j\n"),
             SetTextRenderingMode(v) => write_int(&mut buf, *v as i64, b" Tr\n"),
 
             // two-number operators
-            MoveText(tx, ty)         => write_2nums(&mut buf, *tx, *ty, b" Td\n"),
+            MoveText(tx, ty) => write_2nums(&mut buf, *tx, *ty, b" Td\n"),
             MoveTextSetLeading(tx, ty) => write_2nums(&mut buf, *tx, *ty, b" TD\n"),
 
             // three-number operators
-            SetRgbColorNonStroking(r,g,b) => write_3nums(&mut buf, *r,*g,*b, b" rg\n"),
-            SetRgbColorStroking(r,g,b)    => write_3nums(&mut buf, *r,*g,*b, b" RG\n"),
+            SetRgbColorNonStroking(r, g, b) => write_3nums(&mut buf, *r, *g, *b, b" rg\n"),
+            SetRgbColorStroking(r, g, b) => write_3nums(&mut buf, *r, *g, *b, b" RG\n"),
 
             // four-number operators
-            Rectangle(x,y,w,h)     => write_4nums(&mut buf, *x,*y,*w,*h, b" re\n"),
-            MoveTo(x,y)            => write_2nums(&mut buf, *x,*y, b" m\n"),
-            LineTo(x,y)            => write_2nums(&mut buf, *x,*y, b" l\n"),
-            SetCmykNonStroking(c,m,y,k) => write_4nums(&mut buf, *c,*m,*y,*k, b" k\n"),
-            SetCmykStroking(c,m,y,k)    => write_4nums(&mut buf, *c,*m,*y,*k, b" K\n"),
+            Rectangle(x, y, w, h) => write_4nums(&mut buf, *x, *y, *w, *h, b" re\n"),
+            MoveTo(x, y) => write_2nums(&mut buf, *x, *y, b" m\n"),
+            LineTo(x, y) => write_2nums(&mut buf, *x, *y, b" l\n"),
+            SetCmykNonStroking(c, m, y, k) => write_4nums(&mut buf, *c, *m, *y, *k, b" k\n"),
+            SetCmykStroking(c, m, y, k) => write_4nums(&mut buf, *c, *m, *y, *k, b" K\n"),
 
             // six-number operators
-            ConcatMatrix(a,b,c,d,e,f)  => write_6nums(&mut buf, *a,*b,*c,*d,*e,*f, b" cm\n"),
-            SetTextMatrix(a,b,c,d,e,f) => write_6nums(&mut buf, *a,*b,*c,*d,*e,*f, b" Tm\n"),
+            ConcatMatrix(a, b, c, d, e, f) => {
+                write_6nums(&mut buf, *a, *b, *c, *d, *e, *f, b" cm\n")
+            }
+            SetTextMatrix(a, b, c, d, e, f) => {
+                write_6nums(&mut buf, *a, *b, *c, *d, *e, *f, b" Tm\n")
+            }
 
             // curve operators
-            CurveC(a,b,c,d,e,f) => write_6nums(&mut buf, *a,*b,*c,*d,*e,*f, b" c\n"),
-            CurveV(x,y,x2,y2)   => write_4nums(&mut buf, *x,*y,*x2,*y2, b" v\n"),
-            CurveY(x,y,x2,y2)   => write_4nums(&mut buf, *x,*y,*x2,*y2, b" y\n"),
+            CurveC(a, b, c, d, e, f) => write_6nums(&mut buf, *a, *b, *c, *d, *e, *f, b" c\n"),
+            CurveV(x, y, x2, y2) => write_4nums(&mut buf, *x, *y, *x2, *y2, b" v\n"),
+            CurveY(x, y, x2, y2) => write_4nums(&mut buf, *x, *y, *x2, *y2, b" y\n"),
 
             // font
             SetFont(font, size) => {
@@ -643,16 +655,25 @@ pub fn serialise_content_stream(ops: &[ContentOperator]) -> Vec<u8> {
                 write_bytes(&mut buf, b" CS\n");
             }
             SetColorNonStroking(vals) => {
-                for v in vals { write_f64(&mut buf, *v); write_bytes(&mut buf, b" "); }
+                for v in vals {
+                    write_f64(&mut buf, *v);
+                    write_bytes(&mut buf, b" ");
+                }
                 write_bytes(&mut buf, b"scn\n");
             }
             SetColorStroking(vals) => {
-                for v in vals { write_f64(&mut buf, *v); write_bytes(&mut buf, b" "); }
+                for v in vals {
+                    write_f64(&mut buf, *v);
+                    write_bytes(&mut buf, b" ");
+                }
                 write_bytes(&mut buf, b"SCN\n");
             }
             SetDashPattern(arr, phase) => {
                 write_bytes(&mut buf, b"[");
-                for v in arr { write_f64(&mut buf, *v); write_bytes(&mut buf, b" "); }
+                for v in arr {
+                    write_f64(&mut buf, *v);
+                    write_bytes(&mut buf, b" ");
+                }
                 write_bytes(&mut buf, b"] ");
                 write_f64(&mut buf, *phase);
                 write_bytes(&mut buf, b" d\n");
@@ -668,7 +689,10 @@ pub fn serialise_content_stream(ops: &[ContentOperator]) -> Vec<u8> {
             }
 
             // unknown
-            Unknown { operands, operator_bytes } => {
+            Unknown {
+                operands,
+                operator_bytes,
+            } => {
                 for opnd in operands {
                     write_cos_value(&mut buf, opnd);
                     write_bytes(&mut buf, b" ");
@@ -693,7 +717,9 @@ fn raw(instr: &Instruction) -> ContentOperator {
 }
 
 fn num_1<F>(ops: &[CosObject], f: F) -> ContentOperator
-where F: FnOnce(f64) -> ContentOperator {
+where
+    F: FnOnce(f64) -> ContentOperator,
+{
     match ops.first().and_then(|o| o.as_number()) {
         Some(v) => f(v),
         None => ContentOperator::Unknown {
@@ -704,7 +730,9 @@ where F: FnOnce(f64) -> ContentOperator {
 }
 
 fn int_1<F>(ops: &[CosObject], f: F) -> ContentOperator
-where F: FnOnce(u8) -> ContentOperator {
+where
+    F: FnOnce(u8) -> ContentOperator,
+{
     match ops.first().and_then(|o| o.as_integer()) {
         Some(v) => f(v as u8),
         None => ContentOperator::Unknown {
@@ -715,9 +743,15 @@ where F: FnOnce(u8) -> ContentOperator {
 }
 
 fn name_1<F>(ops: &[CosObject], f: F) -> ContentOperator
-where F: FnOnce(CosName) -> ContentOperator {
+where
+    F: FnOnce(CosName) -> ContentOperator,
+{
     match ops.first().and_then(|o| {
-        if let CosObject::Name(n) = o { Some(n.clone()) } else { None }
+        if let CosObject::Name(n) = o {
+            Some(n.clone())
+        } else {
+            None
+        }
     }) {
         Some(n) => f(n),
         None => ContentOperator::Unknown {
@@ -728,9 +762,13 @@ where F: FnOnce(CosName) -> ContentOperator {
 }
 
 fn nums_2<F>(ops: &[CosObject], f: F) -> ContentOperator
-where F: FnOnce(f64, f64) -> ContentOperator {
-    if let (Some(a), Some(b)) = (ops.first().and_then(|o| o.as_number()),
-                                 ops.get(1).and_then(|o| o.as_number())) {
+where
+    F: FnOnce(f64, f64) -> ContentOperator,
+{
+    if let (Some(a), Some(b)) = (
+        ops.first().and_then(|o| o.as_number()),
+        ops.get(1).and_then(|o| o.as_number()),
+    ) {
         f(a, b)
     } else {
         raw_unknown(ops, b"??")
@@ -738,10 +776,14 @@ where F: FnOnce(f64, f64) -> ContentOperator {
 }
 
 fn nums_3<F>(ops: &[CosObject], f: F) -> ContentOperator
-where F: FnOnce(f64, f64, f64) -> ContentOperator {
-    if let (Some(a), Some(b), Some(c)) = (ops.first().and_then(|o| o.as_number()),
-                                           ops.get(1).and_then(|o| o.as_number()),
-                                           ops.get(2).and_then(|o| o.as_number())) {
+where
+    F: FnOnce(f64, f64, f64) -> ContentOperator,
+{
+    if let (Some(a), Some(b), Some(c)) = (
+        ops.first().and_then(|o| o.as_number()),
+        ops.get(1).and_then(|o| o.as_number()),
+        ops.get(2).and_then(|o| o.as_number()),
+    ) {
         f(a, b, c)
     } else {
         raw_unknown(ops, b"??")
@@ -749,11 +791,15 @@ where F: FnOnce(f64, f64, f64) -> ContentOperator {
 }
 
 fn nums_4<F>(ops: &[CosObject], f: F) -> ContentOperator
-where F: FnOnce(f64, f64, f64, f64) -> ContentOperator {
-    if let (Some(a), Some(b), Some(c), Some(d)) = (ops.first().and_then(|o| o.as_number()),
-                                                     ops.get(1).and_then(|o| o.as_number()),
-                                                     ops.get(2).and_then(|o| o.as_number()),
-                                                     ops.get(3).and_then(|o| o.as_number())) {
+where
+    F: FnOnce(f64, f64, f64, f64) -> ContentOperator,
+{
+    if let (Some(a), Some(b), Some(c), Some(d)) = (
+        ops.first().and_then(|o| o.as_number()),
+        ops.get(1).and_then(|o| o.as_number()),
+        ops.get(2).and_then(|o| o.as_number()),
+        ops.get(3).and_then(|o| o.as_number()),
+    ) {
         f(a, b, c, d)
     } else {
         raw_unknown(ops, b"??")
@@ -761,7 +807,9 @@ where F: FnOnce(f64, f64, f64, f64) -> ContentOperator {
 }
 
 fn nums_6<F>(ops: &[CosObject], f: F) -> ContentOperator
-where F: FnOnce(f64, f64, f64, f64, f64, f64) -> ContentOperator {
+where
+    F: FnOnce(f64, f64, f64, f64, f64, f64) -> ContentOperator,
+{
     if let (Some(a), Some(b), Some(c), Some(d), Some(e), Some(fv)) = (
         ops.first().and_then(|o| o.as_number()),
         ops.get(1).and_then(|o| o.as_number()),
@@ -794,7 +842,9 @@ fn tj_item_from_cos(obj: &CosObject) -> TjItem {
 
 // ---- serialisation helpers ----
 
-fn write_bytes(buf: &mut Vec<u8>, b: &[u8]) { buf.extend_from_slice(b); }
+fn write_bytes(buf: &mut Vec<u8>, b: &[u8]) {
+    buf.extend_from_slice(b);
+}
 
 fn write_f64(buf: &mut Vec<u8>, v: f64) {
     // simple: print with enough precision, avoid trailing zeros
@@ -818,30 +868,45 @@ fn write_num(buf: &mut Vec<u8>, v: f64, suffix: &[u8]) {
 }
 
 fn write_2nums(buf: &mut Vec<u8>, a: f64, b: f64, suffix: &[u8]) {
-    write_f64(buf, a); write_bytes(buf, b" ");
-    write_f64(buf, b); buf.extend_from_slice(suffix);
+    write_f64(buf, a);
+    write_bytes(buf, b" ");
+    write_f64(buf, b);
+    buf.extend_from_slice(suffix);
 }
 
 fn write_3nums(buf: &mut Vec<u8>, a: f64, b: f64, c: f64, suffix: &[u8]) {
-    write_f64(buf, a); write_bytes(buf, b" ");
-    write_f64(buf, b); write_bytes(buf, b" ");
-    write_f64(buf, c); buf.extend_from_slice(suffix);
+    write_f64(buf, a);
+    write_bytes(buf, b" ");
+    write_f64(buf, b);
+    write_bytes(buf, b" ");
+    write_f64(buf, c);
+    buf.extend_from_slice(suffix);
 }
 
 fn write_4nums(buf: &mut Vec<u8>, a: f64, b: f64, c: f64, d: f64, suffix: &[u8]) {
-    write_f64(buf, a); write_bytes(buf, b" ");
-    write_f64(buf, b); write_bytes(buf, b" ");
-    write_f64(buf, c); write_bytes(buf, b" ");
-    write_f64(buf, d); buf.extend_from_slice(suffix);
+    write_f64(buf, a);
+    write_bytes(buf, b" ");
+    write_f64(buf, b);
+    write_bytes(buf, b" ");
+    write_f64(buf, c);
+    write_bytes(buf, b" ");
+    write_f64(buf, d);
+    buf.extend_from_slice(suffix);
 }
 
 fn write_6nums(buf: &mut Vec<u8>, a: f64, b: f64, c: f64, d: f64, e: f64, f: f64, suffix: &[u8]) {
-    write_f64(buf, a); write_bytes(buf, b" ");
-    write_f64(buf, b); write_bytes(buf, b" ");
-    write_f64(buf, c); write_bytes(buf, b" ");
-    write_f64(buf, d); write_bytes(buf, b" ");
-    write_f64(buf, e); write_bytes(buf, b" ");
-    write_f64(buf, f); buf.extend_from_slice(suffix);
+    write_f64(buf, a);
+    write_bytes(buf, b" ");
+    write_f64(buf, b);
+    write_bytes(buf, b" ");
+    write_f64(buf, c);
+    write_bytes(buf, b" ");
+    write_f64(buf, d);
+    write_bytes(buf, b" ");
+    write_f64(buf, e);
+    write_bytes(buf, b" ");
+    write_f64(buf, f);
+    buf.extend_from_slice(suffix);
 }
 
 fn write_string(buf: &mut Vec<u8>, s: &[u8]) {
@@ -849,7 +914,10 @@ fn write_string(buf: &mut Vec<u8>, s: &[u8]) {
     write_bytes(buf, b"(");
     for &b in s {
         match b {
-            b'(' | b')' | b'\\' => { buf.push(b'\\'); buf.push(b); }
+            b'(' | b')' | b'\\' => {
+                buf.push(b'\\');
+                buf.push(b);
+            }
             _ => buf.push(b),
         }
     }
@@ -909,20 +977,20 @@ fn write_cos_value(buf: &mut Vec<u8>, obj: &CosObject) {
 pub fn find_text_operators(ops: &[ContentOperator], needle: &str) -> Vec<usize> {
     ops.iter()
         .enumerate()
-        .filter(|(_, op)| {
-            match op {
-                ContentOperator::ShowText(s) => {
-                    std::str::from_utf8(s).ok().map_or(false, |t| t.contains(needle))
+        .filter(|(_, op)| match op {
+            ContentOperator::ShowText(s) => std::str::from_utf8(s)
+                .ok()
+                .map_or(false, |t| t.contains(needle)),
+            ContentOperator::ShowTextPositioned(items) => items.iter().any(|item| {
+                if let TjItem::Text(s) = item {
+                    std::str::from_utf8(s)
+                        .ok()
+                        .map_or(false, |t| t.contains(needle))
+                } else {
+                    false
                 }
-                ContentOperator::ShowTextPositioned(items) => {
-                    items.iter().any(|item| {
-                        if let TjItem::Text(s) = item {
-                            std::str::from_utf8(s).ok().map_or(false, |t| t.contains(needle))
-                        } else { false }
-                    })
-                }
-                _ => false,
-            }
+            }),
+            _ => false,
         })
         .map(|(i, _)| i)
         .collect()
@@ -930,7 +998,9 @@ pub fn find_text_operators(ops: &[ContentOperator], needle: &str) -> Vec<usize> 
 
 /// Replace text content in a `ShowText` operator at the given index.
 pub fn replace_show_text(ops: &mut [ContentOperator], index: usize, old: &str, new: &str) -> bool {
-    if index >= ops.len() { return false; }
+    if index >= ops.len() {
+        return false;
+    }
     match &mut ops[index] {
         ContentOperator::ShowText(s) => {
             if let Ok(t) = std::str::from_utf8(s) {
@@ -967,14 +1037,20 @@ pub fn replace_show_text(ops: &mut [ContentOperator], index: usize, old: &str, n
 pub fn find_xobject_operators(ops: &[ContentOperator], name: &str) -> Vec<usize> {
     ops.iter()
         .enumerate()
-        .filter(|(_, op)| matches!(op, ContentOperator::InvokeXObject(n) if n.as_str() == Some(name)))
+        .filter(
+            |(_, op)| matches!(op, ContentOperator::InvokeXObject(n) if n.as_str() == Some(name)),
+        )
         .map(|(i, _)| i)
         .collect()
 }
 
 /// Replace all `InvokeXObject` references from `old_name` to `new_name`.
 /// Returns the number of operators changed.
-pub fn rename_xobject_operator(ops: &mut [ContentOperator], old_name: &str, new_name: &str) -> usize {
+pub fn rename_xobject_operator(
+    ops: &mut [ContentOperator],
+    old_name: &str,
+    new_name: &str,
+) -> usize {
     let mut count = 0;
     for op in ops.iter_mut() {
         if let ContentOperator::InvokeXObject(n) = op {
@@ -1060,13 +1136,21 @@ mod tests {
     #[test]
     fn test_save_restore() {
         let ops = parses_to(b"q Q");
-        assert_eq!(ops, vec![ContentOperator::SaveState, ContentOperator::RestoreState]);
+        assert_eq!(
+            ops,
+            vec![ContentOperator::SaveState, ContentOperator::RestoreState]
+        );
     }
 
     #[test]
     fn test_concat_matrix() {
         let ops = parses_to(b"1 0 0 1 100 200 cm");
-        assert_eq!(ops, vec![ContentOperator::ConcatMatrix(1.0, 0.0, 0.0, 1.0, 100.0, 200.0)]);
+        assert_eq!(
+            ops,
+            vec![ContentOperator::ConcatMatrix(
+                1.0, 0.0, 0.0, 1.0, 100.0, 200.0
+            )]
+        );
     }
 
     #[test]
@@ -1160,7 +1244,10 @@ mod tests {
     #[test]
     fn test_text_matrix() {
         let ops = parses_to(b"1 0 0 1 72 720 Tm");
-        assert_eq!(ops[0], ContentOperator::SetTextMatrix(1.0, 0.0, 0.0, 1.0, 72.0, 720.0));
+        assert_eq!(
+            ops[0],
+            ContentOperator::SetTextMatrix(1.0, 0.0, 0.0, 1.0, 72.0, 720.0)
+        );
     }
 
     #[test]
@@ -1174,7 +1261,10 @@ mod tests {
     #[test]
     fn test_invoke_xobject() {
         let ops = parses_to(b"/Im1 Do");
-        assert_eq!(ops[0], ContentOperator::InvokeXObject(CosName::new(b"Im1".to_vec())));
+        assert_eq!(
+            ops[0],
+            ContentOperator::InvokeXObject(CosName::new(b"Im1".to_vec()))
+        );
     }
 
     #[test]
@@ -1249,7 +1339,10 @@ mod tests {
     #[test]
     fn test_rgb_colour() {
         let ops = parses_to(b"1 0 0 rg");
-        assert_eq!(ops[0], ContentOperator::SetRgbColorNonStroking(1.0, 0.0, 0.0));
+        assert_eq!(
+            ops[0],
+            ContentOperator::SetRgbColorNonStroking(1.0, 0.0, 0.0)
+        );
     }
 
     #[test]
@@ -1376,7 +1469,7 @@ mod tests {
         let ops = parses_to(data);
         assert!(ops.len() >= 10);
         assert_eq!(ops[0], ContentOperator::SaveState);
-        assert_eq!(ops[ops.len()-1], ContentOperator::RestoreState);
+        assert_eq!(ops[ops.len() - 1], ContentOperator::RestoreState);
 
         // round-trip
         let output = serialise_content_stream(&ops);

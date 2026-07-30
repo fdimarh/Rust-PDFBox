@@ -5,7 +5,7 @@
 //! Maps to Java PDFBox's `FDFCatalog` / `XFDF` export utilities.
 
 use crate::cos::{CosDictionary, CosName, CosObject};
-use crate::forms::field::{get_field_value_for_export};
+use crate::forms::field::get_field_value_for_export;
 use crate::{Document, PdfResult};
 
 /// Exports all AcroForm field values to an FDF byte buffer (PDF-based format).
@@ -50,7 +50,10 @@ pub fn export_fdf(doc: &Document) -> PdfResult<Vec<u8>> {
 
     // Build FDF document structure
     let mut root_dict = CosDictionary::new();
-    root_dict.insert(CosName::new(b"FDF".to_vec()), CosObject::Dictionary(fdf_dict));
+    root_dict.insert(
+        CosName::new(b"FDF".to_vec()),
+        CosObject::Dictionary(fdf_dict),
+    );
 
     // Serialize as a minimal PDF-like structure
     let mut out = Vec::new();
@@ -144,9 +147,7 @@ fn xml_escape(s: &str) -> String {
 fn serialize_cos(obj: &CosObject) -> String {
     match obj {
         CosObject::Null => "null".to_string(),
-        CosObject::Bool(b) => {
-            if *b { "true" } else { "false" }.to_string()
-        }
+        CosObject::Bool(b) => if *b { "true" } else { "false" }.to_string(),
         CosObject::Integer(i) => i.to_string(),
         CosObject::Real(f) => f.to_string(),
         CosObject::Name(name) => format!("{}", name),

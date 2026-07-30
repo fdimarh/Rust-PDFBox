@@ -166,7 +166,10 @@ fn merge_into_page_content(
             doc.mutate_object(content_id, |obj| {
                 if let CosObject::Stream(stream) = obj {
                     stream.data.extend_from_slice(&wrapper);
-                    stream.dictionary.insert(CosName::new(b"Length".to_vec()), CosObject::Integer(stream.data.len() as i64));
+                    stream.dictionary.insert(
+                        CosName::new(b"Length".to_vec()),
+                        CosObject::Integer(stream.data.len() as i64),
+                    );
                 }
             });
         }
@@ -204,8 +207,10 @@ fn merge_into_page_content(
 
             doc.mutate_object(page_id, |obj| {
                 if let CosObject::Dictionary(page_dict) = obj {
-                    page_dict
-                        .insert(CosName::new(b"Contents".to_vec()), CosObject::Reference(content_id));
+                    page_dict.insert(
+                        CosName::new(b"Contents".to_vec()),
+                        CosObject::Reference(content_id),
+                    );
                 }
             });
         }
@@ -218,7 +223,8 @@ fn merge_into_page_content(
 fn remove_widget_from_page(doc: &mut Document, page_id: ObjectId, widget_id: ObjectId) {
     doc.mutate_object(page_id, |obj| {
         if let CosObject::Dictionary(page_dict) = obj {
-            if let Some(CosObject::Array(annots)) = page_dict.get(&CosName::new(b"Annots".to_vec())) {
+            if let Some(CosObject::Array(annots)) = page_dict.get(&CosName::new(b"Annots".to_vec()))
+            {
                 let new_annots: Vec<CosObject> = annots
                     .iter()
                     .filter(|a| {
@@ -233,7 +239,10 @@ fn remove_widget_from_page(doc: &mut Document, page_id: ObjectId, widget_id: Obj
                 if new_annots.is_empty() {
                     page_dict.remove(&CosName::new(b"Annots".to_vec()));
                 } else {
-                    page_dict.insert(CosName::new(b"Annots".to_vec()), CosObject::Array(new_annots));
+                    page_dict.insert(
+                        CosName::new(b"Annots".to_vec()),
+                        CosObject::Array(new_annots),
+                    );
                 }
             }
         }
@@ -250,7 +259,9 @@ fn remove_fields_from_acroform(doc: &mut Document, field_ids: &[ObjectId]) {
     if let Some(acro_id) = acro_id {
         doc.mutate_object(acro_id, |obj| {
             if let CosObject::Dictionary(acro_dict) = obj {
-                if let Some(CosObject::Array(fields)) = acro_dict.get(&CosName::new(b"Fields".to_vec())) {
+                if let Some(CosObject::Array(fields)) =
+                    acro_dict.get(&CosName::new(b"Fields".to_vec()))
+                {
                     let new_fields: Vec<CosObject> = fields
                         .iter()
                         .filter(|f| {
@@ -265,7 +276,10 @@ fn remove_fields_from_acroform(doc: &mut Document, field_ids: &[ObjectId]) {
                     if new_fields.is_empty() {
                         acro_dict.remove(&CosName::new(b"Fields".to_vec()));
                     } else {
-                        acro_dict.insert(CosName::new(b"Fields".to_vec()), CosObject::Array(new_fields));
+                        acro_dict.insert(
+                            CosName::new(b"Fields".to_vec()),
+                            CosObject::Array(new_fields),
+                        );
                     }
                 }
             }
@@ -353,8 +367,8 @@ pub fn flatten_all_fields(doc: &mut Document) -> PdfResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cos::{CosName, ObjectId};
     use crate::Document;
+    use crate::cos::{CosName, ObjectId};
 
     fn create_doc_with_acroform() -> Document {
         // Create a document with a single page and a minimal AcroForm
@@ -386,7 +400,10 @@ mod tests {
         // Verify annots is removed
         let page = doc.pages().unwrap().get(0).unwrap();
         let annots = page.dictionary().get(&CosName::new(b"Annots".to_vec()));
-        assert!(annots.is_none(), "Annots should be removed after removing last widget");
+        assert!(
+            annots.is_none(),
+            "Annots should be removed after removing last widget"
+        );
     }
 
     #[test]
@@ -397,12 +414,19 @@ mod tests {
         remove_fields_from_acroform(&mut doc, &[field_id]);
 
         let catalog = doc.catalog().unwrap().clone();
-        let acro_id = catalog.get(&CosName::new(b"AcroForm".to_vec()))
+        let acro_id = catalog
+            .get(&CosName::new(b"AcroForm".to_vec()))
             .and_then(|v| v.as_reference())
             .unwrap();
-        let acro = doc.get_object_ref(acro_id).unwrap().as_dictionary().unwrap();
-        assert!(acro.get(&CosName::new(b"Fields".to_vec())).is_none(),
-            "Fields should be removed");
+        let acro = doc
+            .get_object_ref(acro_id)
+            .unwrap()
+            .as_dictionary()
+            .unwrap();
+        assert!(
+            acro.get(&CosName::new(b"Fields".to_vec())).is_none(),
+            "Fields should be removed"
+        );
     }
 
     #[test]
@@ -415,7 +439,10 @@ mod tests {
 
         let catalog = doc.catalog().unwrap().clone();
         let acro = catalog.get(&CosName::new(b"AcroForm".to_vec()));
-        assert!(acro.is_none(), "AcroForm should be removed from catalog when empty");
+        assert!(
+            acro.is_none(),
+            "AcroForm should be removed from catalog when empty"
+        );
     }
 
     #[test]

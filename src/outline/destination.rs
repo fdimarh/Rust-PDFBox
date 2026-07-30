@@ -3,8 +3,8 @@
 //!
 //! Maps to `PDPageDestination` / `PDPageXYZDestination` etc. in Java PDFBox.
 
-use crate::cos::{CosDictionary, CosName, CosObject};
 use crate::ObjectId;
+use crate::cos::{CosDictionary, CosName, CosObject};
 
 /// How to fit the destination page into the viewer window.
 #[derive(Debug, Clone, PartialEq)]
@@ -33,10 +33,7 @@ pub enum FitMode {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Destination {
     /// Go to a page in the same document.
-    GoTo {
-        page_index: usize,
-        fit: FitMode,
-    },
+    GoTo { page_index: usize, fit: FitMode },
     /// Go to a page in an external document (`/GoToR`).
     GoToR {
         file: String,
@@ -93,7 +90,9 @@ impl Destination {
                     if name.as_bytes() == b"URI" {
                         if let Some(uri) = dict.get(&CosName::new(b"URI".to_vec())) {
                             if let Some(s) = uri.as_string() {
-                                return Some(Destination::URI(String::from_utf8_lossy(s).to_string()));
+                                return Some(Destination::URI(
+                                    String::from_utf8_lossy(s).to_string(),
+                                ));
                             }
                         }
                     }
@@ -108,7 +107,11 @@ impl Destination {
                                 if let Some(dest) = Self::from_array(arr, page_id_to_index) {
                                     match dest {
                                         Destination::GoTo { page_index, fit } => {
-                                            return Some(Destination::GoToR { file, page_index, fit });
+                                            return Some(Destination::GoToR {
+                                                file,
+                                                page_index,
+                                                fit,
+                                            });
                                         }
                                         other => return Some(other),
                                     }
@@ -123,7 +126,10 @@ impl Destination {
         None
     }
 
-    fn from_array(arr: &[CosObject], page_id_to_index: &impl Fn(ObjectId) -> Option<usize>) -> Option<Self> {
+    fn from_array(
+        arr: &[CosObject],
+        page_id_to_index: &impl Fn(ObjectId) -> Option<usize>,
+    ) -> Option<Self> {
         if arr.is_empty() {
             return None;
         }
@@ -215,7 +221,11 @@ impl Destination {
                 }
                 CosObject::Array(arr)
             }
-            Destination::GoToR { file, page_index, fit } => {
+            Destination::GoToR {
+                file,
+                page_index,
+                fit,
+            } => {
                 // Produces an action dictionary with /S /GoToR
                 let page_ref = index_to_page_id(*page_index)
                     .map(|id| CosObject::Reference(id))
@@ -225,25 +235,35 @@ impl Destination {
                     FitMode::Fit => d_arr.push(CosObject::Name(CosName::new(b"Fit".to_vec()))),
                     FitMode::FitH(top) => {
                         d_arr.push(CosObject::Name(CosName::new(b"FitH".to_vec())));
-                        if let Some(t) = top { d_arr.push(CosObject::Real(*t)); }
+                        if let Some(t) = top {
+                            d_arr.push(CosObject::Real(*t));
+                        }
                     }
                     FitMode::FitV(left) => {
                         d_arr.push(CosObject::Name(CosName::new(b"FitV".to_vec())));
-                        if let Some(l) = left { d_arr.push(CosObject::Real(*l)); }
+                        if let Some(l) = left {
+                            d_arr.push(CosObject::Real(*l));
+                        }
                     }
                     FitMode::FitR(l, b, r, t) => {
                         d_arr.push(CosObject::Name(CosName::new(b"FitR".to_vec())));
-                        d_arr.push(CosObject::Real(*l)); d_arr.push(CosObject::Real(*b));
-                        d_arr.push(CosObject::Real(*r)); d_arr.push(CosObject::Real(*t));
+                        d_arr.push(CosObject::Real(*l));
+                        d_arr.push(CosObject::Real(*b));
+                        d_arr.push(CosObject::Real(*r));
+                        d_arr.push(CosObject::Real(*t));
                     }
                     FitMode::FitB => d_arr.push(CosObject::Name(CosName::new(b"FitB".to_vec()))),
                     FitMode::FitBH(top) => {
                         d_arr.push(CosObject::Name(CosName::new(b"FitBH".to_vec())));
-                        if let Some(t) = top { d_arr.push(CosObject::Real(*t)); }
+                        if let Some(t) = top {
+                            d_arr.push(CosObject::Real(*t));
+                        }
                     }
                     FitMode::FitBV(left) => {
                         d_arr.push(CosObject::Name(CosName::new(b"FitBV".to_vec())));
-                        if let Some(l) = left { d_arr.push(CosObject::Real(*l)); }
+                        if let Some(l) = left {
+                            d_arr.push(CosObject::Real(*l));
+                        }
                     }
                     FitMode::XYZ(left, top, zoom) => {
                         d_arr.push(CosObject::Name(CosName::new(b"XYZ".to_vec())));
@@ -253,17 +273,35 @@ impl Destination {
                     }
                 }
                 let mut dict = CosDictionary::new();
-                dict.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Action".to_vec())));
-                dict.insert(CosName::new(b"S".to_vec()), CosObject::Name(CosName::new(b"GoToR".to_vec())));
-                dict.insert(CosName::new(b"F".to_vec()), CosObject::String(file.as_bytes().to_vec()));
+                dict.insert(
+                    CosName::new(b"Type".to_vec()),
+                    CosObject::Name(CosName::new(b"Action".to_vec())),
+                );
+                dict.insert(
+                    CosName::new(b"S".to_vec()),
+                    CosObject::Name(CosName::new(b"GoToR".to_vec())),
+                );
+                dict.insert(
+                    CosName::new(b"F".to_vec()),
+                    CosObject::String(file.as_bytes().to_vec()),
+                );
                 dict.insert(CosName::new(b"D".to_vec()), CosObject::Array(d_arr));
                 CosObject::Dictionary(dict)
             }
             Destination::URI(uri) => {
                 let mut dict = CosDictionary::new();
-                dict.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Action".to_vec())));
-                dict.insert(CosName::new(b"S".to_vec()), CosObject::Name(CosName::new(b"URI".to_vec())));
-                dict.insert(CosName::new(b"URI".to_vec()), CosObject::String(uri.as_bytes().to_vec()));
+                dict.insert(
+                    CosName::new(b"Type".to_vec()),
+                    CosObject::Name(CosName::new(b"Action".to_vec())),
+                );
+                dict.insert(
+                    CosName::new(b"S".to_vec()),
+                    CosObject::Name(CosName::new(b"URI".to_vec())),
+                );
+                dict.insert(
+                    CosName::new(b"URI".to_vec()),
+                    CosObject::String(uri.as_bytes().to_vec()),
+                );
                 CosObject::Dictionary(dict)
             }
         }
@@ -291,7 +329,11 @@ mod tests {
     #[test]
     fn test_destination_goto_xyz() {
         let dest = Destination::goto_page(2, FitMode::XYZ(Some(100.0), Some(200.0), Some(1.5)));
-        if let Destination::GoTo { page_index: 2, fit: FitMode::XYZ(Some(l), Some(t), Some(z)) } = dest {
+        if let Destination::GoTo {
+            page_index: 2,
+            fit: FitMode::XYZ(Some(l), Some(t), Some(z)),
+        } = dest
+        {
             assert!((l - 100.0).abs() < f64::EPSILON);
             assert!((t - 200.0).abs() < f64::EPSILON);
             assert!((z - 1.5).abs() < f64::EPSILON);
@@ -303,7 +345,12 @@ mod tests {
     #[test]
     fn test_destination_remote() {
         let dest = Destination::goto_remote("other.pdf", 1, FitMode::FitH(Some(50.0)));
-        if let Destination::GoToR { file, page_index: 1, fit: FitMode::FitH(Some(t)) } = dest {
+        if let Destination::GoToR {
+            file,
+            page_index: 1,
+            fit: FitMode::FitH(Some(t)),
+        } = dest
+        {
             assert_eq!(file, "other.pdf");
             assert!((t - 50.0).abs() < f64::EPSILON);
         } else {

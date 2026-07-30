@@ -71,7 +71,11 @@ pub trait CmsSigner {
     ///
     /// A [`CmsSignerResult`] containing the DER-encoded CMS blob. The caller
     /// hex-encodes it and injects it into the PDF.
-    fn sign_bytes(&mut self, digest: &[u8], config: &SignatureConfig) -> Result<CmsSignerResult, String>;
+    fn sign_bytes(
+        &mut self,
+        digest: &[u8],
+        config: &SignatureConfig,
+    ) -> Result<CmsSignerResult, String>;
 }
 
 /// Sign a PDF using an external [`CmsSigner`].

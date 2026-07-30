@@ -1,4 +1,3 @@
-
 use crate::crypto::permissions::Permissions;
 
 /// Defines an encryption policy for a PDF document.
@@ -15,7 +14,11 @@ pub struct StandardProtectionPolicy {
 
 impl StandardProtectionPolicy {
     /// Creates a new protection policy.
-    pub fn new(owner_password: impl Into<String>, user_password: impl Into<String>, permissions: Permissions) -> Self {
+    pub fn new(
+        owner_password: impl Into<String>,
+        user_password: impl Into<String>,
+        permissions: Permissions,
+    ) -> Self {
         Self {
             user_password: Some(user_password.into()),
             owner_password: owner_password.into(),

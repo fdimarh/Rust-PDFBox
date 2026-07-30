@@ -158,15 +158,14 @@ pub fn find_startxref(data: &[u8], tail_size: usize) -> Result<u64, ParseError> 
 /// Follows `Prev` chains automatically, merging earlier sections into `table`.
 ///
 /// Corresponds to `COSParser.parseXref` in Java PDFBox.
-pub fn parse_xref_table(
-    data: &[u8],
-    offset: u64,
-    table: &mut XRefTable,
-) -> Result<(), ParseError> {
+pub fn parse_xref_table(data: &[u8], offset: u64, table: &mut XRefTable) -> Result<(), ParseError> {
     let start = offset as usize;
     if start >= data.len() {
         return Err(ParseError::new(
-            format!("xref offset {offset} is past end of file ({} bytes)", data.len()),
+            format!(
+                "xref offset {offset} is past end of file ({} bytes)",
+                data.len()
+            ),
             start,
         ));
     }
@@ -247,9 +246,7 @@ fn parse_xref_keyword_table(
             }
 
             // Determine entry length (20 or 21 bytes).
-            let entry_len = if pos + 21 <= slice.len()
-                && matches!(slice[pos + 20], b'\r' | b'\n')
-            {
+            let entry_len = if pos + 21 <= slice.len() && matches!(slice[pos + 20], b'\r' | b'\n') {
                 21usize
             } else {
                 20usize
@@ -303,7 +300,7 @@ fn parse_xref_keyword_table(
                     return Err(ParseError::new(
                         format!("unknown xref entry type '{}'", other as char),
                         start + pos,
-                    ))
+                    ));
                 }
             };
 
@@ -315,9 +312,9 @@ fn parse_xref_keyword_table(
     // Parse trailer dictionary.
     let trailer_slice = &data[start + pos..];
     let mut parser = Parser::new(trailer_slice);
-    let trailer_obj = parser.parse_object()?.ok_or_else(|| {
-        ParseError::new("expected trailer dictionary", start + pos)
-    })?;
+    let trailer_obj = parser
+        .parse_object()?
+        .ok_or_else(|| ParseError::new("expected trailer dictionary", start + pos))?;
 
     let trailer_dict = match trailer_obj {
         CosObject::Dictionary(d) => d,
@@ -325,7 +322,7 @@ fn parse_xref_keyword_table(
             return Err(ParseError::new(
                 format!("trailer must be a dictionary, got {other:?}"),
                 start + pos,
-            ))
+            ));
         }
     };
 
@@ -351,11 +348,7 @@ fn parse_xref_keyword_table(
 /// is controlled by the `/W` array in the stream dictionary.
 ///
 /// Corresponds to `PDFXRefStream` in Java PDFBox.
-fn parse_xref_stream(
-    data: &[u8],
-    start: usize,
-    table: &mut XRefTable,
-) -> Result<(), ParseError> {
+fn parse_xref_stream(data: &[u8], start: usize, table: &mut XRefTable) -> Result<(), ParseError> {
     let slice = &data[start..];
     let mut parser = Parser::new(slice);
 
@@ -369,7 +362,8 @@ fn parse_xref_stream(
     let stream = match obj {
         CosObject::Stream(mut s) => {
             if s.data.is_empty() {
-                let length = s.dictionary
+                let length = s
+                    .dictionary
                     .get(&CosName::new(b"Length".to_vec()))
                     .and_then(|v| v.as_integer())
                     .unwrap_or(0) as usize;
@@ -395,7 +389,7 @@ fn parse_xref_stream(
             return Err(ParseError::new(
                 format!("xref stream must be a stream object, got {other:?}"),
                 start,
-            ))
+            ));
         }
     };
 
@@ -404,10 +398,7 @@ fn parse_xref_stream(
     // Validate /Type = /XRef
     let type_name = dict.get_name(&CosName::type_name());
     if type_name != Some(&CosName::new(b"XRef".to_vec())) {
-        return Err(ParseError::new(
-            "xref stream /Type is not /XRef",
-            start,
-        ));
+        return Err(ParseError::new("xref stream /Type is not /XRef", start));
     }
 
     // Read /W — field widths [type, field2, field3]
@@ -415,7 +406,10 @@ fn parse_xref_stream(
         .get_array(&CosName::new(b"W".to_vec()))
         .ok_or_else(|| ParseError::new("xref stream missing /W array", start))?;
     if w_array.len() != 3 {
-        return Err(ParseError::new("xref stream /W must have 3 elements", start));
+        return Err(ParseError::new(
+            "xref stream /W must have 3 elements",
+            start,
+        ));
     }
     let w: [usize; 3] = [
         w_array[0].as_integer().unwrap_or(0) as usize,
@@ -428,32 +422,33 @@ fn parse_xref_stream(
     }
 
     // Read /Index — pairs of [first_obj, count]. Defaults to [0, /Size].
-    let size = dict
-        .get_int(&CosName::new(b"Size".to_vec()))
-        .unwrap_or(0) as u32;
+    let size = dict.get_int(&CosName::new(b"Size".to_vec())).unwrap_or(0) as u32;
 
-    let index_pairs: Vec<(u32, u32)> = if let Some(idx) = dict.get_array(&CosName::new(b"Index".to_vec())) {
-        if idx.len() % 2 != 0 {
-            return Err(ParseError::new("xref stream /Index length must be even", start));
-        }
-        idx.chunks(2)
-            .map(|pair| {
-                let first = pair[0].as_integer().unwrap_or(0) as u32;
-                let count = pair[1].as_integer().unwrap_or(0) as u32;
-                (first, count)
-            })
-            .collect()
-    } else {
-        vec![(0, size)]
-    };
+    let index_pairs: Vec<(u32, u32)> =
+        if let Some(idx) = dict.get_array(&CosName::new(b"Index".to_vec())) {
+            if idx.len() % 2 != 0 {
+                return Err(ParseError::new(
+                    "xref stream /Index length must be even",
+                    start,
+                ));
+            }
+            idx.chunks(2)
+                .map(|pair| {
+                    let first = pair[0].as_integer().unwrap_or(0) as u32;
+                    let count = pair[1].as_integer().unwrap_or(0) as u32;
+                    (first, count)
+                })
+                .collect()
+        } else {
+            vec![(0, size)]
+        };
 
     // Decode stream data (apply /Filter if present, e.g. FlateDecode)
     let decoded_data: Vec<u8> = {
         let filter = dict.get(&CosName::new(b"Filter".to_vec()));
         let raw = &stream.data;
         if filter.is_some() {
-            crate::io::decode_stream(raw, filter)
-                .unwrap_or_else(|_| raw.to_vec())
+            crate::io::decode_stream(raw, filter).unwrap_or_else(|_| raw.to_vec())
         } else {
             raw.to_vec()
         }
@@ -488,7 +483,10 @@ fn parse_xref_stream(
                 let obj_num = first_obj + i;
                 // For type-2 (Compressed) entries, field3 is the index-within-stream,
                 // not the generation number. Compressed objects always have generation 0.
-                let generation = match entry_type { 2 => 0u16, _ => field3 as u16 };
+                let generation = match entry_type {
+                    2 => 0u16,
+                    _ => field3 as u16,
+                };
                 let id = ObjectId::new(obj_num, generation);
 
                 let entry = match entry_type {
@@ -508,7 +506,7 @@ fn parse_xref_stream(
                         return Err(ParseError::new(
                             format!("unknown xref stream entry type {other}"),
                             start,
-                        ))
+                        ));
                     }
                 };
 
@@ -593,9 +591,7 @@ fn skip_whitespace_bytes(bytes: &[u8]) -> &[u8] {
 
 /// Returns the index after leading whitespace within `slice`, starting at `pos`.
 fn skip_ws_at(slice: &[u8], mut pos: usize) -> usize {
-    while pos < slice.len()
-        && matches!(slice[pos], b' ' | b'\t' | b'\r' | b'\n' | 0x0C | 0x00)
-    {
+    while pos < slice.len() && matches!(slice[pos], b' ' | b'\t' | b'\r' | b'\n' | 0x0C | 0x00) {
         pos += 1;
     }
     pos
@@ -750,7 +746,10 @@ mod tests {
         assert!(matches!(table.get(&id1), Some(XRefEntry::InUse { offset, .. }) if *offset > 0));
 
         // Trailer should have /Size.
-        assert_eq!(table.trailer.get_int(&CosName::new(b"Size".to_vec())), Some(2));
+        assert_eq!(
+            table.trailer.get_int(&CosName::new(b"Size".to_vec())),
+            Some(2)
+        );
     }
 
     #[test]
@@ -792,10 +791,25 @@ mod tests {
     fn xref_table_insert_if_absent() {
         let mut table = XRefTable::new();
         let id = ObjectId::new(1, 0);
-        table.insert_if_absent(id.clone(), XRefEntry::InUse { offset: 100, generation: 0 });
+        table.insert_if_absent(
+            id.clone(),
+            XRefEntry::InUse {
+                offset: 100,
+                generation: 0,
+            },
+        );
         // Second insert should not overwrite.
-        table.insert_if_absent(id.clone(), XRefEntry::InUse { offset: 999, generation: 0 });
-        assert!(matches!(table.get(&id), Some(XRefEntry::InUse { offset: 100, .. })));
+        table.insert_if_absent(
+            id.clone(),
+            XRefEntry::InUse {
+                offset: 999,
+                generation: 0,
+            },
+        );
+        assert!(matches!(
+            table.get(&id),
+            Some(XRefEntry::InUse { offset: 100, .. })
+        ));
     }
 
     #[test]
@@ -810,7 +824,10 @@ mod tests {
         d2.insert(CosName::new(b"Root".to_vec()), CosObject::Null);
         table.merge_trailer(&d2);
 
-        assert_eq!(table.trailer.get_int(&CosName::new(b"Size".to_vec())), Some(5));
+        assert_eq!(
+            table.trailer.get_int(&CosName::new(b"Size".to_vec())),
+            Some(5)
+        );
         assert!(table.trailer.get(&CosName::new(b"Root".to_vec())).is_some());
     }
 
@@ -829,5 +846,3 @@ mod tests {
         assert_eq!(read_be_uint(&[], 0, 0), 0);
     }
 }
-
-

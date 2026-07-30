@@ -1,6 +1,6 @@
-use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 use crate::content::ContentStreamWriter;
-use crate::pdmodel::{rectangle_from_cos, Rectangle};
+use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+use crate::pdmodel::{Rectangle, rectangle_from_cos};
 use crate::{Document, PdfError, PdfResult};
 
 pub mod link;
@@ -302,7 +302,15 @@ pub fn flatten_annotations(
     let mut writer = ContentStreamWriter::new(doc, page_index)?;
     for (xobject_name, transform) in appearances {
         writer.save_state()?;
-        writer.draw_xobject(&xobject_name, transform.0, transform.1, transform.2, transform.3, transform.4, transform.5)?;
+        writer.draw_xobject(
+            &xobject_name,
+            transform.0,
+            transform.1,
+            transform.2,
+            transform.3,
+            transform.4,
+            transform.5,
+        )?;
         writer.restore_state()?;
     }
 
@@ -345,7 +353,10 @@ fn resolve_annotation_appearance(
             doc.insert_object(id, CosObject::Stream(stream.clone()));
             doc.xref.insert_if_absent(
                 id,
-                crate::parser::xref::XRefEntry::InUse { offset: 0, generation: 0 },
+                crate::parser::xref::XRefEntry::InUse {
+                    offset: 0,
+                    generation: 0,
+                },
             );
             (id, stream.dictionary.clone())
         }
@@ -373,7 +384,14 @@ fn resolve_annotation_appearance(
         let height = (y1 - y0).abs().max(1.0);
         let scale_x = rect.width() / width;
         let scale_y = rect.height() / height;
-        (scale_x, 0.0, 0.0, scale_y, rect.lower_left_x, rect.lower_left_y)
+        (
+            scale_x,
+            0.0,
+            0.0,
+            scale_y,
+            rect.lower_left_x,
+            rect.lower_left_y,
+        )
     } else {
         (1.0, 0.0, 0.0, 1.0, rect.lower_left_x, rect.lower_left_y)
     };
@@ -427,7 +445,10 @@ fn register_appearance_xobject(
     } else {
         doc.mutate_object(page_id, |obj| {
             if let CosObject::Dictionary(dict) = obj {
-                dict.insert(resources_name.clone(), CosObject::Dictionary(resources_dict));
+                dict.insert(
+                    resources_name.clone(),
+                    CosObject::Dictionary(resources_dict),
+                );
             }
         });
     }
@@ -435,7 +456,11 @@ fn register_appearance_xobject(
     Some(name)
 }
 
-fn push_annotation_reference(doc: &mut Document, page_id: ObjectId, annot_id: ObjectId) -> PdfResult<()> {
+fn push_annotation_reference(
+    doc: &mut Document,
+    page_id: ObjectId,
+    annot_id: ObjectId,
+) -> PdfResult<()> {
     let annots_name = CosName::new(b"Annots".to_vec());
     let annots_obj = doc
         .get_object_ref(page_id)
@@ -513,7 +538,11 @@ fn parse_rgb_array(obj: &CosObject) -> Option<[f64; 3]> {
     if arr.len() < 3 {
         return None;
     }
-    Some([arr[0].as_number()?, arr[1].as_number()?, arr[2].as_number()?])
+    Some([
+        arr[0].as_number()?,
+        arr[1].as_number()?,
+        arr[2].as_number()?,
+    ])
 }
 
 fn name_to_string(name: &CosName) -> String {
@@ -525,56 +554,110 @@ fn name_to_string(name: &CosName) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cos::{CosDictionary, CosName, CosObject, CosStream};
     use crate::Document;
+    use crate::cos::{CosDictionary, CosName, CosObject, CosStream};
 
     fn make_text_annot_dict() -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Annot".to_vec())));
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Text".to_vec())));
-        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
-            CosObject::Real(100.0), CosObject::Real(200.0),
-            CosObject::Real(150.0), CosObject::Real(250.0),
-        ]));
-        d.insert(CosName::new(b"Contents".to_vec()), CosObject::String(b"Test note".to_vec()));
+        d.insert(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"Annot".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Text".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Rect".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(100.0),
+                CosObject::Real(200.0),
+                CosObject::Real(150.0),
+                CosObject::Real(250.0),
+            ]),
+        );
+        d.insert(
+            CosName::new(b"Contents".to_vec()),
+            CosObject::String(b"Test note".to_vec()),
+        );
         d.insert(CosName::new(b"Open".to_vec()), CosObject::Bool(true));
         d.insert(CosName::new(b"F".to_vec()), CosObject::Integer(4));
         d.insert(CosName::new(b"CA".to_vec()), CosObject::Real(0.8));
-        d.insert(CosName::new(b"C".to_vec()), CosObject::Array(vec![
-            CosObject::Real(1.0), CosObject::Real(0.0), CosObject::Real(0.0),
-        ]));
+        d.insert(
+            CosName::new(b"C".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(1.0),
+                CosObject::Real(0.0),
+                CosObject::Real(0.0),
+            ]),
+        );
         d
     }
 
     fn make_link_annot_dict(uri: &str) -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Annot".to_vec())));
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Link".to_vec())));
-        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
-            CosObject::Real(0.0), CosObject::Real(0.0),
-            CosObject::Real(100.0), CosObject::Real(50.0),
-        ]));
+        d.insert(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"Annot".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Link".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Rect".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(0.0),
+                CosObject::Real(0.0),
+                CosObject::Real(100.0),
+                CosObject::Real(50.0),
+            ]),
+        );
         let mut action = CosDictionary::new();
-        action.insert(CosName::new(b"S".to_vec()), CosObject::Name(CosName::new(b"URI".to_vec())));
-        action.insert(CosName::new(b"URI".to_vec()), CosObject::String(uri.as_bytes().to_vec()));
+        action.insert(
+            CosName::new(b"S".to_vec()),
+            CosObject::Name(CosName::new(b"URI".to_vec())),
+        );
+        action.insert(
+            CosName::new(b"URI".to_vec()),
+            CosObject::String(uri.as_bytes().to_vec()),
+        );
         d.insert(CosName::new(b"A".to_vec()), CosObject::Dictionary(action));
         d
     }
 
     fn make_highlight_annot_dict() -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Annot".to_vec())));
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Highlight".to_vec())));
-        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
-            CosObject::Real(50.0), CosObject::Real(100.0),
-            CosObject::Real(200.0), CosObject::Real(150.0),
-        ]));
-        d.insert(CosName::new(b"QuadPoints".to_vec()), CosObject::Array(vec![
-            CosObject::Real(50.0), CosObject::Real(100.0),
-            CosObject::Real(200.0), CosObject::Real(100.0),
-            CosObject::Real(200.0), CosObject::Real(150.0),
-            CosObject::Real(50.0), CosObject::Real(150.0),
-        ]));
+        d.insert(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"Annot".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Highlight".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Rect".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(50.0),
+                CosObject::Real(100.0),
+                CosObject::Real(200.0),
+                CosObject::Real(150.0),
+            ]),
+        );
+        d.insert(
+            CosName::new(b"QuadPoints".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(50.0),
+                CosObject::Real(100.0),
+                CosObject::Real(200.0),
+                CosObject::Real(100.0),
+                CosObject::Real(200.0),
+                CosObject::Real(150.0),
+                CosObject::Real(50.0),
+                CosObject::Real(150.0),
+            ]),
+        );
         d
     }
 
@@ -629,11 +712,19 @@ mod tests {
     #[test]
     fn parse_generic_annotation() {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Stamp".to_vec())));
-        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
-            CosObject::Real(0.0), CosObject::Real(0.0),
-            CosObject::Real(10.0), CosObject::Real(10.0),
-        ]));
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Stamp".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Rect".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(0.0),
+                CosObject::Real(0.0),
+                CosObject::Real(10.0),
+                CosObject::Real(10.0),
+            ]),
+        );
         let annot = PdAnnotation::from_dict(&d, None).unwrap();
         assert_eq!(annot.subtype(), "Stamp");
         assert!(matches!(annot, PdAnnotation::Generic(_)));
@@ -642,18 +733,29 @@ mod tests {
     #[test]
     fn parse_missing_rect_fails() {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Text".to_vec())));
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Text".to_vec())),
+        );
         assert!(PdAnnotation::from_dict(&d, None).is_err());
     }
 
     #[test]
     fn parse_unknown_subtype_is_generic() {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"3D".to_vec())));
-        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
-            CosObject::Real(0.0), CosObject::Real(0.0),
-            CosObject::Real(10.0), CosObject::Real(10.0),
-        ]));
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"3D".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Rect".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(0.0),
+                CosObject::Real(0.0),
+                CosObject::Real(10.0),
+                CosObject::Real(10.0),
+            ]),
+        );
         let annot = PdAnnotation::from_dict(&d, None).unwrap();
         assert_eq!(annot.subtype(), "3D");
         assert!(matches!(annot, PdAnnotation::Generic(_)));
@@ -667,11 +769,14 @@ mod tests {
         let annot = PdAnnotation::from_dict(&d, None).unwrap();
         let serialized = annot.to_dictionary();
         assert_eq!(
-            serialized.get_name(&CosName::new(b"Subtype".to_vec())).map(|n| n.as_bytes().to_vec()),
+            serialized
+                .get_name(&CosName::new(b"Subtype".to_vec()))
+                .map(|n| n.as_bytes().to_vec()),
             Some(b"Text".to_vec())
         );
         assert_eq!(
-            serialized.get(&CosName::new(b"Contents".to_vec()))
+            serialized
+                .get(&CosName::new(b"Contents".to_vec()))
                 .and_then(|v| v.as_string()),
             Some(&b"Test note"[..])
         );
@@ -682,11 +787,13 @@ mod tests {
         let d = make_link_annot_dict("https://example.com");
         let annot = PdAnnotation::from_dict(&d, None).unwrap();
         let serialized = annot.to_dictionary();
-        let action = serialized.get(&CosName::new(b"A".to_vec()))
+        let action = serialized
+            .get(&CosName::new(b"A".to_vec()))
             .and_then(|v| v.as_dictionary());
         assert!(action.is_some());
         assert_eq!(
-            action.and_then(|a| a.get_name(&CosName::new(b"S".to_vec())))
+            action
+                .and_then(|a| a.get_name(&CosName::new(b"S".to_vec())))
                 .map(|n| n.as_bytes().to_vec()),
             Some(b"URI".to_vec())
         );
@@ -697,7 +804,8 @@ mod tests {
         let d = make_highlight_annot_dict();
         let annot = PdAnnotation::from_dict(&d, None).unwrap();
         let serialized = annot.to_dictionary();
-        let qp = serialized.get(&CosName::new(b"QuadPoints".to_vec()))
+        let qp = serialized
+            .get(&CosName::new(b"QuadPoints".to_vec()))
             .and_then(|v| v.as_array());
         assert!(qp.is_some());
         assert_eq!(qp.unwrap().len(), 8);
@@ -713,12 +821,21 @@ mod tests {
         let page_id = crate::ObjectId::new(3, 0);
 
         let mut catalog = CosDictionary::new();
-        catalog.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Catalog".to_vec())));
+        catalog.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Catalog".to_vec())),
+        );
         catalog.insert(CosName::pages(), CosObject::Reference(pages_id));
         doc.insert_object(catalog_id, CosObject::Dictionary(catalog));
         let mut pages = CosDictionary::new();
-        pages.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Pages".to_vec())));
-        pages.insert(CosName::kids(), CosObject::Array(vec![CosObject::Reference(page_id)]));
+        pages.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Pages".to_vec())),
+        );
+        pages.insert(
+            CosName::kids(),
+            CosObject::Array(vec![CosObject::Reference(page_id)]),
+        );
         pages.insert(CosName::count(), CosObject::Integer(1));
         doc.insert_object(pages_id, CosObject::Dictionary(pages));
         let page = CosDictionary::new();
@@ -729,15 +846,13 @@ mod tests {
         let annot_id = add_annotation_to_page(&mut doc, page_id, annot).unwrap();
 
         let page_obj = doc.get_object_ref(page_id).unwrap();
-        let annots = page_obj.as_dictionary()
+        let annots = page_obj
+            .as_dictionary()
             .and_then(|dict| dict.get(&CosName::new(b"Annots".to_vec())))
             .and_then(|v| v.as_array());
         assert!(annots.is_some());
         assert_eq!(annots.unwrap().len(), 1);
-        assert_eq!(
-            annots.unwrap()[0].as_reference(),
-            Some(annot_id)
-        );
+        assert_eq!(annots.unwrap()[0].as_reference(), Some(annot_id));
     }
 
     #[test]
@@ -756,7 +871,8 @@ mod tests {
 
         remove_annotation_from_page(&mut doc, page_id, 0).unwrap();
         let page_obj = doc.get_object_ref(page_id).unwrap();
-        let annots = page_obj.as_dictionary()
+        let annots = page_obj
+            .as_dictionary()
             .and_then(|dict| dict.get(&CosName::new(b"Annots".to_vec())))
             .and_then(|v| v.as_array());
         assert_eq!(annots.unwrap().len(), 1);
@@ -775,7 +891,8 @@ mod tests {
 
         remove_annotation_from_page(&mut doc, page_id, 0).unwrap();
         let page_obj = doc.get_object_ref(page_id).unwrap();
-        let has_annots = page_obj.as_dictionary()
+        let has_annots = page_obj
+            .as_dictionary()
             .and_then(|dict| dict.get(&CosName::new(b"Annots".to_vec())));
         assert!(has_annots.is_none());
     }
@@ -785,11 +902,19 @@ mod tests {
     #[test]
     fn annotation_common_defaults() {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Text".to_vec())));
-        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
-            CosObject::Real(10.0), CosObject::Real(20.0),
-            CosObject::Real(30.0), CosObject::Real(40.0),
-        ]));
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Text".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Rect".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(10.0),
+                CosObject::Real(20.0),
+                CosObject::Real(30.0),
+                CosObject::Real(40.0),
+            ]),
+        );
         let annot = PdAnnotation::from_dict(&d, Some(crate::ObjectId::new(99, 0))).unwrap();
         assert_eq!(annot.id(), Some(crate::ObjectId::new(99, 0)));
         assert_eq!(annot.subtype(), "Text");
@@ -798,11 +923,19 @@ mod tests {
     #[test]
     fn annotation_missing_optional_fields() {
         let mut d = CosDictionary::new();
-        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Text".to_vec())));
-        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
-            CosObject::Real(0.0), CosObject::Real(0.0),
-            CosObject::Real(1.0), CosObject::Real(1.0),
-        ]));
+        d.insert(
+            CosName::new(b"Subtype".to_vec()),
+            CosObject::Name(CosName::new(b"Text".to_vec())),
+        );
+        d.insert(
+            CosName::new(b"Rect".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Real(0.0),
+                CosObject::Real(0.0),
+                CosObject::Real(1.0),
+                CosObject::Real(1.0),
+            ]),
+        );
         let annot = PdAnnotation::from_dict(&d, None).unwrap();
         assert!(annot.id().is_none());
         match annot {

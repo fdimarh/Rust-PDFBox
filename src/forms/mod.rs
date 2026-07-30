@@ -3,17 +3,17 @@
 //!
 //! Maps to `org.apache.pdfbox.pdmodel.interactive.form.*` in Java PDFBox.
 
-pub mod field;
-pub mod widget;
 pub mod appearance;
-pub mod flatten;
-pub mod xfa;
 pub mod export;
+pub mod field;
+pub mod flatten;
 pub mod import;
+pub mod widget;
+pub mod xfa;
 
 pub use appearance::{generate_all_appearances, generate_field_appearance};
-pub use field::{PdField, get_field_value_for_export, set_field_value};
 pub use export::{export_fdf, export_xfdf};
+pub use field::{PdField, get_field_value_for_export, set_field_value};
 pub use flatten::{flatten_all_fields, flatten_fields};
 pub use import::{import_fdf, import_xfdf};
 pub use widget::PdWidget;
@@ -62,7 +62,9 @@ impl<'a> PdAcroForm<'a> {
     /// Finds a field by its fully qualified name.
     pub fn get_field(&self, fully_qualified_name: &str) -> Option<PdField<'a>> {
         // Simple linear scan for now. True implementation should climb/descend.
-        self.fields().into_iter().find(|f| f.fully_qualified_name() == fully_qualified_name)
+        self.fields()
+            .into_iter()
+            .find(|f| f.fully_qualified_name() == fully_qualified_name)
     }
 
     /// Returns true if the AcroForm contains an `/XFA` entry.

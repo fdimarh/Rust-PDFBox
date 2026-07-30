@@ -9,9 +9,9 @@
 //!
 //! **No new crates** — pure COS writer pass.
 
-use crate::cos::{CosName, CosObject, CosDictionary};
-use crate::{Document, PdfResult};
 use super::CompressOptions;
+use crate::cos::{CosDictionary, CosName, CosObject};
+use crate::{Document, PdfResult};
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -107,4 +107,3 @@ mod tests {
         // No panic is the minimum bar; page count accuracy is verified in integration tests.
     }
 }
-

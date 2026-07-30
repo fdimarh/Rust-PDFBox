@@ -64,10 +64,7 @@ impl FixtureSpec {
 
     /// Creates a text-heavy fixture.
     pub fn text_heavy() -> Self {
-        let text = vec![
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.".to_string();
-            10
-        ];
+        let text = vec!["Lorem ipsum dolor sit amet, consectetur adipiscing elit.".to_string(); 10];
         Self {
             text_content: Some(text),
             ..Default::default()
@@ -86,7 +83,10 @@ impl FixtureSpec {
     pub fn multi_column() -> Self {
         Self {
             multi_column: true,
-            text_content: Some(vec!["Left column text".to_string(), "Right column text".to_string()]),
+            text_content: Some(vec![
+                "Left column text".to_string(),
+                "Right column text".to_string(),
+            ]),
             ..Default::default()
         }
     }
@@ -302,5 +302,3 @@ mod tests {
         assert_eq!(spec.text_content.as_ref().unwrap().len(), 10);
     }
 }
-
-

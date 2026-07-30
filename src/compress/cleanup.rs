@@ -15,9 +15,9 @@
 //! | Empty content streams | Zero-byte `/Contents` streams | Page `/Contents` arrays |
 //! | Info dict trimming | `/Creator`, `/Producer`, `/Keywords`, `/Subject` | `/Info` in trailer |
 
+use super::CompressOptions;
 use crate::cos::{CosName, CosObject};
 use crate::{Document, PdfResult};
-use super::CompressOptions;
 
 // ---------------------------------------------------------------------------
 // Public report
@@ -172,13 +172,20 @@ fn trim_info_dict(doc: &mut Document, report: &mut CleanupReport) {
         None => return,
     };
     let keys_to_remove = [
-        "Creator", "Producer", "Keywords", "Subject",
-        "Company", "SourceModified",
+        "Creator",
+        "Producer",
+        "Keywords",
+        "Subject",
+        "Company",
+        "SourceModified",
     ];
     doc.mutate_object(info_id, |obj| {
         if let CosObject::Dictionary(dict) = obj {
             for key in &keys_to_remove {
-                if dict.remove(&CosName::new(key.as_bytes().to_vec())).is_some() {
+                if dict
+                    .remove(&CosName::new(key.as_bytes().to_vec()))
+                    .is_some()
+                {
                     report.bytes_saved += 32; // rough per-entry overhead
                 }
             }
@@ -223,18 +230,10 @@ fn remove_dead_resources(doc: &mut Document, report: &mut CleanupReport) -> PdfR
             None => continue,
         };
 
-        prune_resource_subdict(
-            doc, resources_id, "Font", &used_fonts, report,
-        );
-        prune_resource_subdict(
-            doc, resources_id, "XObject", &used_xobjects, report,
-        );
-        prune_resource_subdict(
-            doc, resources_id, "ExtGState", &used_extgstate, report,
-        );
-        prune_resource_subdict(
-            doc, resources_id, "ColorSpace", &used_colorspace, report,
-        );
+        prune_resource_subdict(doc, resources_id, "Font", &used_fonts, report);
+        prune_resource_subdict(doc, resources_id, "XObject", &used_xobjects, report);
+        prune_resource_subdict(doc, resources_id, "ExtGState", &used_extgstate, report);
+        prune_resource_subdict(doc, resources_id, "ColorSpace", &used_colorspace, report);
     }
 
     Ok(())
@@ -272,9 +271,15 @@ fn collect_used_resources(
                 if i >= 1 && tokens[i - 1].starts_with('/') {
                     let name = tokens[i - 1][1..].to_string();
                     match op {
-                        "Do" => { xobjects.insert(name); }
-                        "gs" => { extgstate.insert(name); }
-                        "cs" | "CS" | "scn" | "SCN" => { colorspace.insert(name); }
+                        "Do" => {
+                            xobjects.insert(name);
+                        }
+                        "gs" => {
+                            extgstate.insert(name);
+                        }
+                        "cs" | "CS" | "scn" | "SCN" => {
+                            colorspace.insert(name);
+                        }
                         _ => {}
                     }
                 }
@@ -314,22 +319,21 @@ fn prune_resource_subdict(
     let to_remove: Vec<(String, Option<crate::cos::ObjectId>)> = {
         let obj = doc.get_object_ref(id);
         match obj {
-            Some(CosObject::Dictionary(dict)) => {
-                dict.entries()
-                    .filter(|(k, _)| {
-                        let key_str = k.as_str().unwrap_or("");
-                        !used.contains(key_str)
-                    })
-                    .map(|(k, v)| {
-                        let ref_id = if let CosObject::Reference(rid) = v {
-                            Some(*rid)
-                        } else {
-                            None
-                        };
-                        (k.as_str().unwrap_or("").to_string(), ref_id)
-                    })
-                    .collect()
-            }
+            Some(CosObject::Dictionary(dict)) => dict
+                .entries()
+                .filter(|(k, _)| {
+                    let key_str = k.as_str().unwrap_or("");
+                    !used.contains(key_str)
+                })
+                .map(|(k, v)| {
+                    let ref_id = if let CosObject::Reference(rid) = v {
+                        Some(*rid)
+                    } else {
+                        None
+                    };
+                    (k.as_str().unwrap_or("").to_string(), ref_id)
+                })
+                .collect(),
             _ => return,
         }
     };
@@ -399,7 +403,13 @@ mod tests {
         let mut xobjects = HashSet::new();
         let mut extgstate = HashSet::new();
         let mut colorspace = HashSet::new();
-        collect_used_resources(content, &mut fonts, &mut xobjects, &mut extgstate, &mut colorspace);
+        collect_used_resources(
+            content,
+            &mut fonts,
+            &mut xobjects,
+            &mut extgstate,
+            &mut colorspace,
+        );
         assert!(fonts.contains("F1"));
     }
 
@@ -411,7 +421,13 @@ mod tests {
         let mut xobjects = HashSet::new();
         let mut extgstate = HashSet::new();
         let mut colorspace = HashSet::new();
-        collect_used_resources(content, &mut fonts, &mut xobjects, &mut extgstate, &mut colorspace);
+        collect_used_resources(
+            content,
+            &mut fonts,
+            &mut xobjects,
+            &mut extgstate,
+            &mut colorspace,
+        );
         assert!(xobjects.contains("Im1"));
     }
 
@@ -423,8 +439,13 @@ mod tests {
         let mut xobjects = HashSet::new();
         let mut extgstate = HashSet::new();
         let mut colorspace = HashSet::new();
-        collect_used_resources(content, &mut fonts, &mut xobjects, &mut extgstate, &mut colorspace);
+        collect_used_resources(
+            content,
+            &mut fonts,
+            &mut xobjects,
+            &mut extgstate,
+            &mut colorspace,
+        );
         assert!(extgstate.contains("GS1"));
     }
 }
-

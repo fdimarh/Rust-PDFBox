@@ -12,8 +12,8 @@
 //! Output: signed_multi_plain.pdf
 
 use rust_pdfbox::{
-    signing::{sign_pdf, validate_pdf_full, PadesLevel, SignatureFormat, SignOptions},
     Document,
+    signing::{PadesLevel, SignOptions, SignatureFormat, sign_pdf, validate_pdf_full},
 };
 use std::{fs, path::PathBuf};
 
@@ -58,7 +58,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             rect: None,
             visible_signature: false,
             signer_name: reason.to_string(),
-            contact_info: format!("{}@{}.com", field_name, reason.to_lowercase().replace(' ', "")),
+            contact_info: format!(
+                "{}@{}.com",
+                field_name,
+                reason.to_lowercase().replace(' ', "")
+            ),
             reason: reason.to_string(),
             location: location.to_string(),
             timestamp_url: Some("http://timestamp.digicert.com".into()),
@@ -75,12 +79,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Validate all sigs so far
         let results = validate_pdf_full(&current, None)?;
         for r in &results {
-            println!("   Sig #{} '{}': Digest {}  CMS {}  Chain {}",
+            println!(
+                "   Sig #{} '{}': Digest {}  CMS {}  Chain {}",
                 i + 1,
                 r.field_name.as_deref().unwrap_or("?"),
                 if r.digest_match { "✅" } else { "❌" },
                 if r.cms_signature_valid { "✅" } else { "❌" },
-                if r.certificate_chain_valid { "✅" } else { "❌" },
+                if r.certificate_chain_valid {
+                    "✅"
+                } else {
+                    "❌"
+                },
             );
         }
     }
@@ -95,19 +104,62 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let results = validate_pdf_full(&current, None)?;
     for (i, r) in results.iter().enumerate() {
         println!("\n--- Signature #{} ---", i + 1);
-        println!("  Field Name       : {}", r.field_name.as_deref().unwrap_or("unnamed"));
-        println!("  SubFilter        : {}", r.sub_filter.as_deref().unwrap_or("-"));
-        println!("  Digest Match     : {}", if r.digest_match { "✅ VALID" } else { "❌ INVALID" });
-        println!("  CMS Valid        : {}", if r.cms_signature_valid { "✅ VALID" } else { "❌ INVALID" });
-        println!("  Cert Chain Valid : {}", if r.certificate_chain_valid { "✅ VALID" } else { "❌ INVALID" });
-        println!("  Time Valid       : {}", if r.has_timestamp { "✅ VALID" } else { "❌ INVALID/MISSING" });
-        println!("  LTV Enabled      : {}", if r.is_ltv_enabled { "✅ YES" } else { "❌ NO" });
+        println!(
+            "  Field Name       : {}",
+            r.field_name.as_deref().unwrap_or("unnamed")
+        );
+        println!(
+            "  SubFilter        : {}",
+            r.sub_filter.as_deref().unwrap_or("-")
+        );
+        println!(
+            "  Digest Match     : {}",
+            if r.digest_match {
+                "✅ VALID"
+            } else {
+                "❌ INVALID"
+            }
+        );
+        println!(
+            "  CMS Valid        : {}",
+            if r.cms_signature_valid {
+                "✅ VALID"
+            } else {
+                "❌ INVALID"
+            }
+        );
+        println!(
+            "  Cert Chain Valid : {}",
+            if r.certificate_chain_valid {
+                "✅ VALID"
+            } else {
+                "❌ INVALID"
+            }
+        );
+        println!(
+            "  Time Valid       : {}",
+            if r.has_timestamp {
+                "✅ VALID"
+            } else {
+                "❌ INVALID/MISSING"
+            }
+        );
+        println!(
+            "  LTV Enabled      : {}",
+            if r.is_ltv_enabled {
+                "✅ YES"
+            } else {
+                "❌ NO"
+            }
+        );
         for w in &r.security_warnings {
             println!("  ⚠️  Warning: {}", w);
         }
     }
 
-    let all_ok = results.iter().all(|r| r.digest_match && r.cms_signature_valid && r.certificate_chain_valid);
+    let all_ok = results
+        .iter()
+        .all(|r| r.digest_match && r.cms_signature_valid && r.certificate_chain_valid);
     println!("\n═══════════════════════════════════════════════════════════════");
     if all_ok {
         println!("🎉 ALL {} signatures VALID", results.len());

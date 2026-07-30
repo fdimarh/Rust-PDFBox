@@ -244,7 +244,7 @@ impl<'a> Lexer<'a> {
                             result.push(other);
                         }
                         None => {
-                            return Err(LexError::unterminated("literal string escape", self.pos))
+                            return Err(LexError::unterminated("literal string escape", self.pos));
                         }
                     }
                 }
@@ -473,10 +473,7 @@ mod tests {
     #[test]
     fn lex_literal_string_escapes() {
         let tokens = lex_all(b"(\\n\\r\\t\\\\)");
-        assert_eq!(
-            tokens,
-            vec![Token::LiteralString(b"\n\r\t\\".to_vec())]
-        );
+        assert_eq!(tokens, vec![Token::LiteralString(b"\n\r\t\\".to_vec())]);
     }
 
     #[test]
@@ -510,7 +507,12 @@ mod tests {
         let tokens = lex_all(b"[1 2]");
         assert_eq!(
             tokens,
-            vec![Token::ArrayStart, Token::Integer(1), Token::Integer(2), Token::ArrayEnd]
+            vec![
+                Token::ArrayStart,
+                Token::Integer(1),
+                Token::Integer(2),
+                Token::ArrayEnd
+            ]
         );
     }
 
@@ -602,4 +604,3 @@ mod tests {
         assert_eq!(lexer.position(), 10);
     }
 }
-

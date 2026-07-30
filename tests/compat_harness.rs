@@ -179,7 +179,11 @@ impl CompatReport {
     /// Generate a human-readable report.
     pub fn to_string(&self) -> String {
         let mut s = format!("File: {}\n", self.file.display());
-        s.push_str(if self.passed { "Status: ✓ PASS\n" } else { "Status: ✗ FAIL\n" });
+        s.push_str(if self.passed {
+            "Status: ✓ PASS\n"
+        } else {
+            "Status: ✗ FAIL\n"
+        });
         s.push_str("\nFeatures:\n");
 
         let mut features: Vec<_> = self.results.keys().collect();
@@ -433,7 +437,10 @@ mod tests {
     fn compat_report_track_results() {
         let mut report = CompatReport::new("test.pdf");
         report.add_result(Feature::Structure, DiffResult::Match);
-        report.add_result(Feature::TextContent, DiffResult::Mismatch("text differs".to_string()));
+        report.add_result(
+            Feature::TextContent,
+            DiffResult::Mismatch("text differs".to_string()),
+        );
 
         assert!(!report.passed);
         assert_eq!(report.results.len(), 2);
@@ -447,4 +454,3 @@ mod tests {
         assert!(summary.contains("PASS"));
     }
 }
-

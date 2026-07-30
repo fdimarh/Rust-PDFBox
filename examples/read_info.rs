@@ -13,7 +13,10 @@ fn main() {
 
     let doc = match Document::load(&path) {
         Ok(d) => d,
-        Err(e) => { eprintln!("Error loading {path}: {e}"); std::process::exit(2); }
+        Err(e) => {
+            eprintln!("Error loading {path}: {e}");
+            std::process::exit(2);
+        }
     };
 
     println!("File          : {path}");
@@ -22,7 +25,10 @@ fn main() {
     println!("Pages         : {}", doc.page_count());
 
     if let Some(cat_ref) = doc.catalog_ref() {
-        println!("Catalog ref   : {} {} R", cat_ref.object_number, cat_ref.generation);
+        println!(
+            "Catalog ref   : {} {} R",
+            cat_ref.object_number, cat_ref.generation
+        );
     }
 
     // Print /Info metadata if available
@@ -32,8 +38,14 @@ fn main() {
             if let Some(info_obj) = doc.objects.get(&info_id) {
                 if let Some(dict) = info_obj.as_dictionary() {
                     println!("\n--- Document Info ---");
-                    for key in &[b"Title".as_slice(), b"Author", b"Subject",
-                                  b"Creator", b"Producer", b"CreationDate"] {
+                    for key in &[
+                        b"Title".as_slice(),
+                        b"Author",
+                        b"Subject",
+                        b"Creator",
+                        b"Producer",
+                        b"CreationDate",
+                    ] {
                         let name = rust_pdfbox::cos::CosName::new(key.to_vec());
                         if let Some(val) = dict.get(&name) {
                             if let Some(s) = val.as_string_lossy() {
@@ -50,13 +62,17 @@ fn main() {
     if let Ok(pages) = doc.pages() {
         println!("\n--- Pages ---");
         for (i, page) in pages.iter().enumerate() {
-            let mb = page.media_box()
+            let mb = page
+                .media_box()
                 .map(|r| format!("{:.0}×{:.0}", r.width(), r.height()))
                 .unwrap_or_else(|| "no media box".into());
             let rot = page.rotation();
-            let rot_str = if rot != 0 { format!(" rot={rot}°") } else { String::new() };
+            let rot_str = if rot != 0 {
+                format!(" rot={rot}°")
+            } else {
+                String::new()
+            };
             println!("  Page {:3}: {}{}", i + 1, mb, rot_str);
         }
     }
 }
-

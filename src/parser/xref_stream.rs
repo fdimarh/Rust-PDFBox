@@ -94,9 +94,18 @@ impl XRefEntry {
         }
 
         match type_byte {
-            0 => Some(XRefEntry::Free { next: field1 as u32, generation: field2 as u16 }),
-            1 => Some(XRefEntry::InUse { offset: field1, generation: field2 as u16 }),
-            2 => Some(XRefEntry::Compressed { stream: field1 as u32, index: field2 }),
+            0 => Some(XRefEntry::Free {
+                next: field1 as u32,
+                generation: field2 as u16,
+            }),
+            1 => Some(XRefEntry::InUse {
+                offset: field1,
+                generation: field2 as u16,
+            }),
+            2 => Some(XRefEntry::Compressed {
+                stream: field1 as u32,
+                index: field2,
+            }),
             _ => None,
         }
     }
@@ -121,7 +130,11 @@ pub struct XRefSubsection {
 
 impl XRefSubsection {
     pub fn new(start: u32) -> Self {
-        Self { start, count: 0, entries: Vec::new() }
+        Self {
+            start,
+            count: 0,
+            entries: Vec::new(),
+        }
     }
 
     pub fn add_entry(&mut self, entry: XRefEntry) {
@@ -206,10 +219,7 @@ impl XRefStream {
                     .step_by(2)
                     .filter_map(|i| {
                         if i + 1 < arr.len() {
-                            Some((
-                                arr[i].as_integer()? as u32,
-                                arr[i + 1].as_integer()? as u32,
-                            ))
+                            Some((arr[i].as_integer()? as u32, arr[i + 1].as_integer()? as u32))
                         } else {
                             None
                         }
@@ -251,14 +261,27 @@ impl XRefStream {
             .get_int(&CosName::new(b"Prev".to_vec()))
             .map(|n| n as u64);
 
-        Some(Self { size, widths: w_arr, subsections, root, info, prev })
+        Some(Self {
+            size,
+            widths: w_arr,
+            subsections,
+            root,
+            info,
+            prev,
+        })
     }
 
     /// Serialize to a stream object.
     pub fn to_stream(&self) -> CosStream {
         let mut dict = CosDictionary::new();
-        dict.set(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"XRef".to_vec())));
-        dict.set(CosName::new(b"Size".to_vec()), CosObject::Integer(self.size as i64));
+        dict.set(
+            CosName::new(b"Type".to_vec()),
+            CosObject::Name(CosName::new(b"XRef".to_vec())),
+        );
+        dict.set(
+            CosName::new(b"Size".to_vec()),
+            CosObject::Integer(self.size as i64),
+        );
 
         // /W array
         dict.set(
@@ -294,7 +317,10 @@ impl XRefStream {
             );
         }
         if let Some(prev) = self.prev {
-            dict.set(CosName::new(b"Prev".to_vec()), CosObject::Integer(prev as i64));
+            dict.set(
+                CosName::new(b"Prev".to_vec()),
+                CosObject::Integer(prev as i64),
+            );
         }
 
         // Serialize subsections to data
@@ -328,7 +354,10 @@ mod tests {
 
     #[test]
     fn xref_entry_in_use_serialization() {
-        let entry = XRefEntry::InUse { offset: 1234, generation: 0 };
+        let entry = XRefEntry::InUse {
+            offset: 1234,
+            generation: 0,
+        };
         let widths = [1, 2, 2];
         let bytes = entry.to_bytes(&widths);
         assert_eq!(bytes.len(), 5);
@@ -337,7 +366,10 @@ mod tests {
 
     #[test]
     fn xref_entry_free_serialization() {
-        let entry = XRefEntry::Free { next: 99, generation: 5 };
+        let entry = XRefEntry::Free {
+            next: 99,
+            generation: 5,
+        };
         let widths = [1, 2, 2];
         let bytes = entry.to_bytes(&widths);
         assert_eq!(bytes[0], 0); // type 0
@@ -345,7 +377,10 @@ mod tests {
 
     #[test]
     fn xref_entry_compressed_serialization() {
-        let entry = XRefEntry::Compressed { stream: 10, index: 5 };
+        let entry = XRefEntry::Compressed {
+            stream: 10,
+            index: 5,
+        };
         let widths = [1, 2, 2];
         let bytes = entry.to_bytes(&widths);
         assert_eq!(bytes[0], 2); // type 2
@@ -353,7 +388,10 @@ mod tests {
 
     #[test]
     fn xref_entry_roundtrip() {
-        let entry = XRefEntry::InUse { offset: 5678, generation: 1 };
+        let entry = XRefEntry::InUse {
+            offset: 5678,
+            generation: 1,
+        };
         let widths = [1, 2, 2];
         let bytes = entry.to_bytes(&widths);
         let parsed = XRefEntry::from_bytes(&bytes, &widths).unwrap();
@@ -363,8 +401,14 @@ mod tests {
     #[test]
     fn xref_subsection_creation() {
         let mut subsec = XRefSubsection::new(0);
-        subsec.add_entry(XRefEntry::InUse { offset: 100, generation: 0 });
-        subsec.add_entry(XRefEntry::InUse { offset: 200, generation: 0 });
+        subsec.add_entry(XRefEntry::InUse {
+            offset: 100,
+            generation: 0,
+        });
+        subsec.add_entry(XRefEntry::InUse {
+            offset: 200,
+            generation: 0,
+        });
         assert_eq!(subsec.count, 2);
         assert_eq!(subsec.entries.len(), 2);
     }
@@ -380,8 +424,14 @@ mod tests {
     fn xref_stream_lookup() {
         let mut xref = XRefStream::new(10);
         let mut subsec = XRefSubsection::new(0);
-        subsec.add_entry(XRefEntry::InUse { offset: 100, generation: 0 });
-        subsec.add_entry(XRefEntry::InUse { offset: 200, generation: 0 });
+        subsec.add_entry(XRefEntry::InUse {
+            offset: 100,
+            generation: 0,
+        });
+        subsec.add_entry(XRefEntry::InUse {
+            offset: 200,
+            generation: 0,
+        });
         xref.subsections.push(subsec);
 
         let entry = xref.lookup(0).unwrap();
@@ -396,7 +446,10 @@ mod tests {
     #[test]
     fn xref_entry_width_edge_cases() {
         // Test with different width combinations
-        let entry = XRefEntry::InUse { offset: 0xFFFFFFFF, generation: 0xFFFF };
+        let entry = XRefEntry::InUse {
+            offset: 0xFFFFFFFF,
+            generation: 0xFFFF,
+        };
         let widths = [1, 4, 2]; // Allow large offset
         let bytes = entry.to_bytes(&widths);
         assert_eq!(bytes.len(), 7);
@@ -404,20 +457,37 @@ mod tests {
 
     #[test]
     fn xref_entry_free_next_object() {
-        let entry = XRefEntry::Free { next: 5, generation: 65535 };
+        let entry = XRefEntry::Free {
+            next: 5,
+            generation: 65535,
+        };
         let widths = [1, 2, 2];
         let bytes = entry.to_bytes(&widths);
         let parsed = XRefEntry::from_bytes(&bytes, &widths).unwrap();
-        assert!(matches!(parsed, XRefEntry::Free { next: 5, generation: 65535 }));
+        assert!(matches!(
+            parsed,
+            XRefEntry::Free {
+                next: 5,
+                generation: 65535
+            }
+        ));
     }
 
     #[test]
     fn xref_compressed_object_reference() {
-        let entry = XRefEntry::Compressed { stream: 20, index: 7 };
+        let entry = XRefEntry::Compressed {
+            stream: 20,
+            index: 7,
+        };
         let widths = [1, 2, 2];
         let bytes = entry.to_bytes(&widths);
         let parsed = XRefEntry::from_bytes(&bytes, &widths).unwrap();
-        assert!(matches!(parsed, XRefEntry::Compressed { stream: 20, index: 7 }));
+        assert!(matches!(
+            parsed,
+            XRefEntry::Compressed {
+                stream: 20,
+                index: 7
+            }
+        ));
     }
 }
-

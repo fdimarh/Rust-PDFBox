@@ -6,10 +6,10 @@
 //!
 //! Also handles on-the-fly encryption: RC4 (Rev 2-3), AES-128 (Rev 4), AES-256 (Rev 5/6).
 
-use std::io::{self, Write};
+use crate::cos::{CosDictionary, CosName, CosObject, CosStream, ObjectId};
 use crate::crypto::handlers::StandardSecurityHandler;
 use std::collections::HashSet;
-use crate::cos::{CosObject, CosName, CosDictionary, CosStream, ObjectId};
+use std::io::{self, Write};
 
 /// Encryption mode for the serializer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,14 +72,16 @@ impl<'a, W: Write> Serializer<'a, W> {
     fn encrypt_data(&self, obj_key: &[u8], data: &[u8], is_string: bool) -> Vec<u8> {
         match self.encryption_mode {
             EncryptionMode::None => data.to_vec(),
-            EncryptionMode::Rc4 => {
-                crate::crypto::rc4::Rc4::crypt(obj_key, data)
-            }
+            EncryptionMode::Rc4 => crate::crypto::rc4::Rc4::crypt(obj_key, data),
             EncryptionMode::Aes128 => {
                 use rand::Rng;
                 let mut iv = [0u8; 16];
                 rand::thread_rng().fill(&mut iv);
-                if let Some(mut enc) = crate::crypto::aes_encrypt::aes_cbc_encrypt(&obj_key[..16.min(obj_key.len())], &iv, data) {
+                if let Some(mut enc) = crate::crypto::aes_encrypt::aes_cbc_encrypt(
+                    &obj_key[..16.min(obj_key.len())],
+                    &iv,
+                    data,
+                ) {
                     enc
                 } else {
                     data.to_vec()
@@ -91,9 +93,11 @@ impl<'a, W: Write> Serializer<'a, W> {
                 let mut iv = [0u8; 16];
                 rand::thread_rng().fill(&mut iv);
                 if let Some(mut enc) = crate::crypto::aes_encrypt::aes256_cbc_encrypt(
-                    &obj_key[..32.min(obj_key.len())], &iv, data
+                    &obj_key[..32.min(obj_key.len())],
+                    &iv,
+                    data,
                 ) {
-                    enc  // aes256_cbc_encrypt already returns IV + ciphertext
+                    enc // aes256_cbc_encrypt already returns IV + ciphertext
                 } else {
                     data.to_vec()
                 }
@@ -113,7 +117,9 @@ impl<'a, W: Write> Serializer<'a, W> {
                     if let Some(id) = self.current_object_id {
                         if !self.bypass_ids.contains(&id) {
                             let obj_key = StandardSecurityHandler::compute_object_key(
-                                file_key, id.object_number as u32, id.generation as u16,
+                                file_key,
+                                id.object_number as u32,
+                                id.generation as u16,
                                 self.encryption_mode != EncryptionMode::Rc4,
                             );
                             let encrypted = self.encrypt_data(&obj_key, bytes, true);
@@ -133,7 +139,9 @@ impl<'a, W: Write> Serializer<'a, W> {
                     if let Some(id) = self.current_object_id {
                         if !self.bypass_ids.contains(&id) {
                             let obj_key = StandardSecurityHandler::compute_object_key(
-                                file_key, id.object_number as u32, id.generation as u16,
+                                file_key,
+                                id.object_number as u32,
+                                id.generation as u16,
                                 self.encryption_mode != EncryptionMode::Rc4,
                             );
                             let encrypted = self.encrypt_data(&obj_key, bytes, true);
@@ -151,7 +159,9 @@ impl<'a, W: Write> Serializer<'a, W> {
                     if let Some(id) = self.current_object_id {
                         if !self.bypass_ids.contains(&id) {
                             let obj_key = StandardSecurityHandler::compute_object_key(
-                                file_key, id.object_number as u32, id.generation as u16,
+                                file_key,
+                                id.object_number as u32,
+                                id.generation as u16,
                                 self.encryption_mode != EncryptionMode::Rc4,
                             );
                             let encrypted = self.encrypt_data(&obj_key, &stream.data, false);
@@ -172,7 +182,11 @@ impl<'a, W: Write> Serializer<'a, W> {
         Ok(())
     }
 
-    pub fn write_indirect_object(&mut self, id: crate::cos::ObjectId, obj: &crate::cos::CosObject) -> io::Result<()> {
+    pub fn write_indirect_object(
+        &mut self,
+        id: crate::cos::ObjectId,
+        obj: &crate::cos::CosObject,
+    ) -> io::Result<()> {
         self.current_object_id = Some(id);
         write!(self.writer, "{} {} obj\n", id.object_number, id.generation)?;
         self.write_object(obj)?;
@@ -213,7 +227,18 @@ impl<'a, W: Write> Serializer<'a, W> {
         self.writer.write_all(b"/")?;
         for &byte in name.as_bytes() {
             match byte {
-                0x00..=0x20 | b'%' | b'(' | b')' | b'<' | b'>' | b'[' | b']' | b'{' | b'}' | b'/' | b'#' => {
+                0x00..=0x20
+                | b'%'
+                | b'('
+                | b')'
+                | b'<'
+                | b'>'
+                | b'['
+                | b']'
+                | b'{'
+                | b'}'
+                | b'/'
+                | b'#' => {
                     write!(self.writer, "#{:02X}", byte)?;
                 }
                 _ => self.writer.write_all(&[byte])?,

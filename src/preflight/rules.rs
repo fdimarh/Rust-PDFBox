@@ -1,12 +1,14 @@
-use crate::Document;
-use crate::cos::{CosObject, CosName};
 use super::ValidationError;
+use crate::Document;
+use crate::cos::{CosName, CosObject};
 
 /// Trait for individual PDF/A validation rules.
 pub trait PreflightRule {
     fn validate(&self, doc: &Document) -> Vec<ValidationError>;
     /// Unique identifier for this rule (e.g. "1.0").
-    fn id(&self) -> &'static str { "" }
+    fn id(&self) -> &'static str {
+        ""
+    }
 }
 
 // ── 1.0 Encryption Rule ────────────────────────────────────────────────
@@ -15,7 +17,10 @@ pub struct NoEncryptionRule;
 impl PreflightRule for NoEncryptionRule {
     fn validate(&self, doc: &Document) -> Vec<ValidationError> {
         let mut errors = Vec::new();
-        if doc.trailer().contains_key(&CosName::new(b"Encrypt".to_vec())) {
+        if doc
+            .trailer()
+            .contains_key(&CosName::new(b"Encrypt".to_vec()))
+        {
             errors.push(ValidationError {
                 rule_id: "1.0",
                 message: "PDF/A-1b documents must not be encrypted.".to_string(),
@@ -23,7 +28,9 @@ impl PreflightRule for NoEncryptionRule {
         }
         errors
     }
-    fn id(&self) -> &'static str { "1.0" }
+    fn id(&self) -> &'static str {
+        "1.0"
+    }
 }
 
 // ── 2.0 LZW Filter Rule ────────────────────────────────────────────────
@@ -39,25 +46,34 @@ impl PreflightRule for NoLzwFilterRule {
         for (id, obj) in doc.objects.iter() {
             if let CosObject::Stream(stream) = obj {
                 let has_lzw = match stream.dictionary.get(&filter_key) {
-                    Some(CosObject::Name(n)) => n.as_bytes() == lzw_name || n.as_bytes() == lzw_short,
+                    Some(CosObject::Name(n)) => {
+                        n.as_bytes() == lzw_name || n.as_bytes() == lzw_short
+                    }
                     Some(CosObject::Array(arr)) => arr.iter().any(|f| {
                         if let CosObject::Name(n) = f {
                             n.as_bytes() == lzw_name || n.as_bytes() == lzw_short
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }),
                     _ => false,
                 };
                 if has_lzw {
                     errors.push(ValidationError {
                         rule_id: "2.0",
-                        message: format!("PDF/A-1b forbids LZW compression (Obj {} {}).", id.object_number, id.generation),
+                        message: format!(
+                            "PDF/A-1b forbids LZW compression (Obj {} {}).",
+                            id.object_number, id.generation
+                        ),
                     });
                 }
             }
         }
         errors
     }
-    fn id(&self) -> &'static str { "2.0" }
+    fn id(&self) -> &'static str {
+        "2.0"
+    }
 }
 
 // ── 3.0 ASCII85 / ASCIIHex Filter Rule ─────────────────────────────────
@@ -77,21 +93,28 @@ impl PreflightRule for NoDeprecatedFiltersRule {
                     Some(CosObject::Array(arr)) => arr.iter().any(|f| {
                         if let CosObject::Name(n) = f {
                             deprecated.iter().any(|d| n.as_bytes() == *d)
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }),
                     _ => false,
                 };
                 if has_dep {
                     errors.push(ValidationError {
                         rule_id: "3.0",
-                        message: format!("PDF/A-1b discourages deprecated filters (Obj {} {}).", id.object_number, id.generation),
+                        message: format!(
+                            "PDF/A-1b discourages deprecated filters (Obj {} {}).",
+                            id.object_number, id.generation
+                        ),
                     });
                 }
             }
         }
         errors
     }
-    fn id(&self) -> &'static str { "3.0" }
+    fn id(&self) -> &'static str {
+        "3.0"
+    }
 }
 
 // ── 4.0 JavaScript Rule ────────────────────────────────────────────────
@@ -109,7 +132,10 @@ impl PreflightRule for NoJavaScriptRule {
                 if dict.contains_key(&js_key) || dict.contains_key(&js_short) {
                     errors.push(ValidationError {
                         rule_id: "4.0",
-                        message: format!("PDF/A-1b forbids JavaScript. Found JS entry in Obj {} {}", id.object_number, id.generation),
+                        message: format!(
+                            "PDF/A-1b forbids JavaScript. Found JS entry in Obj {} {}",
+                            id.object_number, id.generation
+                        ),
                     });
                 }
 
@@ -117,7 +143,10 @@ impl PreflightRule for NoJavaScriptRule {
                     if action_type.as_bytes() == b"JavaScript" {
                         errors.push(ValidationError {
                             rule_id: "4.1",
-                            message: format!("PDF/A-1b forbids JavaScript Actions (Obj {} {}).", id.object_number, id.generation),
+                            message: format!(
+                                "PDF/A-1b forbids JavaScript Actions (Obj {} {}).",
+                                id.object_number, id.generation
+                            ),
                         });
                     }
                 }
@@ -125,7 +154,9 @@ impl PreflightRule for NoJavaScriptRule {
         }
         errors
     }
-    fn id(&self) -> &'static str { "4.0" }
+    fn id(&self) -> &'static str {
+        "4.0"
+    }
 }
 
 // ── 5.0 OPI Rule ───────────────────────────────────────────────────────
@@ -145,7 +176,10 @@ impl PreflightRule for NoOpiRule {
                     if dict.contains_key(key) {
                         errors.push(ValidationError {
                             rule_id: "5.0",
-                            message: format!("PDF/A-1b forbids OPI references (Obj {} {}).", id.object_number, id.generation),
+                            message: format!(
+                                "PDF/A-1b forbids OPI references (Obj {} {}).",
+                                id.object_number, id.generation
+                            ),
                         });
                     }
                 }
@@ -156,7 +190,10 @@ impl PreflightRule for NoOpiRule {
                     if dict.contains_key(key) {
                         errors.push(ValidationError {
                             rule_id: "5.0",
-                            message: format!("PDF/A-1b forbids OPI references (Obj {} {}).", id.object_number, id.generation),
+                            message: format!(
+                                "PDF/A-1b forbids OPI references (Obj {} {}).",
+                                id.object_number, id.generation
+                            ),
                         });
                     }
                 }
@@ -164,7 +201,9 @@ impl PreflightRule for NoOpiRule {
         }
         errors
     }
-    fn id(&self) -> &'static str { "5.0" }
+    fn id(&self) -> &'static str {
+        "5.0"
+    }
 }
 
 // ── 6.0 Metadata Rule ─────────────────────────────────────────────────
@@ -208,7 +247,9 @@ impl PreflightRule for MetadataRule {
 
         errors
     }
-    fn id(&self) -> &'static str { "6.0" }
+    fn id(&self) -> &'static str {
+        "6.0"
+    }
 }
 
 // ── 7.0 Font Rule ──────────────────────────────────────────────────────
@@ -221,7 +262,8 @@ impl PreflightRule for FontEmbeddingRule {
 
         for (id, obj) in doc.objects.iter() {
             if let CosObject::Dictionary(dict) = obj {
-                let type_name = dict.get(&CosName::type_name())
+                let type_name = dict
+                    .get(&CosName::type_name())
                     .and_then(|o| o.as_name())
                     .map(|n| n.as_bytes());
 
@@ -231,7 +273,8 @@ impl PreflightRule for FontEmbeddingRule {
                         || dict.contains_key(&CosName::new(b"FontFile3".to_vec()));
 
                     if !has_fontfile {
-                        let is_symbolic = dict.get(&CosName::new(b"Flags".to_vec()))
+                        let is_symbolic = dict
+                            .get(&CosName::new(b"Flags".to_vec()))
                             .and_then(|o| o.as_integer())
                             .map(|f| (f & 4) != 0)
                             .unwrap_or(false);
@@ -248,7 +291,9 @@ impl PreflightRule for FontEmbeddingRule {
         }
         errors
     }
-    fn id(&self) -> &'static str { "7.0" }
+    fn id(&self) -> &'static str {
+        "7.0"
+    }
 }
 
 // ── 8.0 Transparency Rule ───────────────────────────────────────────────
@@ -272,22 +317,32 @@ impl PreflightRule for NoTransparencyRule {
                     if stream.dictionary.contains_key(key) {
                         errors.push(ValidationError {
                             rule_id: "8.0",
-                            message: format!("PDF/A-1b forbids transparency (key {:?} in Obj {} {}).",
-                                String::from_utf8_lossy(key.as_bytes()), id.object_number, id.generation),
+                            message: format!(
+                                "PDF/A-1b forbids transparency (key {:?} in Obj {} {}).",
+                                String::from_utf8_lossy(key.as_bytes()),
+                                id.object_number,
+                                id.generation
+                            ),
                         });
                     }
                 }
             }
             if let CosObject::Dictionary(dict) = obj {
                 if dict.contains_key(&CosName::new(b"Group".to_vec())) {
-                    if let Some(CosObject::Dictionary(g)) = dict.get(&CosName::new(b"Group".to_vec())) {
-                        let s = g.get(&CosName::new(b"S".to_vec()))
+                    if let Some(CosObject::Dictionary(g)) =
+                        dict.get(&CosName::new(b"Group".to_vec()))
+                    {
+                        let s = g
+                            .get(&CosName::new(b"S".to_vec()))
                             .and_then(|o| o.as_name())
                             .map(|n| n.as_bytes());
                         if s == Some(b"Transparency") {
                             errors.push(ValidationError {
                                 rule_id: "8.1",
-                                message: format!("PDF/A-1b forbids transparency groups (Obj {} {}).", id.object_number, id.generation),
+                                message: format!(
+                                    "PDF/A-1b forbids transparency groups (Obj {} {}).",
+                                    id.object_number, id.generation
+                                ),
                             });
                         }
                     }
@@ -296,7 +351,9 @@ impl PreflightRule for NoTransparencyRule {
         }
         errors
     }
-    fn id(&self) -> &'static str { "8.0" }
+    fn id(&self) -> &'static str {
+        "8.0"
+    }
 }
 
 // ── 9.0 Annotation Rule ────────────────────────────────────────────────
@@ -311,7 +368,8 @@ impl PreflightRule for AnnotationRule {
 
         for (id, obj) in doc.objects.iter() {
             if let CosObject::Dictionary(dict) = obj {
-                let is_annot = dict.get(&type_key)
+                let is_annot = dict
+                    .get(&type_key)
                     .and_then(|o| o.as_name())
                     .map(|n| n.as_bytes() == b"Annot")
                     .unwrap_or(false);
@@ -321,7 +379,10 @@ impl PreflightRule for AnnotationRule {
                     if (flags & 4) == 0 {
                         errors.push(ValidationError {
                             rule_id: "9.0",
-                            message: format!("PDF/A-1b requires annotation print flag (Obj {} {}).", id.object_number, id.generation),
+                            message: format!(
+                                "PDF/A-1b requires annotation print flag (Obj {} {}).",
+                                id.object_number, id.generation
+                            ),
                         });
                     }
                 }
@@ -329,7 +390,9 @@ impl PreflightRule for AnnotationRule {
         }
         errors
     }
-    fn id(&self) -> &'static str { "9.0" }
+    fn id(&self) -> &'static str {
+        "9.0"
+    }
 }
 
 // ── 10.0 Output Intent Rule ────────────────────────────────────────────
@@ -374,7 +437,9 @@ impl PreflightRule for OutputIntentRule {
 
         errors
     }
-    fn id(&self) -> &'static str { "10.0" }
+    fn id(&self) -> &'static str {
+        "10.0"
+    }
 }
 
 // ── 11.0 Action Rule ───────────────────────────────────────────────────
@@ -385,7 +450,14 @@ impl PreflightRule for NoLaunchActionsRule {
     fn validate(&self, doc: &Document) -> Vec<ValidationError> {
         let mut errors = Vec::new();
         let s_key = CosName::new(b"S".to_vec());
-        let forbidden: &[&[u8]] = &[b"Launch", b"Sound", b"Movie", b"Hide", b"ResetForm", b"ImportData"];
+        let forbidden: &[&[u8]] = &[
+            b"Launch",
+            b"Sound",
+            b"Movie",
+            b"Hide",
+            b"ResetForm",
+            b"ImportData",
+        ];
 
         for (id, obj) in doc.objects.iter() {
             if let CosObject::Dictionary(dict) = obj {
@@ -393,8 +465,12 @@ impl PreflightRule for NoLaunchActionsRule {
                     if forbidden.iter().any(|f| action_type.as_bytes() == *f) {
                         errors.push(ValidationError {
                             rule_id: "11.0",
-                            message: format!("PDF/A-1b forbids {} actions (Obj {} {}).",
-                                String::from_utf8_lossy(action_type.as_bytes()), id.object_number, id.generation),
+                            message: format!(
+                                "PDF/A-1b forbids {} actions (Obj {} {}).",
+                                String::from_utf8_lossy(action_type.as_bytes()),
+                                id.object_number,
+                                id.generation
+                            ),
                         });
                     }
                 }
@@ -402,7 +478,9 @@ impl PreflightRule for NoLaunchActionsRule {
         }
         errors
     }
-    fn id(&self) -> &'static str { "11.0" }
+    fn id(&self) -> &'static str {
+        "11.0"
+    }
 }
 
 // ── 12.0 Color Space Rule ──────────────────────────────────────────────
@@ -428,22 +506,36 @@ impl PreflightRule for ColorSpaceRule {
         }
         errors
     }
-    fn id(&self) -> &'static str { "12.0" }
+    fn id(&self) -> &'static str {
+        "12.0"
+    }
 }
 
 impl ColorSpaceRule {
-    fn check_cs(&self, obj: &CosObject, id: &crate::cos::ObjectId, errors: &mut Vec<ValidationError>) {
+    fn check_cs(
+        &self,
+        obj: &CosObject,
+        id: &crate::cos::ObjectId,
+        errors: &mut Vec<ValidationError>,
+    ) {
         let names = match obj {
             CosObject::Name(n) => vec![n.as_bytes()],
-            CosObject::Array(arr) => arr.iter().filter_map(|o| o.as_name().map(|n| n.as_bytes())).collect(),
+            CosObject::Array(arr) => arr
+                .iter()
+                .filter_map(|o| o.as_name().map(|n| n.as_bytes()))
+                .collect(),
             _ => return,
         };
         for name in &names {
             if *name == b"CalRGB" || *name == b"CalGray" || *name == b"Lab" {
                 errors.push(ValidationError {
                     rule_id: "12.0",
-                    message: format!("PDF/A-1b forbids {} color space (Obj {} {}).",
-                        String::from_utf8_lossy(name), id.object_number, id.generation),
+                    message: format!(
+                        "PDF/A-1b forbids {} color space (Obj {} {}).",
+                        String::from_utf8_lossy(name),
+                        id.object_number,
+                        id.generation
+                    ),
                 });
             }
         }
@@ -474,21 +566,27 @@ impl PreflightRule for PageRule {
 
         for (id, obj) in doc.objects.iter() {
             if let CosObject::Dictionary(dict) = obj {
-                let is_page = dict.get(&CosName::type_name())
+                let is_page = dict
+                    .get(&CosName::type_name())
                     .and_then(|o| o.as_name())
                     .map(|n| n.as_bytes() == b"Page")
                     .unwrap_or(false);
                 if is_page && dict.contains_key(&aa_key) {
                     errors.push(ValidationError {
                         rule_id: "13.1",
-                        message: format!("PDF/A-1b forbids page-level additional actions (Page {} {}).", id.object_number, id.generation),
+                        message: format!(
+                            "PDF/A-1b forbids page-level additional actions (Page {} {}).",
+                            id.object_number, id.generation
+                        ),
                     });
                 }
             }
         }
         errors
     }
-    fn id(&self) -> &'static str { "13.0" }
+    fn id(&self) -> &'static str {
+        "13.0"
+    }
 }
 
 // ── 14.0 Embedded File Rule ────────────────────────────────────────────
@@ -522,19 +620,28 @@ impl PreflightRule for EmbeddedFileRule {
         // Check all objects for /Type /EmbeddedFile
         for (id, obj) in doc.objects.iter() {
             if let CosObject::Stream(stream) = obj {
-                let type_name = stream.dictionary.get(&CosName::type_name())
+                let type_name = stream
+                    .dictionary
+                    .get(&CosName::type_name())
                     .and_then(|o| o.as_name())
                     .map(|n| n.as_bytes());
                 if type_name == Some(b"EmbeddedFile") {
-                    let subtype = stream.dictionary.get(&CosName::new(b"Subtype".to_vec()))
+                    let subtype = stream
+                        .dictionary
+                        .get(&CosName::new(b"Subtype".to_vec()))
                         .and_then(|o| o.as_name())
                         .map(|n| n.as_bytes());
                     if subtype != Some(b"application/pdf") {
                         errors.push(ValidationError {
                             rule_id: "14.1",
-                            message: format!("Embedded file Obj {} {} is not PDF/A (Subtype {:?}).",
-                                id.object_number, id.generation,
-                                subtype.map(|s| String::from_utf8_lossy(s)).unwrap_or_default()),
+                            message: format!(
+                                "Embedded file Obj {} {} is not PDF/A (Subtype {:?}).",
+                                id.object_number,
+                                id.generation,
+                                subtype
+                                    .map(|s| String::from_utf8_lossy(s))
+                                    .unwrap_or_default()
+                            ),
                         });
                     }
                 }
@@ -543,7 +650,9 @@ impl PreflightRule for EmbeddedFileRule {
 
         errors
     }
-    fn id(&self) -> &'static str { "14.0" }
+    fn id(&self) -> &'static str {
+        "14.0"
+    }
 }
 
 // =======================================================================

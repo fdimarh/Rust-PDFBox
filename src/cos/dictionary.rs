@@ -60,10 +60,7 @@ impl CosDictionary {
 
     /// Looks up a value by name key.
     pub fn get(&self, key: &CosName) -> Option<&CosObject> {
-        self.entries
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| v)
+        self.entries.iter().find(|(k, _)| k == key).map(|(_, v)| v)
     }
 
     /// Looks up a value by name key (mutable).
@@ -255,7 +252,10 @@ mod tests {
             CosObject::String(b"Hello".to_vec()),
         );
 
-        assert_eq!(dict.get_name(&CosName::type_name()), Some(&CosName::catalog()));
+        assert_eq!(
+            dict.get_name(&CosName::type_name()),
+            Some(&CosName::catalog())
+        );
         assert_eq!(dict.get_int(&CosName::count()), Some(5));
         assert_eq!(dict.get_bool(&CosName::new(b"Flag".to_vec())), Some(true));
         assert_eq!(
@@ -298,4 +298,3 @@ mod tests {
         assert_eq!(keys[2].as_str(), Some("C"));
     }
 }
-

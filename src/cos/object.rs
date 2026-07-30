@@ -339,14 +339,10 @@ mod tests {
             CosObject::Dictionary(CosDictionary::new()).type_name(),
             "Dictionary"
         );
-        assert_eq!(
-            CosObject::Stream(CosStream::empty()).type_name(),
-            "Stream"
-        );
+        assert_eq!(CosObject::Stream(CosStream::empty()).type_name(), "Stream");
         assert_eq!(
             CosObject::Reference(ObjectId::new(1, 0)).type_name(),
             "Reference"
         );
     }
 }
-

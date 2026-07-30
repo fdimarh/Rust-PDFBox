@@ -4,7 +4,7 @@
 //! Maps to PDFBox's color management pipeline.
 
 use image::RgbaImage;
-use lcms2::{Profile, Transform, PixelFormat};
+use lcms2::{PixelFormat, Profile, Transform};
 
 /// Applies an ICC color profile to raw pixel data to convert it into accurate sRGB.
 pub fn apply_icc_profile(
@@ -38,14 +38,20 @@ pub fn apply_icc_profile(
     let out_format = PixelFormat::RGBA_8;
 
     // 3. Create Color Transform
-    let transform = match Transform::new(&source_profile, in_format, &srgb_profile, out_format, lcms2::Intent::Perceptual) {
+    let transform = match Transform::new(
+        &source_profile,
+        in_format,
+        &srgb_profile,
+        out_format,
+        lcms2::Intent::Perceptual,
+    ) {
         Ok(t) => t,
         Err(_) => return img,
     };
 
     // 4. Transform data into output buffer
     let mut srgb_buffer = vec![0u8; (width * height * 4) as usize];
-    
+
     // LCMS expects chunks of pixels based on component count
     // So we pad or slice the input raw_pixels to ensure proper boundaries
     let total_expected_bytes = (width * height) as usize * components;

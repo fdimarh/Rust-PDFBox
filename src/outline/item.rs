@@ -3,8 +3,8 @@
 //!
 //! Maps to `PDOutlineItem` in Java PDFBox.
 
-use crate::cos::{CosDictionary, CosName, ObjectId};
 use crate::ObjectStore;
+use crate::cos::{CosDictionary, CosName, ObjectId};
 
 use super::destination::Destination;
 
@@ -51,7 +51,10 @@ impl<'a> OutlineItem<'a> {
     }
 
     /// Parses the destination for this outline item.
-    pub fn destination(&self, page_id_to_index: &impl Fn(ObjectId) -> Option<usize>) -> Option<Destination> {
+    pub fn destination(
+        &self,
+        page_id_to_index: &impl Fn(ObjectId) -> Option<usize>,
+    ) -> Option<Destination> {
         // Try /Dest first (direct destination or action dict)
         if let Some(dest_obj) = self.dict.get(&CosName::new(b"Dest".to_vec())) {
             if let Some(dest) = Destination::from_cos(dest_obj, page_id_to_index) {

@@ -16,20 +16,22 @@ impl PdImage {
             });
         }
 
-        if self
-            .filter_names
-            .iter()
-            .any(|f| matches!(f.as_str(), "DCTDecode" | "DCT" | "JPXDecode" | "CCITTFaxDecode"))
-        {
+        if self.filter_names.iter().any(|f| {
+            matches!(
+                f.as_str(),
+                "DCTDecode" | "DCT" | "JPXDecode" | "CCITTFaxDecode"
+            )
+        }) {
             return Err(PdfError::Unsupported {
                 feature: "pixel decode for DCT/JPX/CCITT images is not implemented yet",
             });
         }
 
-        let decoded = io::decode_stream(&self.data, self.filter.as_ref()).map_err(|e| PdfError::Parse {
-            offset: None,
-            context: format!("image stream decode failed: {e}"),
-        })?;
+        let decoded =
+            io::decode_stream(&self.data, self.filter.as_ref()).map_err(|e| PdfError::Parse {
+                offset: None,
+                context: format!("image stream decode failed: {e}"),
+            })?;
 
         let channels = match self.effective_color_space() {
             Some("DeviceGray") => 1usize,
@@ -153,4 +155,3 @@ impl PdImage {
         Ok(out)
     }
 }
-

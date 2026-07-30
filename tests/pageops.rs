@@ -3,15 +3,14 @@
 //! Tests for PdfMerger, PdfSplitter, extract_pages, rotate_page,
 //! PdfOverlay, and add_watermark.
 
+use rust_pdfbox::PdfResult;
 use rust_pdfbox::content::parse_content_stream;
 use rust_pdfbox::content::writer::ContentStreamWriter;
 use rust_pdfbox::cos::{CosName, CosObject};
 use rust_pdfbox::pageops::{
-    add_watermark, extract_pages, rotate_page, PdfMerger, PdfOverlay, OverlayType,
-    WatermarkConfig,
+    OverlayType, PdfMerger, PdfOverlay, WatermarkConfig, add_watermark, extract_pages, rotate_page,
 };
 use rust_pdfbox::pdmodel::{DocumentBuilder, PageSize};
-use rust_pdfbox::PdfResult;
 
 // =========================================================================
 // PdfMerger tests
@@ -351,7 +350,10 @@ fn test_rotate_page_accumulates() -> PdfResult<()> {
 
 #[test]
 fn test_rotate_page_invalid_index() {
-    let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build().unwrap();
+    let mut doc = DocumentBuilder::new()
+        .page_size(PageSize::A4)
+        .build()
+        .unwrap();
     let result = rotate_page(&mut doc, 99, 90);
     assert!(result.is_err());
 }

@@ -1,5 +1,5 @@
-use crate::{Document, PdfResult};
 use super::extract::extract_pages;
+use crate::{Document, PdfResult};
 
 /// Splits a document into multiple documents.
 pub struct PdfSplitter<'a> {
@@ -15,7 +15,7 @@ impl<'a> PdfSplitter<'a> {
     pub fn split(&mut self, pages_per_doc: usize) -> PdfResult<Vec<Document>> {
         let total_pages = self.doc.page_count();
         let mut results = Vec::new();
-        
+
         let mut start = 0;
         while start < total_pages {
             let end = (start + pages_per_doc).min(total_pages);
@@ -24,7 +24,7 @@ impl<'a> PdfSplitter<'a> {
             results.push(new_doc);
             start = end;
         }
-        
+
         Ok(results)
     }
 }
@@ -42,40 +42,79 @@ mod tests {
         let content_id = ObjectId::new(5, 0);
 
         let mut doc = Document::empty();
-        doc.insert_object(catalog_id, CosObject::Dictionary({
-            let mut d = CosDictionary::new();
-            d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Catalog".to_vec())));
-            d.insert(CosName::new(b"Pages".to_vec()), CosObject::Reference(pages_id));
-            d
-        }));
-        doc.insert_object(pages_id, CosObject::Dictionary({
-            let mut d = CosDictionary::new();
-            d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Pages".to_vec())));
-            d.insert(CosName::new(b"Count".to_vec()), CosObject::Integer(2));
-            d.insert(CosName::new(b"Kids".to_vec()), CosObject::Array(vec![
-                CosObject::Reference(page1_id),
-                CosObject::Reference(page2_id),
-            ]));
-            d
-        }));
-        for (i, pid) in [page1_id, page2_id].iter().enumerate() {
-            doc.insert_object(*pid, CosObject::Dictionary({
+        doc.insert_object(
+            catalog_id,
+            CosObject::Dictionary({
                 let mut d = CosDictionary::new();
-                d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Page".to_vec())));
-                d.insert(CosName::new(b"Parent".to_vec()), CosObject::Reference(pages_id));
-                d.insert(CosName::new(b"MediaBox".to_vec()), CosObject::Array(vec![
-                    CosObject::Integer(0), CosObject::Integer(0),
-                    CosObject::Integer(612), CosObject::Integer(792),
-                ]));
-                d.insert(CosName::contents(), CosObject::Reference(content_id));
-                d.insert(CosName::new(b"Rotate".to_vec()), CosObject::Integer(0));
+                d.insert(
+                    CosName::new(b"Type".to_vec()),
+                    CosObject::Name(CosName::new(b"Catalog".to_vec())),
+                );
+                d.insert(
+                    CosName::new(b"Pages".to_vec()),
+                    CosObject::Reference(pages_id),
+                );
                 d
-            }));
+            }),
+        );
+        doc.insert_object(
+            pages_id,
+            CosObject::Dictionary({
+                let mut d = CosDictionary::new();
+                d.insert(
+                    CosName::new(b"Type".to_vec()),
+                    CosObject::Name(CosName::new(b"Pages".to_vec())),
+                );
+                d.insert(CosName::new(b"Count".to_vec()), CosObject::Integer(2));
+                d.insert(
+                    CosName::new(b"Kids".to_vec()),
+                    CosObject::Array(vec![
+                        CosObject::Reference(page1_id),
+                        CosObject::Reference(page2_id),
+                    ]),
+                );
+                d
+            }),
+        );
+        for (i, pid) in [page1_id, page2_id].iter().enumerate() {
+            doc.insert_object(
+                *pid,
+                CosObject::Dictionary({
+                    let mut d = CosDictionary::new();
+                    d.insert(
+                        CosName::new(b"Type".to_vec()),
+                        CosObject::Name(CosName::new(b"Page".to_vec())),
+                    );
+                    d.insert(
+                        CosName::new(b"Parent".to_vec()),
+                        CosObject::Reference(pages_id),
+                    );
+                    d.insert(
+                        CosName::new(b"MediaBox".to_vec()),
+                        CosObject::Array(vec![
+                            CosObject::Integer(0),
+                            CosObject::Integer(0),
+                            CosObject::Integer(612),
+                            CosObject::Integer(792),
+                        ]),
+                    );
+                    d.insert(CosName::contents(), CosObject::Reference(content_id));
+                    d.insert(CosName::new(b"Rotate".to_vec()), CosObject::Integer(0));
+                    d
+                }),
+            );
         }
-        doc.insert_object(content_id, CosObject::Stream(crate::cos::CosStream::new(
-            CosDictionary::new(), b"BT ET".to_vec(),
-        )));
-        doc.xref.trailer.insert(CosName::new(b"Root".to_vec()), CosObject::Reference(catalog_id));
+        doc.insert_object(
+            content_id,
+            CosObject::Stream(crate::cos::CosStream::new(
+                CosDictionary::new(),
+                b"BT ET".to_vec(),
+            )),
+        );
+        doc.xref.trailer.insert(
+            CosName::new(b"Root".to_vec()),
+            CosObject::Reference(catalog_id),
+        );
         doc
     }
 
@@ -103,4 +142,3 @@ mod tests {
         assert!(result.is_empty());
     }
 }
-

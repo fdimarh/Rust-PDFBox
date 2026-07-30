@@ -6,9 +6,9 @@
 //! one enum and provides a `FontResolver` that resolves font references
 //! from a page's `/Resources` dictionary.
 
-use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 use super::simple::SimpleFont;
 use super::type0::Type0Font;
+use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 
 // ---------------------------------------------------------------------------
 // PdfFont
@@ -32,9 +32,7 @@ impl PdfFont {
     ) -> Option<Self> {
         let subtype = dict.get_name(&CosName::subtype())?;
         match subtype.as_bytes() {
-            b"Type0" => {
-                Type0Font::from_dict(dict, get_object).map(Self::Type0)
-            }
+            b"Type0" => Type0Font::from_dict(dict, get_object).map(Self::Type0),
             b"Type1" | b"MMType1" | b"TrueType" | b"Type3" => {
                 SimpleFont::from_dict(dict, get_object).map(Self::Simple)
             }
@@ -49,7 +47,7 @@ impl PdfFont {
     pub fn decode_bytes(&self, bytes: &[u8]) -> String {
         match self {
             Self::Simple(f) => f.decode_bytes(bytes),
-            Self::Type0(f)  => f.decode_bytes(bytes),
+            Self::Type0(f) => f.decode_bytes(bytes),
         }
     }
 
@@ -57,7 +55,7 @@ impl PdfFont {
     pub fn base_font_name(&self) -> &str {
         match self {
             Self::Simple(f) => f.base_font_name(),
-            Self::Type0(f)  => &f.base_font,
+            Self::Type0(f) => &f.base_font,
         }
     }
 
@@ -73,19 +71,25 @@ impl PdfFont {
 
     /// Returns the `SimpleFont` if this is one.
     pub fn as_simple(&self) -> Option<&SimpleFont> {
-        match self { Self::Simple(f) => Some(f), _ => None }
+        match self {
+            Self::Simple(f) => Some(f),
+            _ => None,
+        }
     }
 
     /// Returns the `Type0Font` if this is one.
     pub fn as_type0(&self) -> Option<&Type0Font> {
-        match self { Self::Type0(f) => Some(f), _ => None }
+        match self {
+            Self::Type0(f) => Some(f),
+            _ => None,
+        }
     }
 
     /// Returns `true` if a ToUnicode CMap is available.
     pub fn has_to_unicode(&self) -> bool {
         match self {
             Self::Simple(f) => f.has_to_unicode(),
-            Self::Type0(f)  => f.to_unicode.is_some(),
+            Self::Type0(f) => f.to_unicode.is_some(),
         }
     }
 }
@@ -131,9 +135,7 @@ impl FontResolver {
             let font_name = String::from_utf8_lossy(name.as_bytes()).to_string();
             let dict = match val {
                 CosObject::Dictionary(d) => Some(d.clone()),
-                CosObject::Reference(id) => {
-                    get_object(*id).and_then(|o| o.into_dictionary())
-                }
+                CosObject::Reference(id) => get_object(*id).and_then(|o| o.into_dictionary()),
                 _ => None,
             };
             if let Some(d) = dict {
@@ -171,31 +173,68 @@ mod tests {
     use super::*;
     use crate::cos::{CosDictionary, CosName, CosObject};
 
-    fn no_object(_: ObjectId) -> Option<CosObject> { None }
+    fn no_object(_: ObjectId) -> Option<CosObject> {
+        None
+    }
 
     fn make_type1_font_dict(name: &str) -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.set(CosName::subtype(), CosObject::Name(CosName::new(b"Type1".to_vec())));
-        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(name.as_bytes().to_vec())));
-        d.set(CosName::new(b"Encoding".to_vec()), CosObject::Name(CosName::new(b"WinAnsiEncoding".to_vec())));
+        d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"Type1".to_vec())),
+        );
+        d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(name.as_bytes().to_vec())),
+        );
+        d.set(
+            CosName::new(b"Encoding".to_vec()),
+            CosObject::Name(CosName::new(b"WinAnsiEncoding".to_vec())),
+        );
         d
     }
 
     fn make_type0_font_dict(name: &str) -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.set(CosName::subtype(), CosObject::Name(CosName::new(b"Type0".to_vec())));
-        d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(name.as_bytes().to_vec())));
-        d.set(CosName::new(b"Encoding".to_vec()), CosObject::Name(CosName::new(b"Identity-H".to_vec())));
+        d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"Type0".to_vec())),
+        );
+        d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(name.as_bytes().to_vec())),
+        );
+        d.set(
+            CosName::new(b"Encoding".to_vec()),
+            CosObject::Name(CosName::new(b"Identity-H".to_vec())),
+        );
         let mut cid_d = CosDictionary::new();
-        cid_d.set(CosName::subtype(), CosObject::Name(CosName::new(b"CIDFontType2".to_vec())));
-        cid_d.set(CosName::new(b"BaseFont".to_vec()), CosObject::Name(CosName::new(name.as_bytes().to_vec())));
+        cid_d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"CIDFontType2".to_vec())),
+        );
+        cid_d.set(
+            CosName::new(b"BaseFont".to_vec()),
+            CosObject::Name(CosName::new(name.as_bytes().to_vec())),
+        );
         let mut csi = CosDictionary::new();
-        csi.set(CosName::new(b"Registry".to_vec()), CosObject::String(b"Adobe".to_vec()));
-        csi.set(CosName::new(b"Ordering".to_vec()), CosObject::String(b"Identity".to_vec()));
+        csi.set(
+            CosName::new(b"Registry".to_vec()),
+            CosObject::String(b"Adobe".to_vec()),
+        );
+        csi.set(
+            CosName::new(b"Ordering".to_vec()),
+            CosObject::String(b"Identity".to_vec()),
+        );
         csi.set(CosName::new(b"Supplement".to_vec()), CosObject::Integer(0));
-        cid_d.set(CosName::new(b"CIDSystemInfo".to_vec()), CosObject::Dictionary(csi));
-        d.set(CosName::new(b"DescendantFonts".to_vec()),
-            CosObject::Array(vec![CosObject::Dictionary(cid_d)]));
+        cid_d.set(
+            CosName::new(b"CIDSystemInfo".to_vec()),
+            CosObject::Dictionary(csi),
+        );
+        d.set(
+            CosName::new(b"DescendantFonts".to_vec()),
+            CosObject::Array(vec![CosObject::Dictionary(cid_d)]),
+        );
         d
     }
 
@@ -227,7 +266,10 @@ mod tests {
     #[test]
     fn pdf_font_unknown_subtype_returns_none() {
         let mut d = CosDictionary::new();
-        d.set(CosName::subtype(), CosObject::Name(CosName::new(b"Unknown".to_vec())));
+        d.set(
+            CosName::subtype(),
+            CosObject::Name(CosName::new(b"Unknown".to_vec())),
+        );
         assert!(PdfFont::from_dict(&d, &no_object).is_none());
     }
 
@@ -257,7 +299,10 @@ mod tests {
         font_subdict.set(CosName::new(b"F2".to_vec()), CosObject::Dictionary(f2_dict));
 
         let mut res = CosDictionary::new();
-        res.set(CosName::new(b"Font".to_vec()), CosObject::Dictionary(font_subdict));
+        res.set(
+            CosName::new(b"Font".to_vec()),
+            CosObject::Dictionary(font_subdict),
+        );
 
         let resolver = FontResolver::from_resources(&res, &no_object);
         assert_eq!(resolver.font_count(), 2);
@@ -279,7 +324,10 @@ mod tests {
         let mut font_subdict = CosDictionary::new();
         font_subdict.set(CosName::new(b"F1".to_vec()), CosObject::Dictionary(f1_dict));
         let mut res = CosDictionary::new();
-        res.set(CosName::new(b"Font".to_vec()), CosObject::Dictionary(font_subdict));
+        res.set(
+            CosName::new(b"Font".to_vec()),
+            CosObject::Dictionary(font_subdict),
+        );
         let resolver = FontResolver::from_resources(&res, &no_object);
         let pairs: Vec<_> = resolver.iter().collect();
         assert_eq!(pairs.len(), 1);
@@ -293,4 +341,3 @@ mod tests {
         assert!(!font.has_to_unicode());
     }
 }
-

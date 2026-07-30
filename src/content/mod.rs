@@ -9,10 +9,10 @@
 //! | `COSBase` operand stack | [`ContentToken`] |
 //! | `PDGraphicsState` + `PDTextState` | [`graphics_state::GraphicsState`] |
 
-pub mod graphics_state;
-pub mod writer;
 pub mod edit;
 pub mod editor;
+pub mod graphics_state;
+pub mod writer;
 
 pub use graphics_state::{GraphicsState, Matrix, TextState};
 pub use writer::ContentStreamWriter;
@@ -53,31 +53,57 @@ impl Operator {
     // ----- Well-known operator predicates -----
 
     /// `BT` — begin text object.
-    pub fn is_begin_text(&self) -> bool { self.name == b"BT" }
+    pub fn is_begin_text(&self) -> bool {
+        self.name == b"BT"
+    }
     /// `ET` — end text object.
-    pub fn is_end_text(&self) -> bool { self.name == b"ET" }
+    pub fn is_end_text(&self) -> bool {
+        self.name == b"ET"
+    }
     /// `Tf` — set text font and size.
-    pub fn is_set_font(&self) -> bool { self.name == b"Tf" }
+    pub fn is_set_font(&self) -> bool {
+        self.name == b"Tf"
+    }
     /// `Tj` — show text string.
-    pub fn is_show_text(&self) -> bool { self.name == b"Tj" }
+    pub fn is_show_text(&self) -> bool {
+        self.name == b"Tj"
+    }
     /// `TJ` — show text with individual glyph positioning.
-    pub fn is_show_text_positioned(&self) -> bool { self.name == b"TJ" }
+    pub fn is_show_text_positioned(&self) -> bool {
+        self.name == b"TJ"
+    }
     /// `Td` — move text position.
-    pub fn is_move_text(&self) -> bool { self.name == b"Td" }
+    pub fn is_move_text(&self) -> bool {
+        self.name == b"Td"
+    }
     /// `TD` — move text position and set leading.
-    pub fn is_move_text_set_leading(&self) -> bool { self.name == b"TD" }
+    pub fn is_move_text_set_leading(&self) -> bool {
+        self.name == b"TD"
+    }
     /// `Tm` — set text matrix.
-    pub fn is_set_text_matrix(&self) -> bool { self.name == b"Tm" }
+    pub fn is_set_text_matrix(&self) -> bool {
+        self.name == b"Tm"
+    }
     /// `T*` — move to next line.
-    pub fn is_next_line(&self) -> bool { self.name == b"T*" }
+    pub fn is_next_line(&self) -> bool {
+        self.name == b"T*"
+    }
     /// `q` — save graphics state.
-    pub fn is_save_state(&self) -> bool { self.name == b"q" }
+    pub fn is_save_state(&self) -> bool {
+        self.name == b"q"
+    }
     /// `Q` — restore graphics state.
-    pub fn is_restore_state(&self) -> bool { self.name == b"Q" }
+    pub fn is_restore_state(&self) -> bool {
+        self.name == b"Q"
+    }
     /// `cm` — concatenate matrix.
-    pub fn is_concat_matrix(&self) -> bool { self.name == b"cm" }
+    pub fn is_concat_matrix(&self) -> bool {
+        self.name == b"cm"
+    }
     /// `Do` — invoke named XObject.
-    pub fn is_do(&self) -> bool { self.name == b"Do" }
+    pub fn is_do(&self) -> bool {
+        self.name == b"Do"
+    }
 }
 
 impl std::fmt::Display for Operator {
@@ -196,16 +222,14 @@ impl<'a> ContentTokenizer<'a> {
             match self.next_raw()? {
                 None => break,
                 Some((Token::DictEnd, _)) => break,
-                Some((Token::Name(key), _)) => {
-                    match self.next_raw()? {
-                        Some((vtok, vp)) => {
-                            if let Some(val) = self.token_to_object(vtok, vp)? {
-                                dict.insert(key, val);
-                            }
+                Some((Token::Name(key), _)) => match self.next_raw()? {
+                    Some((vtok, vp)) => {
+                        if let Some(val) = self.token_to_object(vtok, vp)? {
+                            dict.insert(key, val);
                         }
-                        None => break,
                     }
-                }
+                    None => break,
+                },
                 Some(_) => {}
             }
         }
@@ -261,10 +285,7 @@ pub fn parse_content_stream(data: &[u8]) -> Result<Vec<Instruction>, LexError> {
         match ct {
             ContentToken::Operand(obj) => operand_stack.push(obj),
             ContentToken::Operator(op) => {
-                instructions.push(Instruction::new(
-                    std::mem::take(&mut operand_stack),
-                    op,
-                ));
+                instructions.push(Instruction::new(std::mem::take(&mut operand_stack), op));
             }
         }
     }
@@ -389,7 +410,10 @@ mod tests {
 
         assert_eq!(instrs[1].operator.name, b"Tf");
         assert_eq!(instrs[1].operands.len(), 2);
-        assert_eq!(instrs[1].operands[0], CosObject::Name(CosName::new(b"F1".to_vec())));
+        assert_eq!(
+            instrs[1].operands[0],
+            CosObject::Name(CosName::new(b"F1".to_vec()))
+        );
         assert_eq!(instrs[1].operands[1], CosObject::Integer(12));
 
         assert_eq!(instrs[2].operator.name, b"Tj");

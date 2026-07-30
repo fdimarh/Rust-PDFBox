@@ -13,15 +13,15 @@
 //! | `PDPage.getResources()` | [`Page::resources`] |
 //! | `PDPage.getContents()` | [`Page::content_stream_data`] |
 
-use crate::cos::{CosDictionary, CosName, CosObject};
 use crate::ObjectId;
+use crate::cos::{CosDictionary, CosName, CosObject};
 #[cfg(feature = "annotations")]
 use crate::{
-    annotations::{
-        add_annotation_to_page, flatten_annotations as flatten_annotations_impl,
-        remove_annotation_from_page, PdAnnotation,
-    },
     Document, PdfResult,
+    annotations::{
+        PdAnnotation, add_annotation_to_page, flatten_annotations as flatten_annotations_impl,
+        remove_annotation_from_page,
+    },
 };
 
 // ---------------------------------------------------------------------------
@@ -67,10 +67,7 @@ impl std::fmt::Display for Rectangle {
         write!(
             f,
             "[{} {} {} {}]",
-            self.lower_left_x,
-            self.lower_left_y,
-            self.upper_right_x,
-            self.upper_right_y
+            self.lower_left_x, self.lower_left_y, self.upper_right_x, self.upper_right_y
         )
     }
 }
@@ -268,7 +265,10 @@ mod tests {
 
     fn make_page_dict(media_box: &[f64; 4], rotation: Option<i64>) -> CosDictionary {
         let mut d = CosDictionary::new();
-        d.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Page".to_vec())));
+        d.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Page".to_vec())),
+        );
         d.insert(
             CosName::new(b"MediaBox".to_vec()),
             CosObject::Array(vec![

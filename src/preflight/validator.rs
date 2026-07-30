@@ -1,5 +1,5 @@
-use crate::Document;
 use super::{ValidationResult, rules::*};
+use crate::Document;
 
 /// Main validator for PDF/A specifications.
 pub struct PreflightValidator {

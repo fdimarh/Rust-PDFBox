@@ -1,14 +1,14 @@
 //! Quick test for Rev 6 key derivation and AES-256 encrypt/decrypt.
 //! Uses only deps already available in rust-pdfbox.
 
-use sha2::{Digest, Sha256, Sha384, Sha512};
 use rand::Rng;
+use sha2::{Digest, Sha256, Sha384, Sha512};
 
 fn main() {
     let u_entry_hex_full = "a3c7058bc5e93fcd9119925facd687151f87ffd80deef556c30e451d5868aa5211edeabdb166277f086472d5642824f8";
     let u_entry: Vec<u8> = (0..u_entry_hex_full.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&u_entry_hex_full[i..i+2], 16).unwrap())
+        .map(|i| u8::from_str_radix(&u_entry_hex_full[i..i + 2], 16).unwrap())
         .collect();
     let validation_salt = &u_entry[..8];
     let key_salt = &u_entry[8..16];
@@ -42,15 +42,21 @@ fn main() {
         k[..32].to_vec()
     };
 
-    println!("File key: {}", file_key.iter().map(|b| format!("{:02x}", b)).collect::<String>());
+    println!(
+        "File key: {}",
+        file_key
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>()
+    );
 
     // Test AES-256 encrypt/decrypt using the SAME approach as aes_encrypt.rs
     // But fixing the key.into() issue by using GenericArray from digest crate
-    use digest::generic_array::GenericArray;
     use aes::Aes256;
-    use cbc::Encryptor;
-    use cipher::{KeyIvInit, BlockEncryptMut};
     use block_padding::Pkcs7;
+    use cbc::Encryptor;
+    use cipher::{BlockEncryptMut, KeyIvInit};
+    use digest::generic_array::GenericArray;
 
     let plaintext = b"Signature1";
     let mut iv = [0u8; 16];
@@ -63,7 +69,7 @@ fn main() {
     let cipher = Encryptor::<Aes256>::new(key_ga, iv_ga);
     let mut buf = plaintext.to_vec();
     buf.resize(buf.len() + 16, 0);
-    
+
     match cipher.encrypt_padded_mut::<Pkcs7>(&mut buf, plaintext.len()) {
         Ok(enc) => {
             let mut result = Vec::with_capacity(16 + enc.len());
