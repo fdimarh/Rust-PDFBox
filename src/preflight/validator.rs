@@ -59,6 +59,7 @@ impl PreflightValidator {
 mod tests {
     use super::*;
     use crate::Document;
+    use crate::preflight::ValidationError;
 
     #[test]
     fn pdf_a1b_has_all_rules() {
@@ -116,5 +117,48 @@ mod tests {
         let result = v.validate(&doc);
         // empty doc will fail some rules (metadata, output intent, etc.)
         assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn validate_result_debug() {
+        let result = ValidationResult {
+            is_valid: true,
+            errors: vec![],
+        };
+        let _ = format!("{:?}", result);
+    }
+
+    #[test]
+    fn validate_result_with_errors() {
+        let result = ValidationResult {
+            is_valid: false,
+            errors: vec![ValidationError {
+                rule_id: "test-rule",
+                message: "error 1".to_string(),
+            }],
+        };
+        assert!(!result.is_valid);
+        assert_eq!(result.errors.len(), 1);
+    }
+
+    #[test]
+    fn validate_mutiple_rules_report_all_errors() {
+        use crate::crypto::permissions::Permissions;
+        use crate::protection::StandardProtectionPolicy;
+
+        let mut doc = Document::empty();
+        let policy =
+            StandardProtectionPolicy::new("owner", "user", Permissions::from_bits_p(0xFFFFC0i32));
+        doc.protect(&policy).unwrap();
+
+        let v = PreflightValidator::with_rules(vec![
+            Box::new(NoEncryptionRule),
+            Box::new(NoJavaScriptRule),
+            Box::new(NoLaunchActionsRule),
+        ]);
+        let result = v.validate(&doc);
+        // Encryption rule should fail, others pass
+        assert!(result.errors.len() >= 1);
+        assert!(!result.is_valid);
     }
 }

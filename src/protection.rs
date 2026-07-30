@@ -110,4 +110,25 @@ mod tests {
         let encrypt = trailer.get(&CosName::new(b"Encrypt"));
         assert!(encrypt.is_some());
     }
+
+    #[test]
+    fn test_policy_debug() {
+        let policy = StandardProtectionPolicy::new("owner", "user", Permissions::all_allowed());
+        let _ = format!("{:?}", policy);
+    }
+
+    #[test]
+    fn test_policy_clone() {
+        let a = StandardProtectionPolicy::new("o", "u", Permissions::all_allowed());
+        let b = a.clone();
+        assert_eq!(a.owner_password, b.owner_password);
+    }
+
+    #[test]
+    fn test_policy_owner_only_restricted() {
+        let perms = Permissions::none_allowed();
+        let policy = StandardProtectionPolicy::owner_password("secret", perms);
+        assert!(policy.user_password.is_none());
+        assert!(!policy.permissions.can_print());
+    }
 }
