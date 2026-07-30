@@ -277,4 +277,21 @@ mod tests {
         let result = PageTree::new(&cat, &store);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn page_tree_missing_pages_entry_in_store() {
+        let store = ObjectStore::new();
+        let mut cat = CosDictionary::new();
+        cat.insert(
+            CosName::type_name(),
+            CosObject::Name(CosName::new(b"Catalog".to_vec())),
+        );
+        // Store contains a reference that points to nothing
+        cat.insert(
+            CosName::pages(),
+            CosObject::Reference(ObjectId::new(999, 0)),
+        );
+        let result = PageTree::new(&cat, &store);
+        assert!(result.is_err());
+    }
 }

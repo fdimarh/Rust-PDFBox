@@ -90,4 +90,24 @@ mod tests {
         ta.apply_to_dict(&mut dict);
         assert!(dict.get(&CosName::new(b"Open".to_vec())).is_none());
     }
+
+    #[test]
+    fn test_text_annotation_debug() {
+        let ta = TextAnnotation {
+            common: make_common(),
+            open: Some(true),
+        };
+        let d = format!("{:?}", ta);
+        assert!(d.contains("TextAnnotation"));
+    }
+
+    #[test]
+    fn test_text_annotation_clone() {
+        let ta = TextAnnotation {
+            common: make_common(),
+            open: Some(true),
+        };
+        let cloned = ta.clone();
+        assert_eq!(ta.open, cloned.open);
+    }
 }

@@ -46,4 +46,13 @@ mod tests {
         assert!((cs.fill_alpha - 0.5).abs() < f32::EPSILON);
         assert!((cs.stroke_alpha - 0.0).abs() < f32::EPSILON);
     }
+
+    #[test]
+    fn canvas_state_field_access() {
+        let mut cs = CanvasState::default();
+        cs.line_width = 3.0;
+        cs.fill_alpha = 0.75;
+        assert!((cs.line_width - 3.0).abs() < f32::EPSILON);
+        assert!((cs.fill_alpha - 0.75).abs() < f32::EPSILON);
+    }
 }

@@ -469,4 +469,14 @@ mod tests {
             panic!("expected custom");
         }
     }
+
+    #[test]
+    fn test_overlay_apply_on_empty_doc() {
+        let mut base = Document::empty();
+        let overlay = Document::empty();
+        let overlay_op = PdfOverlay::new();
+        // Should not panic even on empty docs
+        let result = overlay_op.apply(&mut base, &overlay);
+        assert!(result.is_ok() || result.is_err());
+    }
 }

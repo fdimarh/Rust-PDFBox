@@ -351,4 +351,17 @@ mod tests {
         assert_eq!(cfg.font_name, "Helvetica");
         assert!((cfg.vertical_position - 0.5).abs() < 1e-9);
     }
+
+    #[test]
+    fn test_watermark_config_debug() {
+        let cfg = WatermarkConfig::default();
+        let _ = format!("{:?}", cfg);
+    }
+
+    #[test]
+    fn test_watermark_config_clone() {
+        let cfg = WatermarkConfig::default();
+        let cloned = cfg.clone();
+        assert_eq!(cfg.font_name, cloned.font_name);
+    }
 }
