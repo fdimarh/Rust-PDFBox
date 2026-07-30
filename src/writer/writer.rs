@@ -176,4 +176,22 @@ mod tests {
         assert!(reloaded_doc.catalog().is_some());
         assert_eq!(reloaded_doc.page_count(), 0);
     }
+
+    #[test]
+    fn writer_new_encrypted() {
+        let buf = Cursor::new(Vec::new());
+        let bypass: std::collections::HashSet<ObjectId> =
+            [ObjectId::new(1, 0)].into_iter().collect();
+        let w = Writer::new_encrypted(buf, Some(vec![0u8; 16]), bypass);
+        assert!(w.file_key.is_some());
+        assert!(w.bypass_ids.contains(&ObjectId::new(1, 0)));
+    }
+
+    #[test]
+    fn writer_new_plain() {
+        let buf = Cursor::new(Vec::new());
+        let w = Writer::new(buf);
+        assert!(w.file_key.is_none());
+        assert!(w.bypass_ids.is_empty());
+    }
 }
