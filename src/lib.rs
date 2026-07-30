@@ -2118,4 +2118,35 @@ pub mod tests {
         assert!(enc_dict.get(&CosName::new(b"U".to_vec())).is_some());
         assert!(enc_dict.get(&CosName::new(b"P".to_vec())).is_some());
     }
+
+    #[cfg(feature = "crypto")]
+    #[test]
+    fn test_encrypt_roundtrip() {
+        use crate::protection::StandardProtectionPolicy;
+        use crate::crypto::Permissions;
+        use std::io::Cursor;
+
+        // Protect and save to buffer
+        let mut doc = Document::load_from_bytes(&minimal_pdf()).unwrap();
+        let policy = StandardProtectionPolicy::new("owner", "user", Permissions::all_allowed());
+        doc.protect(&policy).unwrap();
+
+        let mut buf = Cursor::new(Vec::new());
+        doc.save_to(&mut buf).unwrap();
+        let encrypted_bytes = buf.into_inner();
+        assert!(encrypted_bytes.len() > minimal_pdf().len() || encrypted_bytes.len() == minimal_pdf().len());
+
+        // Load back with correct password
+        let (mut loaded, _) = Document::load_lenient(&encrypted_bytes);
+        loaded.decrypt("user").unwrap();
+
+        // Verify page structure survived
+        let pages = loaded.pages().unwrap();
+        assert_eq!(pages.count(), 0); // our minimal_pdf has empty Kids
+
+        // Wrong password should fail
+        let (mut loaded2, _) = Document::load_lenient(&encrypted_bytes);
+        let result = loaded2.decrypt("wrongpass");
+        assert!(result.is_err());
+    }
 }
