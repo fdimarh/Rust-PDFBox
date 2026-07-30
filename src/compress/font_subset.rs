@@ -201,20 +201,32 @@ fn parse_text_operators(content: &[u8]) -> Vec<TextOp> {
                     ops.push(TextOp::Show(str_bytes));
                 }
             }
-            b"TJ" if i >= 1 => {
-                // Previous token should be an array [...]
-                let arr_tokens = try_unwrap_array(&tokens[i - 1]);
-                let mut strings = Vec::new();
-                for chunk in &arr_tokens {
-                    if chunk.starts_with(b"(") {
-                        if let Some(s) = parse_pdf_literal(chunk) {
-                            strings.push(s);
+        b"TJ" => {
+                // Scan backwards from i-1 to find matching '[' and collect tokens
+                let mut j = i.wrapping_sub(1);
+                while j > 0 && tokens[j] != b"]" {
+                    j -= 1;
+                }
+                if j > 0 && tokens[j] == b"]" {
+                    // j points to ']', now scan back to find '['
+                    let mut k = j;
+                    while k > 0 && tokens[k] != b"[" {
+                        k -= 1;
+                    }
+                    if tokens[k] == b"[" {
+                        // Collect everything between '[' and ']'
+                        let mut strings = Vec::new();
+                        for t in &tokens[k + 1..j] {
+                            if t.starts_with(b"(") {
+                                if let Some(s) = parse_pdf_literal(t) {
+                                    strings.push(s);
+                                }
+                            }
+                        }
+                        if !strings.is_empty() {
+                            ops.push(TextOp::ShowArray(strings));
                         }
                     }
-                    // Numbers (kerning offsets) are ignored.
-                }
-                if !strings.is_empty() {
-                    ops.push(TextOp::ShowArray(strings));
                 }
             }
             _ => {}
@@ -224,7 +236,8 @@ fn parse_text_operators(content: &[u8]) -> Vec<TextOp> {
     ops
 }
 
-/// Very naïve tokeniser — split on whitespace and the delimiters `(`, `)`, `[`, `]`, `<`, `>`.
+/// Very naïve tokeniser — split on whitespace and the delimiters `[`, `]`, `<`, `>`.
+/// Parenthesised strings `(...)` are kept as single tokens (with nesting support).
 fn simple_tokenise(content: &[u8]) -> Vec<Vec<u8>> {
     let mut tokens: Vec<Vec<u8>> = Vec::new();
     let mut cur: Vec<u8> = Vec::new();
@@ -239,8 +252,31 @@ fn simple_tokenise(content: &[u8]) -> Vec<Vec<u8>> {
             }
             continue;
         }
-        // Delimiters
-        if b == b'(' || b == b')' || b == b'[' || b == b']' {
+        // Parenthesised string — accumulate as a single token with nesting
+        if b == b'(' {
+            if !cur.is_empty() {
+                tokens.push(std::mem::take(&mut cur));
+            }
+            let mut depth = 1u32;
+            let start = i;
+            i += 1;
+            while i < content.len() && depth > 0 {
+                if content[i] == b'\\' && i + 1 < content.len() {
+                    i += 2; // skip escaped char
+                    continue;
+                }
+                if content[i] == b'(' {
+                    depth += 1;
+                } else if content[i] == b')' {
+                    depth -= 1;
+                }
+                i += 1;
+            }
+            tokens.push(content[start..i].to_vec());
+            continue;
+        }
+        // Other delimiters
+        if b == b'[' || b == b']' || b == b'<' || b == b'>' {
             if !cur.is_empty() {
                 tokens.push(std::mem::take(&mut cur));
             }
@@ -568,4 +604,169 @@ fn try_subset_font(
     }
 
     Ok(saved)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── simple_tokenise ────────────────────────────────────────────────────
+
+    #[test]
+    fn simple_tokenise_basic() {
+        let tokens = simple_tokenise(b"BT /F1 12 Tf ET");
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[0], b"BT");
+        assert_eq!(tokens[1], b"/F1");
+        assert_eq!(tokens[3], b"Tf");
+    }
+
+    #[test]
+    fn simple_tokenise_empty() {
+        assert!(simple_tokenise(b"").is_empty());
+    }
+
+    #[test]
+    fn simple_tokenise_skips_comments() {
+        let tokens = simple_tokenise(b"BT % this is a comment\nET");
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0], b"BT");
+        assert_eq!(tokens[1], b"ET");
+    }
+
+    #[test]
+    fn simple_tokenise_delimiters() {
+        let tokens = simple_tokenise(b"(Hello World)");
+        assert_eq!(tokens.len(), 1); // whole string as one token
+        assert_eq!(tokens[0], b"(Hello World)");
+    }
+
+    // ── parse_pdf_literal ──────────────────────────────────────────────────
+
+    #[test]
+    fn parse_pdf_literal_simple() {
+        let result = parse_pdf_literal(b"(Hello)").unwrap();
+        assert_eq!(result, b"Hello");
+    }
+
+    #[test]
+    fn parse_pdf_literal_empty() {
+        let result = parse_pdf_literal(b"()").unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn parse_pdf_literal_escape_n() {
+        let result = parse_pdf_literal(b"(Line1\\nLine2)").unwrap();
+        assert_eq!(result, b"Line1\nLine2");
+    }
+
+    #[test]
+    fn parse_pdf_literal_escape_paren() {
+        let result = parse_pdf_literal(b"(Say \\(hello\\))").unwrap();
+        assert_eq!(result, b"Say (hello)");
+    }
+
+    #[test]
+    fn parse_pdf_literal_escape_backslash() {
+        let result = parse_pdf_literal(b"(C:\\\\Users)").unwrap();
+        assert_eq!(result, b"C:\\Users");
+    }
+
+    #[test]
+    fn parse_pdf_literal_nested_parens() {
+        let result = parse_pdf_literal(b"(Outer (Inner) still)").unwrap();
+        assert_eq!(result, b"Outer (Inner) still");
+    }
+
+    #[test]
+    fn parse_pdf_literal_octal() {
+        let result = parse_pdf_literal(b"(\\101\\102\\103)").unwrap();
+        assert_eq!(result, b"ABC");
+    }
+
+    #[test]
+    fn parse_pdf_literal_not_starting_with_paren() {
+        assert!(parse_pdf_literal(b"no-paren").is_none());
+    }
+
+    #[test]
+    fn parse_pdf_literal_empty_token() {
+        assert!(parse_pdf_literal(b"").is_none());
+    }
+
+    // ── try_unwrap_array ───────────────────────────────────────────────────
+
+    #[test]
+    fn try_unwrap_array_simple() {
+        let inner = try_unwrap_array(b"[(Hello) 12]");
+        assert_eq!(inner.len(), 2);
+    }
+
+    #[test]
+    fn try_unwrap_array_empty() {
+        let inner = try_unwrap_array(b"[]");
+        assert!(inner.is_empty());
+    }
+
+    #[test]
+    fn try_unwrap_array_not_array() {
+        assert!(try_unwrap_array(b"not-array").is_empty());
+    }
+
+    #[test]
+    fn try_unwrap_array_empty_bytes() {
+        assert!(try_unwrap_array(b"").is_empty());
+    }
+
+    // ── parse_text_operators ───────────────────────────────────────────────
+
+    #[test]
+    fn parse_text_operators_empty() {
+        let ops = parse_text_operators(b"");
+        assert!(ops.is_empty());
+    }
+
+    #[test]
+    fn parse_text_operators_no_text() {
+        let ops = parse_text_operators(b"BT 1 0 0 1 0 0 cm ET");
+        assert!(ops.is_empty());
+    }
+
+    #[test]
+    fn parse_text_operators_tj() {
+        let ops = parse_text_operators(b"(Hello World) Tj");
+        assert_eq!(ops.len(), 1);
+        match &ops[0] {
+            TextOp::Show(s) => assert_eq!(s, b"Hello World"),
+            _ => panic!("expected Show"),
+        }
+    }
+
+    #[test]
+    fn parse_text_operators_tj_array() {
+        // Note: keep-as-one-token input for try_unwrap_array compatibility
+        let ops = parse_text_operators(b"[ (Hello) 12 (World) ] TJ");
+        assert_eq!(ops.len(), 1);
+        match &ops[0] {
+            TextOp::ShowArray(arr) => {
+                assert_eq!(arr.len(), 2);
+                assert_eq!(arr[0], b"Hello");
+                assert_eq!(arr[1], b"World");
+            }
+            _ => panic!("expected ShowArray"),
+        }
+    }
+
+    // ── guess_glyph_count ──────────────────────────────────────────────────
+
+    #[test]
+    fn guess_glyph_count_too_short() {
+        assert!(guess_glyph_count(&[0; 11]).is_none());
+    }
+
+    #[test]
+    fn guess_glyph_count_no_tables() {
+        assert!(guess_glyph_count(&[0; 12]).is_none());
+    }
 }
