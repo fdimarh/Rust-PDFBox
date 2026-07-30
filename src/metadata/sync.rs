@@ -153,6 +153,73 @@ pub fn sync_xmp_to_docinfo(doc: &mut Document, policy: SyncPolicy) -> PdfResult<
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sync_policy_default() {
+        let p = SyncPolicy::default();
+        assert!(p.title);
+        assert!(p.author);
+        assert!(p.subject);
+        assert!(p.keywords);
+        assert!(p.creator);
+        assert!(p.producer);
+        assert!(!p.creation_date);
+        assert!(!p.mod_date);
+    }
+
+    #[test]
+    fn sync_policy_all_fields() {
+        let p = SyncPolicy::all_fields();
+        assert!(p.title);
+        assert!(p.creation_date);
+        assert!(p.mod_date);
+    }
+
+    #[test]
+    fn pdf_date_to_xmp_simple() {
+        let result = pdf_date_to_xmp("D:20260730120000+07'00'").unwrap();
+        assert_eq!(result, "2026-07-30T12:00:00+07:00");
+    }
+
+    #[test]
+    fn pdf_date_to_xmp_utc_z() {
+        let result = pdf_date_to_xmp("D:20260730120000Z").unwrap();
+        assert_eq!(result, "2026-07-30T12:00:00Z");
+    }
+
+    #[test]
+    fn pdf_date_to_xmp_no_timezone() {
+        let result = pdf_date_to_xmp("D:20260730120000").unwrap();
+        assert_eq!(result, "2026-07-30T12:00:00");
+    }
+
+    #[test]
+    fn pdf_date_to_xmp_no_d_prefix() {
+        let result = pdf_date_to_xmp("20260730120000+07'00'").unwrap();
+        assert_eq!(result, "2026-07-30T12:00:00+07:00");
+    }
+
+    #[test]
+    fn pdf_date_to_xmp_too_short_returns_none() {
+        assert!(pdf_date_to_xmp("20").is_none());
+    }
+
+    #[test]
+    fn pdf_date_to_xmp_year_only() {
+        let result = pdf_date_to_xmp("D:2026").unwrap();
+        assert_eq!(result, "2026-01-01T00:00:00");
+    }
+
+    #[test]
+    fn pdf_date_to_xmp_negative_timezone() {
+        let result = pdf_date_to_xmp("D:20260730120000-05'30'").unwrap();
+        assert_eq!(result, "2026-07-30T12:00:00-05:30");
+    }
+}
+
 pub(crate) fn pdf_date_to_xmp(input: &str) -> Option<String> {
     let mut s = input.trim();
     if let Some(stripped) = s.strip_prefix("D:") {
