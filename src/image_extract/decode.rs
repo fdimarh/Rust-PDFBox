@@ -155,3 +155,157 @@ impl PdImage {
         Ok(out)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosObject};
+
+    fn make_rgb_palette() -> Vec<u8> {
+        // 4-color palette: red, green, blue, white
+        vec![255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]
+    }
+
+    fn make_image(
+        width: u32,
+        height: u32,
+        color_space: Option<&str>,
+        data: Vec<u8>,
+        cs_obj: Option<CosObject>,
+    ) -> PdImage {
+        PdImage {
+            object_id: None,
+            resource_name: "Im0".to_string(),
+            width,
+            height,
+            bits_per_component: 8,
+            color_space: color_space.map(|s| s.to_string()),
+            color_space_obj: cs_obj,
+            smask: None,
+            filter_names: vec![],
+            data,
+            filter: None,
+        }
+    }
+
+    #[test]
+    fn decode_pixels_rgb_no_filter() {
+        let img = make_image(2, 2, Some("DeviceRGB"), vec![
+            255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255,
+        ], None);
+        let pixels = img.decode_pixels().unwrap();
+        assert_eq!(pixels.len(), 12);
+    }
+
+    #[test]
+    fn decode_pixels_gray_no_filter() {
+        let img = make_image(2, 1, Some("DeviceGray"), vec![128, 200], None);
+        let pixels = img.decode_pixels().unwrap();
+        assert_eq!(pixels.len(), 2);
+    }
+
+    #[test]
+    fn decode_pixels_unsupported_bpp() {
+        let mut img = make_image(1, 1, Some("DeviceRGB"), vec![255, 0, 0], None);
+        img.bits_per_component = 1;
+        assert!(img.decode_pixels().is_err());
+    }
+
+    #[test]
+    fn decode_pixels_dct_unsupported() {
+        let mut img = make_image(1, 1, Some("DeviceRGB"), vec![255, 0, 0], None);
+        img.filter_names = vec!["DCTDecode".to_string()];
+        assert!(img.decode_pixels().is_err());
+    }
+
+    #[test]
+    fn decode_pixels_buffer_too_short() {
+        let img = make_image(10, 10, Some("DeviceRGB"), vec![0; 50], None);
+        assert!(img.decode_pixels().is_err());
+    }
+
+    // expand_indexed tests
+    #[test]
+    fn expand_indexed_basic() {
+        let palette = make_rgb_palette();
+        let cs_obj = CosObject::Array(vec![
+            CosObject::Name(crate::cos::CosName::new(b"Indexed".to_vec())),
+            CosObject::Name(crate::cos::CosName::new(b"DeviceRGB".to_vec())),
+            CosObject::Integer(3), // hival = 3 -> 4 entries (0..3)
+            CosObject::String(palette),
+        ]);
+        let img = make_image(2, 2, Some("Indexed"), vec![0, 1, 2, 3], Some(cs_obj));
+        let expanded = img.decode_pixels().unwrap();
+        // 4 pixels x 3 channels = 12 bytes
+        assert_eq!(expanded.len(), 12);
+        assert_eq!(&expanded[0..3], &[255, 0, 0]); // red
+        assert_eq!(&expanded[3..6], &[0, 255, 0]); // green
+        assert_eq!(&expanded[6..9], &[0, 0, 255]); // blue
+        assert_eq!(&expanded[9..12], &[255, 255, 255]); // white
+    }
+
+    #[test]
+    fn expand_indexed_no_cs_obj() {
+        let img = make_image(1, 1, Some("Indexed"), vec![0], None);
+        assert!(img.decode_pixels().is_err());
+    }
+
+    #[test]
+    fn expand_indexed_non_rgb_base() {
+        let cs_obj = CosObject::Array(vec![
+            CosObject::Name(crate::cos::CosName::new(b"Indexed".to_vec())),
+            CosObject::Name(crate::cos::CosName::new(b"DeviceGray".to_vec())),
+            CosObject::Integer(0),
+            CosObject::String(vec![0, 0, 0]),
+        ]);
+        let img = make_image(1, 1, Some("Indexed"), vec![0], Some(cs_obj));
+        assert!(img.decode_pixels().is_err());
+    }
+
+    #[test]
+    fn expand_indexed_too_short_lookup() {
+        let cs_obj = CosObject::Array(vec![
+            CosObject::Name(crate::cos::CosName::new(b"Indexed".to_vec())),
+            CosObject::Name(crate::cos::CosName::new(b"DeviceRGB".to_vec())),
+            CosObject::Integer(3),
+            CosObject::String(vec![255, 0, 0]), // only 3 bytes for 4 entries
+        ]);
+        let img = make_image(1, 1, Some("Indexed"), vec![0], Some(cs_obj));
+        assert!(img.decode_pixels().is_err());
+    }
+
+    #[test]
+    fn expand_indexed_pixel_exceeds_hival() {
+        let palette = make_rgb_palette();
+        let cs_obj = CosObject::Array(vec![
+            CosObject::Name(crate::cos::CosName::new(b"Indexed".to_vec())),
+            CosObject::Name(crate::cos::CosName::new(b"DeviceRGB".to_vec())),
+            CosObject::Integer(1), // hival = 1 -> only 2 entries
+            CosObject::String(palette),
+        ]);
+        let img = make_image(1, 1, Some("Indexed"), vec![3], Some(cs_obj));
+        assert!(img.decode_pixels().is_err());
+    }
+
+    #[test]
+    fn expand_indexed_negative_hival() {
+        let cs_obj = CosObject::Array(vec![
+            CosObject::Name(crate::cos::CosName::new(b"Indexed".to_vec())),
+            CosObject::Name(crate::cos::CosName::new(b"DeviceRGB".to_vec())),
+            CosObject::Integer(-1),
+            CosObject::String(vec![0, 0, 0]),
+        ]);
+        let img = make_image(1, 1, Some("Indexed"), vec![0], Some(cs_obj));
+        assert!(img.decode_pixels().is_err());
+    }
+
+    #[test]
+    fn expand_indexed_cs_array_too_short() {
+        let cs_obj = CosObject::Array(vec![
+            CosObject::Name(crate::cos::CosName::new(b"Indexed".to_vec())),
+            CosObject::Name(crate::cos::CosName::new(b"DeviceRGB".to_vec())),
+        ]);
+        let img = make_image(1, 1, Some("Indexed"), vec![0], Some(cs_obj));
+        assert!(img.decode_pixels().is_err());
+    }
+}
