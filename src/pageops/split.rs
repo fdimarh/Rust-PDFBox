@@ -29,3 +29,78 @@ impl<'a> PdfSplitter<'a> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+
+    fn two_page_doc() -> Document {
+        let catalog_id = ObjectId::new(1, 0);
+        let pages_id = ObjectId::new(2, 0);
+        let page1_id = ObjectId::new(3, 0);
+        let page2_id = ObjectId::new(4, 0);
+        let content_id = ObjectId::new(5, 0);
+
+        let mut doc = Document::empty();
+        doc.insert_object(catalog_id, CosObject::Dictionary({
+            let mut d = CosDictionary::new();
+            d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Catalog".to_vec())));
+            d.insert(CosName::new(b"Pages".to_vec()), CosObject::Reference(pages_id));
+            d
+        }));
+        doc.insert_object(pages_id, CosObject::Dictionary({
+            let mut d = CosDictionary::new();
+            d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Pages".to_vec())));
+            d.insert(CosName::new(b"Count".to_vec()), CosObject::Integer(2));
+            d.insert(CosName::new(b"Kids".to_vec()), CosObject::Array(vec![
+                CosObject::Reference(page1_id),
+                CosObject::Reference(page2_id),
+            ]));
+            d
+        }));
+        for (i, pid) in [page1_id, page2_id].iter().enumerate() {
+            doc.insert_object(*pid, CosObject::Dictionary({
+                let mut d = CosDictionary::new();
+                d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Page".to_vec())));
+                d.insert(CosName::new(b"Parent".to_vec()), CosObject::Reference(pages_id));
+                d.insert(CosName::new(b"MediaBox".to_vec()), CosObject::Array(vec![
+                    CosObject::Integer(0), CosObject::Integer(0),
+                    CosObject::Integer(612), CosObject::Integer(792),
+                ]));
+                d.insert(CosName::contents(), CosObject::Reference(content_id));
+                d.insert(CosName::new(b"Rotate".to_vec()), CosObject::Integer(0));
+                d
+            }));
+        }
+        doc.insert_object(content_id, CosObject::Stream(crate::cos::CosStream::new(
+            CosDictionary::new(), b"BT ET".to_vec(),
+        )));
+        doc.xref.trailer.insert(CosName::new(b"Root".to_vec()), CosObject::Reference(catalog_id));
+        doc
+    }
+
+    #[test]
+    fn test_split_one_per_doc() {
+        let mut doc = two_page_doc();
+        let mut splitter = PdfSplitter::new(&mut doc);
+        let result = splitter.split(1).unwrap();
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_split_all_in_one() {
+        let mut doc = two_page_doc();
+        let mut splitter = PdfSplitter::new(&mut doc);
+        let result = splitter.split(10).unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_split_empty_doc() {
+        let mut doc = Document::empty();
+        let mut splitter = PdfSplitter::new(&mut doc);
+        let result = splitter.split(1).unwrap();
+        assert!(result.is_empty());
+    }
+}
+

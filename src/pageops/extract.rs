@@ -71,3 +71,148 @@ pub fn extract_pages(doc: &mut Document, page_indices: &[usize]) -> PdfResult<Do
 
     Ok(new_doc)
 }
+
+// =========================================================================
+// Unit tests for extract_pages
+// =========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pdmodel::{DocumentBuilder, PageSize};
+
+    /// Builds a multi-page document by merging `count` single-page docs.
+    fn build_multi_page_doc(count: usize) -> Document {
+        let mut merger = crate::pageops::PdfMerger::new();
+        for _ in 0..count {
+            let doc = DocumentBuilder::new().page_size(PageSize::A4).build().unwrap();
+            merger.append(&doc).unwrap();
+        }
+        merger.finish()
+    }
+
+    // ── Happy path ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_extract_first_page_from_two_page_doc() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(2);
+        let extracted = extract_pages(&mut doc, &[0])?;
+        assert_eq!(extracted.page_count(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_last_page_from_two_page_doc() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(2);
+        let extracted = extract_pages(&mut doc, &[1])?;
+        assert_eq!(extracted.page_count(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_multiple_pages() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(4);
+        let extracted = extract_pages(&mut doc, &[0, 2])?;
+        assert_eq!(extracted.page_count(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_consecutive_range() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(5);
+        let extracted = extract_pages(&mut doc, &[1, 2, 3])?;
+        assert_eq!(extracted.page_count(), 3);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_all_pages() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(3);
+        let extracted = extract_pages(&mut doc, &[0, 1, 2])?;
+        assert_eq!(extracted.page_count(), 3);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_all_pages_reversed() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(3);
+        let extracted = extract_pages(&mut doc, &[2, 1, 0])?;
+        assert_eq!(extracted.page_count(), 3);
+        Ok(())
+    }
+
+    // ── Edge cases ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_extract_empty_indices() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(3);
+        let extracted = extract_pages(&mut doc, &[])?;
+        assert_eq!(extracted.page_count(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_from_single_page_doc() -> PdfResult<()> {
+        let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
+        let extracted = extract_pages(&mut doc, &[0])?;
+        assert_eq!(extracted.page_count(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_nonexistent_index_returns_zero_pages() -> PdfResult<()> {
+        // An out-of-bounds index is silently skipped by the current implementation
+        // (tree.get(idx) returns None). This test documents that behaviour.
+        let mut doc = DocumentBuilder::new().page_size(PageSize::A4).build()?;
+        let extracted = extract_pages(&mut doc, &[99])?;
+        assert_eq!(extracted.page_count(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_mixed_valid_and_invalid_indices() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(2);
+        let extracted = extract_pages(&mut doc, &[0, 99, 1])?;
+        // Valid pages [0, 1] are extracted; invalid index 99 is silently skipped.
+        assert_eq!(extracted.page_count(), 2);
+        Ok(())
+    }
+
+    // ── Round-trip ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_extract_round_trip() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(3);
+        let extracted = extract_pages(&mut doc, &[0, 2])?;
+
+        let mut buf = std::io::Cursor::new(Vec::new());
+        extracted.save_to(&mut buf)?;
+        let reloaded = Document::load_from_bytes(buf.get_ref())?;
+        assert_eq!(reloaded.page_count(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_all_round_trip() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(2);
+        let extracted = extract_pages(&mut doc, &[0, 1])?;
+
+        let mut buf = std::io::Cursor::new(Vec::new());
+        extracted.save_to(&mut buf)?;
+        let reloaded = Document::load_from_bytes(buf.get_ref())?;
+        assert_eq!(reloaded.page_count(), 2);
+        Ok(())
+    }
+
+    // ── Source document unchanged for valid indices ──────────────────────
+
+    #[test]
+    fn test_source_doc_unchanged_after_extract() -> PdfResult<()> {
+        let mut doc = build_multi_page_doc(4);
+        let _extracted = extract_pages(&mut doc, &[0, 2])?;
+
+        // The source document should still have its original page count
+        assert_eq!(doc.page_count(), 4);
+        Ok(())
+    }
+}

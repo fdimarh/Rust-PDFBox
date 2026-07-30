@@ -153,7 +153,7 @@ pub fn sync_xmp_to_docinfo(doc: &mut Document, policy: SyncPolicy) -> PdfResult<
     Ok(())
 }
 
-fn pdf_date_to_xmp(input: &str) -> Option<String> {
+pub(crate) fn pdf_date_to_xmp(input: &str) -> Option<String> {
     let mut s = input.trim();
     if let Some(stripped) = s.strip_prefix("D:") {
         s = stripped;
