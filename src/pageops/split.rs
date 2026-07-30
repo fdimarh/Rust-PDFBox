@@ -158,4 +158,24 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].page_count(), 2);
     }
+
+    #[test]
+    fn test_split_uneven_chunks() {
+        // split 2-page doc into 3 pages per doc → first doc has 2 pages
+        let mut doc = two_page_doc();
+        let mut splitter = PdfSplitter::new(&mut doc);
+        let result = splitter.split(3).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].page_count(), 2);
+    }
+
+    #[test]
+    fn test_split_1_page_should_produce_2_docs() {
+        let mut doc = two_page_doc();
+        let mut splitter = PdfSplitter::new(&mut doc);
+        let result = splitter.split(1).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].page_count(), 1);
+        assert_eq!(result[1].page_count(), 1);
+    }
 }

@@ -124,4 +124,23 @@ mod tests {
         // No panic means it's idempotent at the run() level
         assert!(doc.page_count() > 0 || doc.page_count() == 0);
     }
+
+    #[test]
+    fn mark_linearized_no_catalog_no_panic() {
+        let mut doc = crate::Document::empty();
+        mark_linearized(&mut doc);
+        // empty doc has no catalog — should not panic
+    }
+
+    #[test]
+    fn mark_linearized_sets_pages_in_dict() {
+        let mut doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        mark_linearized(&mut doc);
+        if let Some(catalog_id) = doc.catalog_id() {
+            if let Some(crate::cos::CosObject::Dictionary(dict)) = doc.get_object_ref(catalog_id) {
+                let lin = dict.get(&CosName::new(b"Linearized".to_vec()));
+                assert!(lin.is_some());
+            }
+        }
+    }
 }
