@@ -248,3 +248,177 @@ fn escape_xml(s: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_tag_body_simple() {
+        let xml = "<rdf:Description><dc:title>Hello</dc:title></rdf:Description>";
+        assert_eq!(extract_tag_body(xml, "dc:title"), Some("Hello"));
+    }
+
+    #[test]
+    fn test_extract_tag_body_not_found() {
+        let xml = "<rdf:Description><dc:title>X</dc:title></rdf:Description>";
+        assert_eq!(extract_tag_body(xml, "dc:creator"), None);
+    }
+
+    #[test]
+    fn test_extract_tag_text_trimmed() {
+        let xml = "<xyz>  Hello World  </xyz>";
+        assert_eq!(extract_tag_text(xml, "xyz"), Some("Hello World"));
+    }
+
+    #[test]
+    fn test_extract_tag_text_empty() {
+        let xml = "<xyz></xyz>";
+        assert_eq!(extract_tag_text(xml, "xyz"), None);
+    }
+
+    #[test]
+    fn test_extract_tag_text_nested_xml() {
+        let xml = "<dc:title><rdf:Alt><rdf:li>A</rdf:li></rdf:Alt></dc:title>";
+        assert_eq!(extract_tag_text(xml, "dc:title"), None);
+    }
+
+    #[test]
+    fn test_extract_first_li_from_dc_title() {
+        let xml = "<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">My Title</rdf:li></rdf:Alt></dc:title>";
+        assert_eq!(extract_first_li(xml, "dc:title"), Some("My Title"));
+    }
+
+    #[test]
+    fn test_extract_dc_title_simple() {
+        let xml = "<rdf:Description><dc:title>TestDoc</dc:title></rdf:Description>";
+        assert_eq!(extract_dc_title(xml), Some("TestDoc".into()));
+    }
+
+    #[test]
+    fn test_extract_dc_title_with_rdf_alt() {
+        let xml = "<rdf:Description><dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">Doc1</rdf:li></rdf:Alt></dc:title></rdf:Description>";
+        assert_eq!(extract_dc_title(xml), Some("Doc1".into()));
+    }
+
+    #[test]
+    fn test_extract_dc_creator_from_seq() {
+        let xml = "<rdf:Description><dc:creator><rdf:Seq><rdf:li>Author A</rdf:li></rdf:Seq></dc:creator></rdf:Description>";
+        assert_eq!(extract_dc_creator(xml), Some("Author A".into()));
+    }
+
+    #[test]
+    fn test_extract_pdf_keywords() {
+        let xml = "<rdf:Description><pdf:Keywords>pdf, rust, test</pdf:Keywords></rdf:Description>";
+        assert_eq!(extract_pdf_keywords(xml), Some("pdf, rust, test".into()));
+    }
+
+    #[test]
+    fn test_extract_xmp_create_date() {
+        let xml = "<rdf:Description><xmp:CreateDate>2026-07-30T12:00:00Z</xmp:CreateDate></rdf:Description>";
+        assert_eq!(extract_xmp_create_date(xml), Some("2026-07-30T12:00:00Z".into()));
+    }
+
+    #[test]
+    fn test_extract_xmp_modify_date_missing() {
+        let xml = "<rdf:Description><xmp:CreateDate>2026-01-01</xmp:CreateDate></rdf:Description>";
+        assert_eq!(extract_xmp_modify_date(xml), None);
+    }
+
+    #[test]
+    fn test_decode_xml_entities_amp() {
+        assert_eq!(decode_xml_entities("a &amp; b"), "a & b");
+    }
+
+    #[test]
+    fn test_decode_xml_entities_all() {
+        assert_eq!(decode_xml_entities("&amp; &lt; &gt; &quot; &apos;"), "& < > \" '");
+    }
+
+    #[test]
+    fn test_escape_xml_amp() {
+        assert_eq!(escape_xml("a & b"), "a &amp; b");
+    }
+
+    #[test]
+    fn test_escape_xml_all() {
+        assert_eq!(escape_xml("<test \"foo\'s\">"), "&lt;test &quot;foo&apos;s&quot;&gt;");
+    }
+
+    #[test]
+    fn test_build_minimal_xmp_contains_title() {
+        let xmp = build_minimal_xmp(Some("MyDoc"), Some("Me"));
+        assert!(xmp.contains("MyDoc"));
+        assert!(xmp.contains("Me"));
+        assert!(xmp.contains("x:xmpmeta"));
+    }
+
+    #[test]
+    fn test_build_minimal_xmp_no_args() {
+        let xmp = build_minimal_xmp(None, None);
+        assert!(xmp.contains("x:xmpmeta"));
+    }
+
+    #[test]
+    fn test_build_basic_xmp_all_fields() {
+        let fields = XmpFields {
+            title: Some("T"),
+            creator: Some("C"),
+            subject: Some("S"),
+            keywords: Some("K"),
+            creator_tool: Some("CT"),
+            producer: Some("P"),
+            create_date: Some("2026-01-01"),
+            modify_date: Some("2026-02-02"),
+        };
+        let xmp = build_basic_xmp(fields);
+        assert!(xmp.contains("T"));
+        assert!(xmp.contains("C"));
+        assert!(xmp.contains("S"));
+        assert!(xmp.contains("K"));
+        assert!(xmp.contains("CT"));
+        assert!(xmp.contains("P"));
+        assert!(xmp.contains("2026-01-01"));
+        assert!(xmp.contains("2026-02-02"));
+    }
+
+    #[test]
+    fn test_roundtrip_xmp_metadata() {
+        let xmp_str = build_minimal_xmp(Some("Roundtrip"), Some("Tester"));
+        let meta = XmpMetadata::from_bytes(xmp_str.as_bytes());
+        assert!(meta.is_some());
+        let m = meta.unwrap();
+        assert_eq!(m.dc_title(), Some("Roundtrip"));
+        assert_eq!(m.dc_creator(), Some("Tester"));
+    }
+
+    #[test]
+    fn test_roundtrip_xmp_full() {
+        let fields = XmpFields {
+            title: Some("Full Doc"),
+            creator: Some("Author X"),
+            subject: Some("Topic Y"),
+            keywords: Some("kw1, kw2"),
+            creator_tool: Some("rust-pdfbox"),
+            producer: Some("Test"),
+            create_date: Some("2026-07-30T00:00:00Z"),
+            modify_date: Some("2026-07-30T12:00:00Z"),
+        };
+        let xmp_str = build_basic_xmp(fields);
+        let meta = XmpMetadata::from_bytes(xmp_str.as_bytes()).unwrap();
+        assert_eq!(meta.dc_title(), Some("Full Doc"));
+        assert_eq!(meta.dc_creator(), Some("Author X"));
+        assert_eq!(meta.dc_subject(), Some("Topic Y"));
+        assert_eq!(meta.pdf_keywords(), Some("kw1, kw2"));
+        assert_eq!(meta.xmp_creator_tool(), Some("rust-pdfbox"));
+        assert_eq!(meta.pdf_producer(), Some("Test"));
+        assert_eq!(meta.xmp_create_date(), Some("2026-07-30T00:00:00Z"));
+        assert_eq!(meta.xmp_modify_date(), Some("2026-07-30T12:00:00Z"));
+    }
+
+    #[test]
+    fn test_xmp_from_bytes_invalid_utf8() {
+        let bad = vec![0xFF, 0xFE, 0x00];
+        assert!(XmpMetadata::from_bytes(&bad).is_none());
+    }
+}
