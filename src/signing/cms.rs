@@ -479,4 +479,29 @@ mod tests {
         assert!(!parseable);
         assert!(found.is_none());
     }
+
+    #[test]
+    fn cms_options_default() {
+        let opts = CmsOptions::default();
+        assert_eq!(opts.sub_filter, "adbe.pkcs7.detached");
+        assert!(opts.timestamp_url.is_none());
+        assert!(!opts.include_crl);
+        assert!(!opts.include_ocsp);
+        assert_eq!(opts.cert_chain_pem, "");
+    }
+
+    #[test]
+    fn cms_verify_result_fields() {
+        let r = CmsVerifyResult {
+            digest_valid: false,
+            signature_valid: false,
+            has_timestamp: false,
+            certificates: vec![],
+            chain_warnings: vec![],
+            chain_valid: false,
+        };
+        assert!(!r.digest_valid);
+        assert!(r.certificates.is_empty());
+        assert!(r.chain_warnings.is_empty());
+    }
 }

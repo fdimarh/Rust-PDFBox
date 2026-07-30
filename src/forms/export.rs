@@ -259,4 +259,48 @@ mod tests {
         let s = escape_pdf_string("a(b)c");
         assert_eq!(s, "a\\(b\\)c");
     }
+
+    #[test]
+    fn test_xml_escape_apos_quote() {
+        assert_eq!(xml_escape("it's"), "it&apos;s");
+        assert_eq!(xml_escape("\"hello\""), "&quot;hello&quot;");
+    }
+
+    #[test]
+    fn test_xml_escape_no_change() {
+        assert_eq!(xml_escape("plain text 123"), "plain text 123");
+    }
+
+    #[test]
+    fn test_xml_escape_multiple() {
+        assert_eq!(
+            xml_escape("a < b && c > d"),
+            "a &lt; b &amp;&amp; c &gt; d"
+        );
+    }
+
+    #[test]
+    fn test_xml_escape_empty() {
+        assert_eq!(xml_escape(""), "");
+    }
+
+    #[test]
+    fn test_escape_pdf_string_special() {
+        assert_eq!(escape_pdf_string("a\\b"), "a\\\\b");
+        // \n becomes literal \\n (backslash + n)
+        assert_eq!(escape_pdf_string("line1\nline2"), "line1\\nline2");
+        // \t becomes literal \\t
+        assert_eq!(escape_pdf_string("col1\ttab"), "col1\\ttab");
+    }
+
+    #[test]
+    fn test_serialize_cos_variants() {
+        assert_eq!(serialize_cos(&CosObject::Null), "null");
+        assert_eq!(serialize_cos(&CosObject::Bool(true)), "true");
+        assert_eq!(serialize_cos(&CosObject::Bool(false)), "false");
+        assert_eq!(serialize_cos(&CosObject::Integer(42)), "42");
+        let name = CosName::new(b"Test");
+        let s = serialize_cos(&CosObject::Name(name));
+        assert!(s.starts_with("/"));
+    }
 }

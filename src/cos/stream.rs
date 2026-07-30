@@ -87,4 +87,33 @@ mod tests {
         assert!(display.contains("3 bytes"));
         assert!(display.contains("endstream"));
     }
+
+    #[test]
+    fn stream_equality() {
+        let s1 = CosStream::new(CosDictionary::new(), b"data".to_vec());
+        let s2 = CosStream::new(CosDictionary::new(), b"data".to_vec());
+        assert_eq!(s1, s2);
+    }
+
+    #[test]
+    fn stream_inequality() {
+        let s1 = CosStream::new(CosDictionary::new(), b"abc".to_vec());
+        let mut s2 = CosStream::new(CosDictionary::new(), b"def".to_vec());
+        assert_ne!(s1, s2);
+
+        // Different data same dict
+        s2.data = b"abc".to_vec();
+        assert_eq!(s1.data, s2.data);
+    }
+
+    #[test]
+    fn raw_len_various() {
+        let s = CosStream::new(CosDictionary::new(), b"".to_vec());
+        assert_eq!(s.raw_len(), 0);
+        assert!(s.is_empty());
+
+        let s = CosStream::new(CosDictionary::new(), b"hello world".to_vec());
+        assert_eq!(s.raw_len(), 11);
+        assert!(!s.is_empty());
+    }
 }
