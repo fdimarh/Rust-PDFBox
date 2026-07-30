@@ -4,30 +4,30 @@ A comprehensive Rust PDF manipulation library, porting key capabilities from Apa
 
 ## Status
 
-**710 tests — 100% passing ✅** — Overall ~83% completion across all modules
+**975 tests — 100% passing ✅** — Overall ~85% completion across all modules
 
 | Module | Tests | Progress | Status |
 |--------|-------|----------|--------|
 | Parser | 159 | **95%** | ✅ |
-| IO / Filters | 112 | **95%** | ✅ |
-| COS Model | 32 | **95%** | ✅ |
-| Crypto | 45 | **90%** | ✅ |
-| Content Streams | 72 | **88%** | ✅ |
-| Writer | 10 | **85%** | ✅ |
-| Render (glyph outline) | 7 | **85%** | ✅ |
-| Font | 72 | **82%** | ✅ |
-| Text Extraction | 56 | **82%** | ✅ |
-| Annotations | 14 | **80%** | ✅ |
-| Image Extract | 21 | **80%** | ✅ |
-| Signing | 21 | **78%** | ✅ |
-| PdModel | 11 | **72%** | ✅ |
-| PageOps (merge/split/rotate/etc) | 52 | **70%** | ✅ |
-| Outline / Bookmarks | 15 | **70%** | ✅ |
-| Preflight (PDF/A) | 38 | **65%** | ✅ |
-| Forms (AcroForm) | 47 | **60%** | ✅ |
-| Compress | 33 | **55%** | ✅ |
-| Metadata | 9 | **40%** | ✅ |
-| Security | 0 | **10%** | ⏳ |
+| Compress | 92 | **85%** | ✅ |
+| COS Model | 36 | **95%** | ✅ |
+| Crypto | 73 | **93%** | ✅ |
+| Content Streams | 77 | **88%** | ✅ |
+| Writer | 28 | **85%** | ✅ |
+| Render | 11 | **90%** | ✅ |
+| Font | 61 | **82%** | ✅ |
+| Forms (AcroForm) | 78 | **73%** | ✅ |
+| Signing | 61 | **85%** | ✅ |
+| PageOps | 56 | **76%** | ✅ |
+| Image Extract | 46 | **85%** | ✅ |
+| Preflight (PDF/A) | 44 | **78%** | ✅ |
+| Annotations | 36 | **88%** | ✅ |
+| Metadata | 37 | **70%** | ✅ |
+| IO / Filters | 32 | **95%** | ✅ |
+| Text Extraction | 25 | **82%** | ✅ |
+| Outline / Bookmarks | 19 | **~75%** | ✅ |
+| PdModel | 18 | **76%** | ✅ |
+| Security | 8 | **~60%** | ✅ |
 | CLI Tools | — | **0%** | ⏳ |
 
 ## Features
