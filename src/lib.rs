@@ -150,6 +150,7 @@ pub type PdfResult<T> = Result<T, PdfError>;
 #[cfg(feature = "crypto")]
 pub use crypto::{AuthResult, EncryptionDict, Permissions, StandardSecurityHandler};
 pub use protection::StandardProtectionPolicy;
+pub use content::editor::PdfEditor;
 
 #[cfg(feature = "text")]
 pub use font::{

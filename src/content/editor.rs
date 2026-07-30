@@ -355,6 +355,165 @@ impl PdfEditor {
         self.doc.save(path)
     }
 
+    // ── Text extraction ─────────────────────────────────────────────────
+
+    /// Extract all text from a single page as a plain string.
+    pub fn extract_text_from_page(&self, page_index: usize) -> PdfResult<String> {
+        let ops = self.get_content_operators(page_index)?;
+        let mut text = String::new();
+        for op in &ops {
+            match op {
+                ContentOperator::ShowText(s) => {
+                    if let Ok(t) = std::str::from_utf8(s) {
+                        text.push_str(t);
+                    }
+                }
+                ContentOperator::ShowTextPositioned(items) => {
+                    for item in items {
+                        if let crate::content::edit::TjItem::Text(s) = item {
+                            if let Ok(t) = std::str::from_utf8(s) {
+                                text.push_str(t);
+                            }
+                        }
+                    }
+                }
+                ContentOperator::MoveNextLineShowText(s) => {
+                    text.push('\n');
+                    if let Ok(t) = std::str::from_utf8(s) {
+                        text.push_str(t);
+                    }
+                }
+                ContentOperator::SetSpacingMoveNextLineShowText(_, _, s) => {
+                    text.push('\n');
+                    if let Ok(t) = std::str::from_utf8(s) {
+                        text.push_str(t);
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(text)
+    }
+
+    /// Extract text from all pages. Each element is text from one page.
+    pub fn extract_text_all_pages(&self) -> Vec<(usize, String)> {
+        let n = self.page_count();
+        let mut results = Vec::new();
+        for i in 0..n {
+            if let Ok(text) = self.extract_text_from_page(i) {
+                if !text.is_empty() {
+                    results.push((i, text));
+                }
+            }
+        }
+        results
+    }
+
+    // ── Image enumeration & replacement ─────────────────────────────────
+    /// Find image XObjects referenced in a page's Resources dictionary.
+    pub fn find_images_on_page(
+        &self,
+        page_index: usize,
+    ) -> PdfResult<Vec<crate::content::edit::XObjectImage>> {
+        let id = self.page_id(page_index)?;
+        let page_dict = self
+            .doc
+            .objects
+            .get(&id)
+            .and_then(|o| o.as_dictionary())
+            .ok_or_else(|| PdfError::Parse {
+                offset: None,
+                context: format!("page {page_index} dictionary not found"),
+            })?;
+        let resources = page_dict
+            .get(&CosName::resources())
+            .and_then(|v| v.as_dictionary())
+            .ok_or_else(|| PdfError::Parse {
+                offset: None,
+                context: format!("page {page_index} has no /Resources"),
+            })?;
+        // Resolve references manually since XObjectImage::from_stream doesn't have store access
+        let xobj_dict_val = resources.get(&CosName::new(b"XObject".to_vec()));
+        let Some(xobj_dict) = xobj_dict_val.and_then(|v| {
+            match v {
+                CosObject::Dictionary(d) => Some(d),
+                CosObject::Reference(rid) => self.doc.objects.get(rid).and_then(|o| o.as_dictionary()),
+                _ => None,
+            }
+        }) else {
+            return Ok(Vec::new());
+        };
+
+        let mut images = Vec::new();
+        for (name, obj) in xobj_dict.iter() {
+            let resolved = match obj {
+                CosObject::Reference(rid) => self.doc.objects.get(rid),
+                other => Some(other),
+            };
+            if let Some(stream) = resolved.and_then(|o| o.as_stream()) {
+                if let Some(img) = crate::content::edit::XObjectImage::from_stream(
+                    name.clone(),
+                    &CosObject::Stream(stream.clone()),
+                ) {
+                    images.push(img);
+                }
+            }
+        }
+        Ok(images)
+    }
+
+    /// Replace an XObject image reference in the content stream AND update
+    /// the page Resources dict. This combines content-stream renaming with
+    /// resource dictionary insertion using the Phase 1.3 engine.
+    pub fn replace_image_on_page(
+        &mut self,
+        page_index: usize,
+        old_name: &str,
+        new_name: &str,
+        new_image: CosObject,
+        remove_old: bool,
+    ) -> PdfResult<usize> {
+        let mut ops = self.get_content_operators(page_index)?;
+        let id = self.page_id(page_index)?;
+
+        // Get mutable page dict to modify Resources
+        let page_dict = self
+            .doc
+            .objects
+            .get_mut(&id)
+            .and_then(|o| o.as_dictionary_mut())
+            .ok_or_else(|| PdfError::Parse {
+                offset: None,
+                context: format!("page {page_index} dictionary not found"),
+            })?;
+
+        // Ensure /Resources exists
+        if page_dict.get(&CosName::resources()).is_none() {
+            page_dict.insert(
+                CosName::resources(),
+                CosObject::Dictionary(CosDictionary::new()),
+            );
+        }
+
+        let resources = page_dict
+            .get_mut(&CosName::resources())
+            .and_then(|o| o.as_dictionary_mut())
+            .ok_or_else(|| PdfError::Parse {
+                offset: None,
+                context: format!("page {page_index} /Resources is not a dict"),
+            })?;
+
+        let changed = crate::content::edit::replace_image_xobject(
+            &mut ops, resources, old_name, new_name, new_image, remove_old,
+        );
+
+        if changed > 0 {
+            self.set_content_operators(page_index, &ops)?;
+        }
+
+        Ok(changed)
+    }
+
     // ── Internal: read raw decoded content bytes ───────────────────────
 
     fn page_raw_content_bytes(&self, page_index: usize) -> PdfResult<Vec<u8>> {
@@ -599,5 +758,93 @@ mod tests {
         let editor = PdfEditor::new(doc);
         let results = editor.find_text_all_pages("nonexistent");
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_editor_extract_text_empty() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        let text = editor.extract_text_from_page(0).unwrap();
+        // minimal PDF has "BT ET" — no text show ops, so empty
+        assert!(text.is_empty());
+    }
+
+    #[test]
+    fn test_editor_extract_text_all_pages_empty() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        let results = editor.extract_text_all_pages();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_editor_find_images_on_page() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        let images = editor.find_images_on_page(0).unwrap();
+        assert_eq!(images.len(), 1);
+        assert_eq!(images[0].name.as_str(), Some("Im1"));
+    }
+
+    #[test]
+    fn test_editor_find_images_out_of_range() {
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let editor = PdfEditor::new(doc);
+        assert!(editor.find_images_on_page(99).is_err());
+    }
+
+    #[test]
+    fn test_editor_replace_image_on_page() {
+        use crate::cos::CosStream;
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+
+        // Add a /Do operator referencing the image to the content stream
+        let mut ops = editor.get_content_operators(0).unwrap();
+        ops.push(crate::content::edit::ContentOperator::InvokeXObject(
+            CosName::new(b"Im1".to_vec()),
+        ));
+        editor.set_content_operators(0, &ops).unwrap();
+
+        let mut img_dict = CosDictionary::new();
+        img_dict.set(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"XObject".to_vec())));
+        img_dict.set(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Image".to_vec())));
+        img_dict.set(CosName::new(b"Width".to_vec()), CosObject::Integer(2));
+        img_dict.set(CosName::new(b"Height".to_vec()), CosObject::Integer(2));
+        img_dict.set(CosName::new(b"ColorSpace".to_vec()), CosObject::Name(CosName::new(b"DeviceGray".to_vec())));
+        img_dict.set(CosName::new(b"BitsPerComponent".to_vec()), CosObject::Integer(8));
+        let new_stream = CosObject::Stream(CosStream::new(img_dict, b"replacement-data".to_vec()));
+
+        let changed = editor
+            .replace_image_on_page(0, "Im1", "Im1", new_stream, false)
+            .unwrap();
+        assert_eq!(changed, 1);
+    }
+
+    #[test]
+    fn test_editor_replace_image_rename() {
+        use crate::cos::CosStream;
+        let doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let mut editor = PdfEditor::new(doc);
+
+        // Add /Do operators for the image
+        let mut ops = editor.get_content_operators(0).unwrap();
+        ops.push(crate::content::edit::ContentOperator::InvokeXObject(
+            CosName::new(b"Im1".to_vec()),
+        ));
+        ops.push(crate::content::edit::ContentOperator::InvokeXObject(
+            CosName::new(b"Im1".to_vec()),
+        ));
+        editor.set_content_operators(0, &ops).unwrap();
+
+        let mut img_dict = CosDictionary::new();
+        img_dict.set(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"XObject".to_vec())));
+        img_dict.set(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Image".to_vec())));
+        let new_stream = CosObject::Stream(CosStream::new(img_dict, b"data".to_vec()));
+
+        let changed = editor
+            .replace_image_on_page(0, "Im1", "ImNew", new_stream, true)
+            .unwrap();
+        assert_eq!(changed, 2);
     }
 }
