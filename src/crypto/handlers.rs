@@ -540,6 +540,8 @@ mod tests {
             u_entry: vec![0u8; 32],
             permissions: Permissions::all_allowed(),
             crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
         };
         let file_id = b"12345678901234567890123456789012";
         let k1 = StandardSecurityHandler::compute_encryption_key(&enc, b"owner", file_id);
@@ -554,11 +556,13 @@ mod tests {
             revision: 2, key_length: 5,
             o_entry: vec![0u8; 32], u_entry: vec![0u8; 32],
             permissions: Permissions::all_allowed(), crypt_filter: None,
+            oe_entry: vec![], ue_entry: vec![],
         };
         let enc_r3 = EncryptionDict {
             revision: 3, key_length: 16,
             o_entry: vec![0u8; 32], u_entry: vec![0u8; 32],
             permissions: Permissions::all_allowed(), crypt_filter: None,
+            oe_entry: vec![], ue_entry: vec![],
         };
         let fid = b"filefilefilefil0";
         let k2 = StandardSecurityHandler::compute_encryption_key(&enc_r2, b"pass", fid);
@@ -573,6 +577,7 @@ mod tests {
             revision: 3, key_length: 16,
             o_entry: vec![0u8; 32], u_entry: vec![0u8; 32],
             permissions: Permissions::all_allowed(), crypt_filter: None,
+            oe_entry: vec![], ue_entry: vec![],
         };
         let fid = b"fileid0000000000";
         let k1 = StandardSecurityHandler::compute_encryption_key(&enc, b"pass1", fid);
@@ -587,16 +592,16 @@ mod tests {
     #[test]
     fn per_object_key_different_objects() {
         let file_key = [0xABu8; 16];
-        let k1 = StandardSecurityHandler::per_object_key(&file_key, 1, 0, false);
-        let k2 = StandardSecurityHandler::per_object_key(&file_key, 2, 0, false);
+        let k1 = StandardSecurityHandler::compute_object_key(&file_key, 1, 0, false);
+        let k2 = StandardSecurityHandler::compute_object_key(&file_key, 2, 0, false);
         assert_ne!(k1, k2);
     }
 
     #[test]
     fn per_object_key_aes_appends_salt() {
         let file_key = [0x01u8; 16];
-        let k_rc4 = StandardSecurityHandler::per_object_key(&file_key, 5, 0, false);
-        let k_aes = StandardSecurityHandler::per_object_key(&file_key, 5, 0, true);
+        let k_rc4 = StandardSecurityHandler::compute_object_key(&file_key, 5, 0, false);
+        let k_aes = StandardSecurityHandler::compute_object_key(&file_key, 5, 0, true);
         // AES key derivation includes "sAlT" so the MD5 input differs
         assert_ne!(k_rc4, k_aes);
     }
@@ -604,7 +609,7 @@ mod tests {
     #[test]
     fn per_object_key_max_length_16() {
         let file_key = [0x01u8; 16];
-        let k = StandardSecurityHandler::per_object_key(&file_key, 1, 0, false);
+        let k = StandardSecurityHandler::compute_object_key(&file_key, 1, 0, false);
         assert!(k.len() <= 16);
     }
 
@@ -668,8 +673,9 @@ mod tests {
             u_entry: vec![0u8; 32],
             permissions: Permissions::all_allowed(),
             crypt_filter: None,
+            oe_entry: vec![],
+            ue_entry: vec![],
         };
-        // Derive the key and compute the expected /U entry (Rev 2: RC4(key, PAD) = 32 bytes)
         let key = StandardSecurityHandler::compute_encryption_key(&enc, user_pwd, file_id);
         let u = Rc4::crypt(&key, &PAD);   // 32 bytes
         assert_eq!(u.len(), 32);
