@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["text", "crypto", "layout", "forms", "pageops", "outline", "annotations", "image-extract", "metadata"]
+default = ["text", "crypto", "layout", "forms", "pageops", "outline", "annotations", "image-extract", "metadata", "compress"]
 ## Text extraction and font handling
 text = []
 ## Document outline (bookmarks)
