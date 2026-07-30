@@ -4,29 +4,29 @@ A comprehensive Rust PDF manipulation library, porting key capabilities from Apa
 
 ## Status
 
-**975 tests — 100% passing ✅** — Overall ~85% completion across all modules
+**1,001 tests — 100% passing ✅** — Overall ~88% completion across all modules
 
 | Module | Tests | Progress | Status |
 |--------|-------|----------|--------|
 | Parser | 159 | **95%** | ✅ |
 | Compress | 92 | **85%** | ✅ |
-| COS Model | 36 | **95%** | ✅ |
 | Crypto | 73 | **93%** | ✅ |
 | Content Streams | 77 | **88%** | ✅ |
-| Writer | 28 | **85%** | ✅ |
-| Render | 11 | **90%** | ✅ |
-| Font | 61 | **82%** | ✅ |
 | Forms (AcroForm) | 78 | **73%** | ✅ |
 | Signing | 61 | **85%** | ✅ |
-| PageOps | 56 | **76%** | ✅ |
+| Font | 61 | **82%** | ✅ |
+| PageOps | 57 | **76%** | ✅ |
 | Image Extract | 46 | **85%** | ✅ |
 | Preflight (PDF/A) | 44 | **78%** | ✅ |
+| COS Model | 47 | **96%** | ✅ |
 | Annotations | 36 | **88%** | ✅ |
 | Metadata | 37 | **70%** | ✅ |
 | IO / Filters | 32 | **95%** | ✅ |
+| Writer | 28 | **85%** | ✅ |
 | Text Extraction | 25 | **82%** | ✅ |
-| Outline / Bookmarks | 19 | **~75%** | ✅ |
-| PdModel | 18 | **76%** | ✅ |
+| Outline / Bookmarks | 22 | **~78%** | ✅ |
+| PdModel | 26 | **~82%** | ✅ |
+| Render | 11 | **90%** | ✅ |
 | Security | 8 | **~60%** | ✅ |
 | CLI Tools | — | **0%** | ⏳ |
 
