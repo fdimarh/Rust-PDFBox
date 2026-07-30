@@ -4,30 +4,30 @@ A comprehensive Rust PDF manipulation library, porting key capabilities from Apa
 
 ## Status
 
-**1,025 tests — 100% passing ✅** — Overall ~88% completion across all modules
+**1,036 tests — 100% passing ✅** — Overall ~89% completion across all modules
 
 | Module | Tests | Progress | Status |
 |--------|:-----:|:--------:|:------:|
 | Parser | 159 | **95%** | 🟢 |
-| Compress | 92 | **85%** | 🟢 |
+| Compress | 94 | **87%** | 🟢 |
 | Crypto | 73 | **93%** | 🟢 |
-| Content Streams | 77 | **88%** | 🟢 |
 | Forms (AcroForm) | 78 | **73%** | 🟡 |
+| Content Streams | 77 | **88%** | 🟢 |
 | Signing | 67 | **87%** | 🟢 |
 | Font | 61 | **82%** | 🟢 |
-| PageOps | 57 | **76%** | 🟡 |
+| PageOps | 61 | **79%** | 🟢 |
 | COS Model | 56 | **96%** | 🟢 |
+| Preflight (PDF/A) | 47 | **~80%** | 🟢 |
 | Image Extract | 46 | **85%** | 🟢 |
-| Preflight (PDF/A) | 44 | **78%** | 🟡 |
-| Metadata | 37 | **70%** | 🟡 |
+| Metadata | 41 | **~76%** | 🟡 |
 | Annotations | 36 | **88%** | 🟢 |
 | IO / Filters | 32 | **95%** | 🟢 |
 | Writer | 31 | **88%** | 🟢 |
+| PdModel | 30 | **~82%** | 🟢 |
 | Text Extraction | 25 | **82%** | 🟢 |
-| Outline / Bookmarks | 22 | **78%** | 🟡 |
-| PdModel | 26 | **82%** | 🟢 |
+| Outline / Bookmarks | 23 | **~80%** | 🟢 |
 | Render | 12 | **90%** | 🟢 |
-| Security | 8 | **~60%** | 🟡 |
+| Security | 11 | **~65%** | 🟡 |
 | CLI Tools | — | **0%** | ⬜ |
 
 ## Features
