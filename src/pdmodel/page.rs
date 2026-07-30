@@ -336,4 +336,69 @@ mod tests {
         assert!(res.font_dict().is_some());
         assert_eq!(res.font_dict().unwrap().len(), 1);
     }
+
+    #[test]
+    fn resources_missing_xobject_dict() {
+        let d = CosDictionary::new();
+        let res = Resources::new(&d);
+        assert!(res.xobject_dict().is_none());
+    }
+
+    #[test]
+    fn resources_missing_ext_gstate() {
+        let d = CosDictionary::new();
+        let res = Resources::new(&d);
+        assert!(res.ext_gstate_dict().is_none());
+    }
+
+    #[test]
+    fn resources_missing_color_space() {
+        let d = CosDictionary::new();
+        let res = Resources::new(&d);
+        assert!(res.color_space_dict().is_none());
+    }
+
+    #[test]
+    fn resources_xobject_dict() {
+        let mut xobj_dict = CosDictionary::new();
+        xobj_dict.insert(CosName::new(b"Im1".to_vec()), CosObject::Null);
+        let mut res_dict = CosDictionary::new();
+        res_dict.insert(
+            CosName::new(b"XObject".to_vec()),
+            CosObject::Dictionary(xobj_dict),
+        );
+        let res = Resources::new(&res_dict);
+        assert!(res.xobject_dict().is_some());
+        assert_eq!(res.xobject_dict().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn rectangle_new_and_access() {
+        let r = Rectangle::new(0.0, 0.0, 612.0, 792.0);
+        assert!((r.width() - 612.0).abs() < 1e-9);
+        assert!((r.height() - 792.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rectangle_zero_dimensions() {
+        let r = Rectangle::new(100.0, 100.0, 100.0, 100.0);
+        assert!((r.width() - 0.0).abs() < 1e-9);
+        assert!((r.height() - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rectangle_debug() {
+        let r = Rectangle::new(0.0, 0.0, 612.0, 792.0);
+        let _ = format!("{:?}", r);
+    }
+
+    #[test]
+    fn rectangle_from_cos_valid() {
+        let arr = CosObject::Array(vec![
+            CosObject::Real(0.0), CosObject::Real(0.0),
+            CosObject::Real(612.0), CosObject::Real(792.0),
+        ]);
+        let r = rectangle_from_cos(&arr).unwrap();
+        assert!((r.width() - 612.0).abs() < 1e-9);
+    }
 }

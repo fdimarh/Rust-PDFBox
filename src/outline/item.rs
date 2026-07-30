@@ -207,4 +207,32 @@ mod tests {
         assert!(item.first_child().is_none());
         assert!(item.descendants().is_empty());
     }
+
+    #[test]
+    fn test_outline_item_dictionary_access() {
+        let dict = make_item_dict("Test", 1);
+        let store = crate::ObjectStore::new();
+        let item = OutlineItem::new(ObjectId::new(1, 0), &dict, &store);
+        let d = item.dictionary();
+        assert!(d.get(&CosName::new(b"Title".to_vec())).is_some());
+        assert!(d.get(&CosName::count()).is_some());
+    }
+
+    #[test]
+    fn test_outline_item_next_prev_parent_none() {
+        let dict = make_item_dict("Solo", 0);
+        let store = crate::ObjectStore::new();
+        let item = OutlineItem::new(ObjectId::new(1, 0), &dict, &store);
+        assert!(item.next().is_none());
+        assert!(item.prev().is_none());
+        assert!(item.parent().is_none());
+    }
+
+    #[test]
+    fn test_outline_item_debug() {
+        let dict = make_item_dict("Debug", 0);
+        let store = crate::ObjectStore::new();
+        let item = OutlineItem::new(ObjectId::new(1, 0), &dict, &store);
+        let _ = format!("{:?}", item);
+    }
 }

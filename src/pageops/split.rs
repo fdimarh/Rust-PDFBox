@@ -148,4 +148,14 @@ mod tests {
         let splitter = PdfSplitter::new(&mut doc);
         assert!(splitter.doc.catalog_id().is_some() || splitter.doc.page_count() == 0);
     }
+
+    #[test]
+    fn test_split_exact_pages() {
+        // split 2-page doc into exactly 2 pages per doc → 1 doc
+        let mut doc = two_page_doc();
+        let mut splitter = PdfSplitter::new(&mut doc);
+        let result = splitter.split(2).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].page_count(), 2);
+    }
 }

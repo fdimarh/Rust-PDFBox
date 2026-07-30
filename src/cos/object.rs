@@ -345,4 +345,45 @@ mod tests {
             "Reference"
         );
     }
+
+    #[test]
+    fn debug_format() {
+        let _ = format!("{:?}", CosObject::Null);
+        let _ = format!("{:?}", CosObject::Integer(42));
+        let _ = format!("{:?}", CosObject::Bool(true));
+    }
+
+    #[test]
+    fn as_bool_variants() {
+        assert_eq!(CosObject::Bool(true).as_bool(), Some(true));
+        assert_eq!(CosObject::Bool(false).as_bool(), Some(false));
+        assert_eq!(CosObject::Null.as_bool(), None);
+        assert_eq!(CosObject::Integer(1).as_bool(), None);
+    }
+
+    #[test]
+    fn as_real_variants() {
+        assert_eq!(CosObject::Real(3.14).as_real(), Some(3.14));
+        assert_eq!(CosObject::Integer(42).as_real(), None);
+        assert_eq!(CosObject::Null.as_real(), None);
+    }
+
+    #[test]
+    fn as_array_variants() {
+        let empty: Vec<CosObject> = vec![];
+        assert!(CosObject::Array(empty).as_array().is_some());
+        assert!(CosObject::Null.as_array().is_none());
+    }
+
+    #[test]
+    fn from_integer() {
+        let obj: CosObject = 42.into();
+        assert_eq!(obj.as_integer(), Some(42));
+    }
+
+    #[test]
+    fn from_bool() {
+        let obj: CosObject = true.into();
+        assert_eq!(obj.as_bool(), Some(true));
+    }
 }
