@@ -31,6 +31,40 @@ mod tests {
     use super::*;
     use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
 
+    /// Build a raw 2-page minimal PDF byte buffer (no compressed streams).
+    /// Closely mirrors the pattern used in editor.rs.
+    fn minimal_pdf_bytes() -> Vec<u8> {
+        let mut pdf = b"%PDF-1.4\n".to_vec();
+
+        let o1 = pdf.len();
+        pdf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+        let o2 = pdf.len();
+        pdf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n");
+
+        let o3 = pdf.len();
+        pdf.extend_from_slice(
+            b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Rotate 0 >>\nendobj\n",
+        );
+
+        let o4 = pdf.len();
+        pdf.extend_from_slice(
+            b"4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Rotate 0 >>\nendobj\n",
+        );
+
+        let xref = pdf.len();
+        pdf.extend_from_slice(b"xref\n0 5\n");
+        pdf.extend_from_slice(b"0000000000 65535 f \r\n");
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", o1).as_bytes());
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", o2).as_bytes());
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", o3).as_bytes());
+        pdf.extend_from_slice(format!("{:010} 00000 n \r\n", o4).as_bytes());
+
+        pdf.extend_from_slice(b"trailer\n<< /Size 5 /Root 1 0 R >>\n");
+        pdf.extend_from_slice(format!("startxref\n{}\n%%EOF\n", xref).as_bytes());
+        pdf
+    }
+
     fn minimal_doc() -> Document {
         let catalog_id = ObjectId::new(1, 0);
         let pages_id = ObjectId::new(2, 0);
@@ -102,6 +136,78 @@ mod tests {
         rotate_page(&mut doc, 0, 180).unwrap();
         let tree = doc.pages().unwrap();
         assert_eq!(tree.get(0).unwrap().rotation(), 270);
+    }
+
+    // ── load_from_bytes-based tests ──────────────────────────────────────
+
+    #[test]
+    fn test_rotate_from_bytes_90() {
+        let mut doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        rotate_page(&mut doc, 0, 90).unwrap();
+        let tree = doc.pages().unwrap();
+        assert_eq!(tree.get(0).unwrap().rotation(), 90);
+        // Second page was initial-0, still 0
+        assert_eq!(tree.get(1).unwrap().rotation(), 0);
+    }
+
+    #[test]
+    fn test_rotate_from_bytes_360_wraps() {
+        let mut doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        rotate_page(&mut doc, 0, 360).unwrap();
+        let tree = doc.pages().unwrap();
+        assert_eq!(tree.get(0).unwrap().rotation(), 0);
+    }
+
+    #[test]
+    fn test_rotate_from_bytes_multiple_pages() {
+        let mut doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        rotate_page(&mut doc, 0, 90).unwrap();
+        rotate_page(&mut doc, 1, 180).unwrap();
+        let tree = doc.pages().unwrap();
+        assert_eq!(tree.get(0).unwrap().rotation(), 90);
+        assert_eq!(tree.get(1).unwrap().rotation(), 180);
+    }
+
+    #[test]
+    fn test_rotate_from_bytes_negative() {
+        let mut doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        rotate_page(&mut doc, 1, -90).unwrap();
+        let tree = doc.pages().unwrap();
+        assert_eq!(tree.get(1).unwrap().rotation(), 270);
+    }
+
+    #[test]
+    fn test_rotate_from_bytes_cumulative() {
+        let mut doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        rotate_page(&mut doc, 1, 90).unwrap();
+        rotate_page(&mut doc, 1, 180).unwrap();
+        rotate_page(&mut doc, 1, 45).unwrap();
+        let tree = doc.pages().unwrap();
+        // (0 + 90 + 180 + 45) % 360 = 315
+        assert_eq!(tree.get(1).unwrap().rotation(), 315);
+    }
+
+    #[test]
+    fn test_rotate_from_bytes_out_of_bounds() {
+        let mut doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        let result = rotate_page(&mut doc, 99, 90);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rotate_from_bytes_save_and_reload() {
+        let mut doc = Document::load_from_bytes(&minimal_pdf_bytes()).unwrap();
+        rotate_page(&mut doc, 0, 270).unwrap();
+        rotate_page(&mut doc, 1, 90).unwrap();
+
+        // Save to buffer and reload
+        let mut buf = std::io::Cursor::new(Vec::new());
+        doc.save_to(&mut buf).unwrap();
+        let reloaded = Document::load_from_bytes(buf.get_ref()).unwrap();
+        let tree = reloaded.pages().unwrap();
+        assert_eq!(tree.get(0).unwrap().rotation(), 270);
+        assert_eq!(tree.get(1).unwrap().rotation(), 90);
+        assert_eq!(reloaded.page_count(), 2);
     }
 }
 

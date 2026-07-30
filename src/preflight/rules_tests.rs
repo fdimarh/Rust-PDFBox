@@ -427,13 +427,35 @@ fn test_page_rule_fail_additional_actions() {
 }
 
 // =======================================================================
-// 14.0 EmbeddedFileRule — placeholder stub
+// 14.0 EmbeddedFileRule tests
 // =======================================================================
 #[test]
 fn test_embedded_file_stub() {
     let doc = doc_with_catalog();
     let errs = EmbeddedFileRule.validate(&doc);
     assert!(errs.is_empty(), "stub: no errors yet");
+}
+
+#[test]
+fn test_embedded_file_detects_non_pdf() {
+    let mut doc = doc_with_catalog();
+    let mut d = CosDictionary::new();
+    d.insert(CosName::type_name(), CosObject::Name(CosName::new(b"EmbeddedFile".to_vec())));
+    d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"text/plain".to_vec())));
+    inject_stream_dict(&mut doc, d);
+    let errs = EmbeddedFileRule.validate(&doc);
+    assert!(errs.iter().any(|e| e.rule_id == "14.1"));
+}
+
+#[test]
+fn test_embedded_file_passes_pdf() {
+    let mut doc = doc_with_catalog();
+    let mut d = CosDictionary::new();
+    d.insert(CosName::type_name(), CosObject::Name(CosName::new(b"EmbeddedFile".to_vec())));
+    d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"application/pdf".to_vec())));
+    inject_stream_dict(&mut doc, d);
+    let errs = EmbeddedFileRule.validate(&doc);
+    assert!(errs.is_empty(), "PDF embedded file should pass: {:?}", errs);
 }
 
 // =======================================================================

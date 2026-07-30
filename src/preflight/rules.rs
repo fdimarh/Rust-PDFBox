@@ -493,12 +493,55 @@ impl PreflightRule for PageRule {
 
 // ── 14.0 Embedded File Rule ────────────────────────────────────────────
 // ISO 19005-1:2005 §6.2.11 — embedded files must be PDF/A
+// Also check for /EmbeddedFiles in catalog's /Names
 
 pub struct EmbeddedFileRule;
 impl PreflightRule for EmbeddedFileRule {
-    fn validate(&self, _doc: &Document) -> Vec<ValidationError> {
-        // Placeholder: complex spec — check for EF / embedded files
-        Vec::new()
+    fn validate(&self, doc: &Document) -> Vec<ValidationError> {
+        let mut errors = Vec::new();
+        let catalog = match doc.catalog() {
+            Some(c) => c,
+            None => return errors,
+        };
+
+        // Check /Names -> /EmbeddedFiles tree
+        if let Some(names) = catalog.get(&CosName::new(b"Names".to_vec())) {
+            let resolved = doc.objects.resolve(names);
+            if let Some(CosObject::Dictionary(names_dict)) = resolved {
+                if names_dict.contains_key(&CosName::new(b"EmbeddedFiles".to_vec())) {
+                    // Found embedded files — we flag it since PDF/A-1b doesn't strictly
+                    // forbid them, but they require the embedded file to also be PDF/A
+                    errors.push(ValidationError {
+                        rule_id: "14.0",
+                        message: "Document contains embedded files; PDF/A-1b requires them to conform to the same spec.".to_string(),
+                    });
+                }
+            }
+        }
+
+        // Check all objects for /Type /EmbeddedFile
+        for (id, obj) in doc.objects.iter() {
+            if let CosObject::Stream(stream) = obj {
+                let type_name = stream.dictionary.get(&CosName::type_name())
+                    .and_then(|o| o.as_name())
+                    .map(|n| n.as_bytes());
+                if type_name == Some(b"EmbeddedFile") {
+                    let subtype = stream.dictionary.get(&CosName::new(b"Subtype".to_vec()))
+                        .and_then(|o| o.as_name())
+                        .map(|n| n.as_bytes());
+                    if subtype != Some(b"application/pdf") {
+                        errors.push(ValidationError {
+                            rule_id: "14.1",
+                            message: format!("Embedded file Obj {} {} is not PDF/A (Subtype {:?}).",
+                                id.object_number, id.generation,
+                                subtype.map(|s| String::from_utf8_lossy(s)).unwrap_or_default()),
+                        });
+                    }
+                }
+            }
+        }
+
+        errors
     }
     fn id(&self) -> &'static str { "14.0" }
 }
