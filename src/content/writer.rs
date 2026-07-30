@@ -159,7 +159,52 @@ impl<'a> ContentStreamWriter<'a> {
         }
         buffer.push(b')');
     }
+}
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn push_pdf_literal_string_plain() {
+        let mut buf = Vec::new();
+        ContentStreamWriter::push_pdf_literal_string(&mut buf, "Hello");
+        assert_eq!(buf, b"(Hello)");
+    }
+
+    #[test]
+    fn push_pdf_literal_string_escaped() {
+        let mut buf = Vec::new();
+        ContentStreamWriter::push_pdf_literal_string(&mut buf, "a(b)c");
+        assert_eq!(buf, b"(a\\(b\\)c)");
+    }
+
+    #[test]
+    fn push_pdf_literal_string_backslash() {
+        let mut buf = Vec::new();
+        ContentStreamWriter::push_pdf_literal_string(&mut buf, "a\\b");
+        assert_eq!(buf, b"(a\\\\b)");
+    }
+
+    #[test]
+    fn push_pdf_literal_string_mixed() {
+        let mut buf = Vec::new();
+        ContentStreamWriter::push_pdf_literal_string(&mut buf, "\\(x)");
+        assert_eq!(
+            buf.as_slice(),
+            &[40, 92, 92, 92, 40, 120, 92, 41, 41] // (\\\\(x\))
+        );
+    }
+
+    #[test]
+    fn push_pdf_literal_string_empty() {
+        let mut buf = Vec::new();
+        ContentStreamWriter::push_pdf_literal_string(&mut buf, "");
+        assert_eq!(buf, b"()");
+    }
+}
+
+impl<'a> ContentStreamWriter<'a> {
     pub fn move_to_point(&mut self, x: f64, y: f64) -> PdfResult<()> {
         self.buffer
             .extend_from_slice(format!("{} {} m\n", x, y).as_bytes());
