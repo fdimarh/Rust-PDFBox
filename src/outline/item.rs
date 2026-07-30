@@ -168,6 +168,25 @@ mod tests {
     }
 
     #[test]
+    fn test_item_count_zero_default() {
+        let dict = make_item_dict("", 0);
+        let store = crate::ObjectStore::new();
+        let id = ObjectId::new(1, 0);
+        let item = OutlineItem::new(id, &dict, &store);
+        assert_eq!(item.count(), 0);
+        assert!(!item.is_open());
+    }
+
+    #[test]
+    fn test_item_title_default_empty() {
+        let dict = make_item_dict("", 0);
+        let store = crate::ObjectStore::new();
+        let id = ObjectId::new(1, 0);
+        let item = OutlineItem::new(id, &dict, &store);
+        assert_eq!(item.title(), "");
+    }
+
+    #[test]
     fn test_outline_item_open_closed() {
         let store = crate::ObjectStore::new();
 

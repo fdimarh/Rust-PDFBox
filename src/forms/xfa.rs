@@ -220,4 +220,36 @@ mod tests {
         assert_eq!(xfa_ok.packets()[0].name(), Some("datasets"));
         assert_eq!(xfa_ok.packets()[0].xml(), b"<ok/>");
     }
+
+    #[test]
+    fn test_xfa_is_empty_true() {
+        let xfa = XfaForm { packets: vec![] };
+        assert!(xfa.is_empty());
+    }
+
+    #[test]
+    fn test_xfa_is_empty_false() {
+        let p = XfaPacket { name: Some("config".to_string()), xml: b"<data/>".to_vec() };
+        let xfa = XfaForm { packets: vec![p] };
+        assert!(!xfa.is_empty());
+    }
+
+    #[test]
+    fn test_xfa_packet_names_empty() {
+        let xfa = XfaForm { packets: vec![] };
+        assert!(xfa.packet_names().is_empty());
+    }
+
+    #[test]
+    fn test_xfa_packet_name_none() {
+        let p = XfaPacket { name: None, xml: b"<not-xdp/>".to_vec() };
+        let xfa = XfaForm { packets: vec![p] };
+        assert!(xfa.packets()[0].name().is_none());
+    }
+
+    #[test]
+    fn test_xfa_raw_xml_single_empty() {
+        let xfa = XfaForm { packets: vec![] };
+        assert!(xfa.raw_xml().is_empty());
+    }
 }

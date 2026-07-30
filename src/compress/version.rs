@@ -312,4 +312,24 @@ mod tests {
         assert_eq!(1_u8, 1);
         assert_eq!(4_u8, 4);
     }
+
+    #[test]
+    fn doc_uses_aes_no_encryption_returns_false() {
+        let doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        assert!(!doc_uses_aes_encryption(&doc));
+    }
+
+    #[test]
+    fn doc_has_xfa_no_catalog_returns_false() {
+        // minimal PDF has a catalog but no AcroForm
+        let doc = crate::Document::load_from_bytes(&crate::tests::minimal_pdf()).unwrap();
+        assert!(!doc_has_xfa(&doc));
+    }
+
+    #[test]
+    fn version_report_display() {
+        let r = VersionReport::default();
+        // just ensure Debug/Derive works
+        let _ = format!("{:?}", r);
+    }
 }

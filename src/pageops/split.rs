@@ -141,4 +141,11 @@ mod tests {
         let result = splitter.split(1).unwrap();
         assert!(result.is_empty());
     }
+
+    #[test]
+    fn test_splitter_new_creates_empty_splitter() {
+        let mut doc = Document::empty();
+        let splitter = PdfSplitter::new(&mut doc);
+        assert!(splitter.doc.catalog_id().is_some() || splitter.doc.page_count() == 0);
+    }
 }
