@@ -521,3 +521,299 @@ fn name_to_string(name: &CosName) -> String {
         .map(|s| s.to_string())
         .unwrap_or_else(|| String::from_utf8_lossy(name.as_bytes()).into_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosDictionary, CosName, CosObject, CosStream};
+    use crate::Document;
+
+    fn make_text_annot_dict() -> CosDictionary {
+        let mut d = CosDictionary::new();
+        d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Annot".to_vec())));
+        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Text".to_vec())));
+        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(100.0), CosObject::Real(200.0),
+            CosObject::Real(150.0), CosObject::Real(250.0),
+        ]));
+        d.insert(CosName::new(b"Contents".to_vec()), CosObject::String(b"Test note".to_vec()));
+        d.insert(CosName::new(b"Open".to_vec()), CosObject::Bool(true));
+        d.insert(CosName::new(b"F".to_vec()), CosObject::Integer(4));
+        d.insert(CosName::new(b"CA".to_vec()), CosObject::Real(0.8));
+        d.insert(CosName::new(b"C".to_vec()), CosObject::Array(vec![
+            CosObject::Real(1.0), CosObject::Real(0.0), CosObject::Real(0.0),
+        ]));
+        d
+    }
+
+    fn make_link_annot_dict(uri: &str) -> CosDictionary {
+        let mut d = CosDictionary::new();
+        d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Annot".to_vec())));
+        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Link".to_vec())));
+        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(0.0), CosObject::Real(0.0),
+            CosObject::Real(100.0), CosObject::Real(50.0),
+        ]));
+        let mut action = CosDictionary::new();
+        action.insert(CosName::new(b"S".to_vec()), CosObject::Name(CosName::new(b"URI".to_vec())));
+        action.insert(CosName::new(b"URI".to_vec()), CosObject::String(uri.as_bytes().to_vec()));
+        d.insert(CosName::new(b"A".to_vec()), CosObject::Dictionary(action));
+        d
+    }
+
+    fn make_highlight_annot_dict() -> CosDictionary {
+        let mut d = CosDictionary::new();
+        d.insert(CosName::new(b"Type".to_vec()), CosObject::Name(CosName::new(b"Annot".to_vec())));
+        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Highlight".to_vec())));
+        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(50.0), CosObject::Real(100.0),
+            CosObject::Real(200.0), CosObject::Real(150.0),
+        ]));
+        d.insert(CosName::new(b"QuadPoints".to_vec()), CosObject::Array(vec![
+            CosObject::Real(50.0), CosObject::Real(100.0),
+            CosObject::Real(200.0), CosObject::Real(100.0),
+            CosObject::Real(200.0), CosObject::Real(150.0),
+            CosObject::Real(50.0), CosObject::Real(150.0),
+        ]));
+        d
+    }
+
+    // ── Parse Tests ──────────────────────────────────────────────
+
+    #[test]
+    fn parse_text_annotation() {
+        let d = make_text_annot_dict();
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        assert_eq!(annot.subtype(), "Text");
+        match annot {
+            PdAnnotation::Text(ref t) => {
+                assert_eq!(t.common.contents.as_deref(), Some("Test note"));
+                assert_eq!(t.open, Some(true));
+                assert_eq!(t.common.flags, Some(4));
+                assert_eq!(t.common.opacity, Some(0.8));
+                assert_eq!(t.common.color, Some([1.0, 0.0, 0.0]));
+                assert!(t.common.id.is_none());
+            }
+            _ => panic!("Expected Text annotation"),
+        }
+    }
+
+    #[test]
+    fn parse_link_annotation_with_uri() {
+        let d = make_link_annot_dict("https://example.com");
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        assert_eq!(annot.subtype(), "Link");
+        match annot {
+            PdAnnotation::Link(ref l) => {
+                assert_eq!(l.uri.as_deref(), Some("https://example.com"));
+            }
+            _ => panic!("Expected Link annotation"),
+        }
+    }
+
+    #[test]
+    fn parse_highlight_annotation() {
+        let d = make_highlight_annot_dict();
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        assert_eq!(annot.subtype(), "Highlight");
+        match annot {
+            PdAnnotation::Markup(ref m) => {
+                assert_eq!(m.quad_points.len(), 1);
+                assert_eq!(m.quad_points[0][0], 50.0);
+                assert_eq!(m.quad_points[0][7], 150.0);
+            }
+            _ => panic!("Expected Markup annotation"),
+        }
+    }
+
+    #[test]
+    fn parse_generic_annotation() {
+        let mut d = CosDictionary::new();
+        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Stamp".to_vec())));
+        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(0.0), CosObject::Real(0.0),
+            CosObject::Real(10.0), CosObject::Real(10.0),
+        ]));
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        assert_eq!(annot.subtype(), "Stamp");
+        assert!(matches!(annot, PdAnnotation::Generic(_)));
+    }
+
+    #[test]
+    fn parse_missing_rect_fails() {
+        let mut d = CosDictionary::new();
+        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Text".to_vec())));
+        assert!(PdAnnotation::from_dict(&d, None).is_err());
+    }
+
+    #[test]
+    fn parse_unknown_subtype_is_generic() {
+        let mut d = CosDictionary::new();
+        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"3D".to_vec())));
+        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(0.0), CosObject::Real(0.0),
+            CosObject::Real(10.0), CosObject::Real(10.0),
+        ]));
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        assert_eq!(annot.subtype(), "3D");
+        assert!(matches!(annot, PdAnnotation::Generic(_)));
+    }
+
+    // ── Round-trip Tests ──────────────────────────────────────────
+
+    #[test]
+    fn text_annotation_roundtrip() {
+        let d = make_text_annot_dict();
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        let serialized = annot.to_dictionary();
+        assert_eq!(
+            serialized.get_name(&CosName::new(b"Subtype".to_vec())).map(|n| n.as_bytes().to_vec()),
+            Some(b"Text".to_vec())
+        );
+        assert_eq!(
+            serialized.get(&CosName::new(b"Contents".to_vec()))
+                .and_then(|v| v.as_string()),
+            Some(&b"Test note"[..])
+        );
+    }
+
+    #[test]
+    fn link_annotation_roundtrip() {
+        let d = make_link_annot_dict("https://example.com");
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        let serialized = annot.to_dictionary();
+        let action = serialized.get(&CosName::new(b"A".to_vec()))
+            .and_then(|v| v.as_dictionary());
+        assert!(action.is_some());
+        assert_eq!(
+            action.and_then(|a| a.get_name(&CosName::new(b"S".to_vec())))
+                .map(|n| n.as_bytes().to_vec()),
+            Some(b"URI".to_vec())
+        );
+    }
+
+    #[test]
+    fn highlight_annotation_roundtrip() {
+        let d = make_highlight_annot_dict();
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        let serialized = annot.to_dictionary();
+        let qp = serialized.get(&CosName::new(b"QuadPoints".to_vec()))
+            .and_then(|v| v.as_array());
+        assert!(qp.is_some());
+        assert_eq!(qp.unwrap().len(), 8);
+    }
+
+    // ── Page-level Annotation Ops ─────────────────────────────────
+
+    #[test]
+    fn add_annotation_to_new_page() {
+        let mut doc = Document::empty();
+        let catalog_id = crate::ObjectId::new(1, 0);
+        let pages_id = crate::ObjectId::new(2, 0);
+        let page_id = crate::ObjectId::new(3, 0);
+
+        let mut catalog = CosDictionary::new();
+        catalog.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Catalog".to_vec())));
+        catalog.insert(CosName::pages(), CosObject::Reference(pages_id));
+        doc.insert_object(catalog_id, CosObject::Dictionary(catalog));
+        let mut pages = CosDictionary::new();
+        pages.insert(CosName::type_name(), CosObject::Name(CosName::new(b"Pages".to_vec())));
+        pages.insert(CosName::kids(), CosObject::Array(vec![CosObject::Reference(page_id)]));
+        pages.insert(CosName::count(), CosObject::Integer(1));
+        doc.insert_object(pages_id, CosObject::Dictionary(pages));
+        let page = CosDictionary::new();
+        doc.insert_object(page_id, CosObject::Dictionary(page));
+
+        let d = make_text_annot_dict();
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        let annot_id = add_annotation_to_page(&mut doc, page_id, annot).unwrap();
+
+        let page_obj = doc.get_object_ref(page_id).unwrap();
+        let annots = page_obj.as_dictionary()
+            .and_then(|dict| dict.get(&CosName::new(b"Annots".to_vec())))
+            .and_then(|v| v.as_array());
+        assert!(annots.is_some());
+        assert_eq!(annots.unwrap().len(), 1);
+        assert_eq!(
+            annots.unwrap()[0].as_reference(),
+            Some(annot_id)
+        );
+    }
+
+    #[test]
+    fn remove_first_annotation_from_page() {
+        let mut doc = Document::empty();
+        let page_id = crate::ObjectId::new(1, 0);
+        let mut page = CosDictionary::new();
+        page.insert(
+            CosName::new(b"Annots".to_vec()),
+            CosObject::Array(vec![
+                CosObject::Reference(crate::ObjectId::new(10, 0)),
+                CosObject::Reference(crate::ObjectId::new(11, 0)),
+            ]),
+        );
+        doc.insert_object(page_id, CosObject::Dictionary(page));
+
+        remove_annotation_from_page(&mut doc, page_id, 0).unwrap();
+        let page_obj = doc.get_object_ref(page_id).unwrap();
+        let annots = page_obj.as_dictionary()
+            .and_then(|dict| dict.get(&CosName::new(b"Annots".to_vec())))
+            .and_then(|v| v.as_array());
+        assert_eq!(annots.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn remove_last_annotation_removes_annots_key() {
+        let mut doc = Document::empty();
+        let page_id = crate::ObjectId::new(1, 0);
+        let mut page = CosDictionary::new();
+        page.insert(
+            CosName::new(b"Annots".to_vec()),
+            CosObject::Array(vec![CosObject::Reference(crate::ObjectId::new(10, 0))]),
+        );
+        doc.insert_object(page_id, CosObject::Dictionary(page));
+
+        remove_annotation_from_page(&mut doc, page_id, 0).unwrap();
+        let page_obj = doc.get_object_ref(page_id).unwrap();
+        let has_annots = page_obj.as_dictionary()
+            .and_then(|dict| dict.get(&CosName::new(b"Annots".to_vec())));
+        assert!(has_annots.is_none());
+    }
+
+    // ── Common Fields ─────────────────────────────────────────────
+
+    #[test]
+    fn annotation_common_defaults() {
+        let mut d = CosDictionary::new();
+        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Text".to_vec())));
+        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(10.0), CosObject::Real(20.0),
+            CosObject::Real(30.0), CosObject::Real(40.0),
+        ]));
+        let annot = PdAnnotation::from_dict(&d, Some(crate::ObjectId::new(99, 0))).unwrap();
+        assert_eq!(annot.id(), Some(crate::ObjectId::new(99, 0)));
+        assert_eq!(annot.subtype(), "Text");
+    }
+
+    #[test]
+    fn annotation_missing_optional_fields() {
+        let mut d = CosDictionary::new();
+        d.insert(CosName::new(b"Subtype".to_vec()), CosObject::Name(CosName::new(b"Text".to_vec())));
+        d.insert(CosName::new(b"Rect".to_vec()), CosObject::Array(vec![
+            CosObject::Real(0.0), CosObject::Real(0.0),
+            CosObject::Real(1.0), CosObject::Real(1.0),
+        ]));
+        let annot = PdAnnotation::from_dict(&d, None).unwrap();
+        assert!(annot.id().is_none());
+        match annot {
+            PdAnnotation::Text(ref t) => {
+                assert!(t.common.contents.is_none());
+                assert!(t.common.name.is_none());
+                assert!(t.common.flags.is_none());
+                assert!(t.common.color.is_none());
+                assert!(t.common.opacity.is_none());
+            }
+            _ => panic!("Expected Text"),
+        }
+    }
+}
