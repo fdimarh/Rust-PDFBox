@@ -166,4 +166,26 @@ mod tests {
         // Just verify the function signature compiles and accepts the trait.
         let _ = crate::signing::SignatureFormat::Pkcs7;
     }
+
+    #[test]
+    fn test_mock_signer_algorithm() {
+        let signer = MockSigner;
+        assert_eq!(signer.algorithm(), "RSA-Mock");
+    }
+
+    #[test]
+    fn test_signature_config_new() {
+        let config = SignatureConfig {
+            digest: vec![0xAB; 32],
+            sign_options: SignOptions::default(),
+        };
+        assert_eq!(config.digest.len(), 32);
+        assert_eq!(config.digest[0], 0xAB);
+    }
+
+    #[test]
+    fn test_cms_signer_result_empty() {
+        let result = CmsSignerResult { cms_der: vec![] };
+        assert!(result.cms_der.is_empty());
+    }
 }

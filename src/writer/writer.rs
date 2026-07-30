@@ -194,4 +194,20 @@ mod tests {
         assert!(w.file_key.is_none());
         assert!(w.bypass_ids.is_empty());
     }
+
+    #[test]
+    fn writer_default_bypass_ids_empty() {
+        let buf = Cursor::new(Vec::new());
+        let w = Writer::new(buf);
+        assert!(w.bypass_ids.is_empty());
+    }
+
+    #[test]
+    fn writer_encrypted_with_key() {
+        let buf = Cursor::new(Vec::new());
+        let bypass = std::collections::HashSet::new();
+        let w = Writer::new_encrypted(buf, Some(vec![0u8; 32]), bypass);
+        assert!(w.file_key.is_some());
+        assert_eq!(w.file_key.as_ref().unwrap().len(), 32);
+    }
 }

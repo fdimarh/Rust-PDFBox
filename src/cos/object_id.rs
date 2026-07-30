@@ -65,4 +65,17 @@ mod tests {
         assert!(a < b);
         assert!(b < c);
     }
+
+    #[test]
+    fn debug_format() {
+        let id = ObjectId::new(12, 0);
+        let _ = format!("{:?}", id);
+    }
+
+    #[test]
+    fn large_object_number() {
+        let id = ObjectId::new(999999, 65535);
+        assert_eq!(id.object_number, 999999);
+        assert_eq!(id.generation, 65535);
+    }
 }

@@ -102,4 +102,18 @@ mod tests {
         assert_eq!(img.width(), 1);
         assert_eq!(img.height(), 1);
     }
+
+    #[test]
+    fn apply_icc_small_profile_no_panic() {
+        // A valid ICC profile header is at least 128 bytes; a small garbage profile should still not panic
+        let img = apply_icc_profile(&[128u8; 200], b"x", 2, 2, 3);
+        assert_eq!(img.width(), 2);
+    }
+
+    #[test]
+    fn apply_icc_zero_sized_no_panic() {
+        let img = apply_icc_profile(&[], b"", 0, 0, 3);
+        assert_eq!(img.width(), 0);
+        assert_eq!(img.height(), 0);
+    }
 }
