@@ -1,6 +1,6 @@
 # Architecture and Module Contracts
 
-_Last updated: 2026-04-02 — All modules implemented. 510 tests passing._
+_Last updated: 2026-07-30 — All modules implemented. **1,133 tests passing**, ~95% overall completion._
 
 This document defines the architecture contracts for the Rust PDFBox port.
 
