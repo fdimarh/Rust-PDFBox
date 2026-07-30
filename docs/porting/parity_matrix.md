@@ -175,18 +175,18 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ---
 
-## Suite Breakdown (2026-04-02)
+## Suite Breakdown (2026-07-30)
 
 | Test Suite | File | Passing | Failed |
 |---|---|---:|---:|
-| Lib unit tests | `src/lib.rs` (+ all `src/**`) | 417 | 0 |
+| Lib unit tests | `src/lib.rs` (+ all `src/**`) | 1,133 | 0 |
 | Compat harness | `tests/compat_harness.rs` | 7 | 0 |
 | Corpus breadth | `tests/corpus_breadth.rs` | 33 | 0 |
 | Cross-validation | `tests/cross_validate.rs` | 19 | 0 |
 | Fixture generator | `tests/fixture_gen.rs` | 6 | 0 |
 | Parser regression | `tests/parser_regression.rs` | 28 | 0 |
 | Doc-tests | — | 0 (1 ignored) | 0 |
-| **Total** | | **510** | **0** |
+| **Total** | | **1,133** | **0** |
 
 ---
 
@@ -224,6 +224,10 @@ This document tracks feature parity between Apache Java PDFBox and this Rust por
 
 ## Update Log
 
+- **2026-07-30:** Form filling AcroForm complete (Phase 2.2) — `PdfEditor` methods: get_field_names, get/set field value, flatten, FDF/XFDF export/import. **1,133 tests, ~95% overall completion.**
+- **2026-07-30:** Page operations complete (Phase 2.1) — `PdfEditor` methods: merge_document, split, extract_pages, delete_page/s, reorder_pages, rotate_page. **1,125 tests.**
+- **2026-07-30:** PdfEditor API complete (Phase 1.4) — `PdfEditor` struct with `save_to_bytes`, `extract_text_from_page`, `find_images_on_page`, `replace_image_on_page`, `into_document`. **1,103 tests.**
+- **2026-07-30:** Content stream editing complete (Phases 1.1–1.3) — tokenizer, parser, serializer, text find/replace (Tj/TJ/'/"), XObject image replace, inline image replace (BI/ID/EI). **1,097 tests.**
 - **2026-04-02:** Cross-validation suite complete (Bonus 9) — `tests/cross_validate.rs` with hand-rolled JSON parser, `VResult` engine, `cv!` macro, 5 JSON reference snapshots in `tests/cross_validation/`, in-memory PDF generators. 19 tests, all passing. **510 total tests, 0 failed.**
 - **2026-04-02:** Crate feature flags complete (Bonus 8) — `text`, `crypto`, `layout`, `full`; RustCrypto deps optional under `crypto` feature; `md5`+`digest` always-on; `--no-default-features` builds cleanly.
 - **2026-04-02:** RustCrypto migration — `aes`/`cbc`/`cipher`/`block-padding` optional deps under `crypto` feature; `md-5`/`digest` always-on non-optional. Fixed AES empty-ciphertext validation. Resolved all IDE import false-positives.
