@@ -346,3 +346,96 @@ fn build_text_layer(
 
     (content.into_bytes(), res)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cos::{CosDictionary, CosName, CosObject, ObjectId};
+
+    #[test]
+    fn test_make_form_xobj_basic() {
+        let res = CosDictionary::new();
+        let obj = make_form_xobj(200.0, 100.0, b"q 1 0 0 1 0 0 cm Q\n".to_vec(), res);
+        let stream = obj.as_stream().unwrap();
+        let dict = &stream.dictionary;
+        assert_eq!(
+            dict.get(&CosName::new(b"Subtype"))
+                .and_then(|v| v.as_name())
+                .map(|n| n.as_bytes()),
+            Some(b"Form" as &[u8])
+        );
+        assert_eq!(
+            dict.get(&CosName::new(b"FormType"))
+                .and_then(|v| v.as_integer()),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn test_build_text_layer_simple() {
+        let font_id = ObjectId::new(1, 0);
+        let (bytes, res) = build_text_layer(200.0, 100.0, "Alice", "Approved", "D:20260730120000+07", font_id);
+        let content = String::from_utf8_lossy(&bytes);
+        assert!(content.contains("BT"));
+        assert!(content.contains("ET"));
+        assert!(content.contains("/F1"));
+        // Should include signer name with "Signer:" prefix
+        assert!(content.contains("Signer: Alice") || bytes.windows(12).any(|w| w == b"Alice"));
+        assert!(content.contains("Approved"));
+        assert!(content.contains("2026"));
+        // Resources should contain /Font
+        assert!(res.get(&CosName::new(b"Font")).is_some());
+    }
+
+    #[test]
+    fn test_build_text_layer_empty_signer() {
+        let font_id = ObjectId::new(1, 0);
+        let (bytes, _res) = build_text_layer(200.0, 100.0, "", "Test", "D:20260730120000+07", font_id);
+        let content = String::from_utf8_lossy(&bytes);
+        assert!(content.contains("BT"));
+        assert!(content.contains("ET"));
+    }
+
+    #[test]
+    fn test_build_text_layer_date_parse() {
+        let font_id = ObjectId::new(1, 0);
+        let (bytes, _res) = build_text_layer(200.0, 100.0, "Bob", "OK", "D:20260730120000+07", font_id);
+        let content = String::from_utf8_lossy(&bytes);
+        // Date should be parsed into readable format
+        assert!(content.contains("2026-07-30"));
+    }
+
+    #[test]
+    fn test_build_text_layer_invalid_date() {
+        let font_id = ObjectId::new(1, 0);
+        let (bytes, _res) = build_text_layer(200.0, 100.0, "Charlie", "Done", "invalid", font_id);
+        let content = String::from_utf8_lossy(&bytes);
+        // Invalid date passes through as-is
+        assert!(content.contains("invalid"));
+    }
+
+    #[test]
+    fn test_make_form_xobj_includes_bbox() {
+        let res = CosDictionary::new();
+        let obj = make_form_xobj(612.0, 792.0, vec![], res);
+        let stream = obj.as_stream().unwrap();
+        let dict = &stream.dictionary;
+        let bbox_arr = dict.get(&CosName::new(b"BBox")).unwrap().as_array().unwrap();
+        assert_eq!(bbox_arr.len(), 4);
+        assert_eq!(bbox_arr[2].as_real(), Some(612.0));
+        assert_eq!(bbox_arr[3].as_real(), Some(792.0));
+    }
+
+    #[test]
+    fn test_escape_parentheses() {
+        // Test the escape closure logic used in build_text_layer
+        let esc = |s: &str| {
+            s.replace('\\', "\\\\")
+                .replace('(', "\\(")
+                .replace(')', "\\)")
+        };
+        assert_eq!(esc("hello"), "hello");
+        assert_eq!(esc("a(b)c"), "a\\(b\\)c");
+        assert_eq!(esc("a\\b"), "a\\\\b");
+    }
+}
