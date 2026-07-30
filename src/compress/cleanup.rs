@@ -448,4 +448,41 @@ mod tests {
         );
         assert!(extgstate.contains("GS1"));
     }
+
+    #[test]
+    fn collect_used_resources_empty_content() {
+        use std::collections::HashSet;
+        let mut fonts = HashSet::new();
+        let mut xobjects = HashSet::new();
+        let mut extgstate = HashSet::new();
+        let mut colorspace = HashSet::new();
+        collect_used_resources(
+            b"",
+            &mut fonts,
+            &mut xobjects,
+            &mut extgstate,
+            &mut colorspace,
+        );
+        assert!(fonts.is_empty());
+        assert!(xobjects.is_empty());
+        assert!(extgstate.is_empty());
+        assert!(colorspace.is_empty());
+    }
+
+    #[test]
+    fn stream_or_dict_size_variants() {
+        use crate::cos::{CosDictionary, CosStream, CosObject as CO};
+
+        // Stream
+        let stream = CosStream::new(CosDictionary::new(), b"hello".to_vec());
+        let size = stream_or_dict_size(&CO::Stream(stream));
+        assert!(size > 60);
+
+        // String
+        let s = CO::String(b"test".to_vec());
+        assert_eq!(stream_or_dict_size(&s), 8);
+
+        // Other (Null, Integer, etc.)
+        assert_eq!(stream_or_dict_size(&CO::Null), 16);
+    }
 }

@@ -100,4 +100,21 @@ mod tests {
         assert!(!result.is_valid);
         assert_eq!(result.errors.len(), 1);
     }
+
+    #[test]
+    fn validate_with_zero_rules() {
+        let v = PreflightValidator::with_rules(vec![]);
+        let doc = Document::empty();
+        let result = v.validate(&doc);
+        assert!(result.is_valid);
+    }
+
+    #[test]
+    fn pdf_a1b_validate_empty_doc() {
+        let v = PreflightValidator::pdf_a1b();
+        let doc = Document::empty();
+        let result = v.validate(&doc);
+        // empty doc will fail some rules (metadata, output intent, etc.)
+        assert!(!result.errors.is_empty());
+    }
 }

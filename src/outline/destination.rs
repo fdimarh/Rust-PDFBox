@@ -378,4 +378,17 @@ mod tests {
         ];
         assert_eq!(modes.len(), 8);
     }
+
+    #[test]
+    fn test_fit_mode_debug() {
+        let mode = FitMode::XYZ(Some(0.0), Some(0.0), Some(1.0));
+        let _ = format!("{:?}", mode);
+    }
+
+    #[test]
+    fn test_destination_debug() {
+        let dest = Destination::goto_page(0, FitMode::Fit);
+        let d = format!("{:?}", dest);
+        assert!(d.contains("GoTo"));
+    }
 }
