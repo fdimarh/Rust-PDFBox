@@ -727,7 +727,7 @@ impl PdfEditor {
             _ => return Ok(Vec::new()),
         };
         let mut result = Vec::new();
-        for (i, obj) in annots.iter().enumerate() {
+        for (_i, obj) in annots.iter().enumerate() {
             let annot_id = obj.as_reference().unwrap_or(ObjectId::new(0, 0));
             let dict = match obj {
                 CosObject::Reference(rid) => self.doc.objects.get(rid).and_then(|o| o.as_dictionary()),

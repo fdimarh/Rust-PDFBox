@@ -5,6 +5,7 @@
 //! All logic mirrors the reference implementation so that DSS dictionaries
 //! and revocation data are formatted exactly as Adobe/Foxit expect.
 
+#[cfg(feature = "network")]
 use std::borrow::Cow;
 use std::io::Write;
 
@@ -21,6 +22,7 @@ use crate::PdfError;
 // Internal helpers — DER length encoding/reading
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "network")]
 fn der_push_length(buf: &mut Vec<u8>, len: usize) {
     if len < 0x80 {
         buf.push(len as u8);
@@ -39,6 +41,7 @@ fn der_push_length(buf: &mut Vec<u8>, len: usize) {
     }
 }
 
+#[cfg(feature = "network")]
 fn der_read_length(data: &[u8], offset: usize) -> Option<(usize, usize)> {
     if offset >= data.len() {
         return None;
@@ -157,6 +160,7 @@ pub fn get_ocsp_crl_url(cert: &CapturedX509Certificate) -> (Option<String>, Opti
 // OCSP request builder
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "network")]
 fn create_ocsp_request(
     cert: &x509_parser::certificate::X509Certificate,
 ) -> Result<Vec<u8>, PdfError> {

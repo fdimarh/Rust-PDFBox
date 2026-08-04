@@ -38,7 +38,7 @@
 //! IncrementalWriter::write_update(&original_bytes, &doc, &changed, &mut out)?;
 //! ```
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::io::{self, Write};
 
 use super::serializer::Serializer;
