@@ -15,8 +15,8 @@ struct GraphicsState {
     line_width: f32,
     fill_color: Color,
     stroke_color: Color,
-    fill_alpha: f32,
-    stroke_alpha: f32,
+    _fill_alpha: f32,
+    _stroke_alpha: f32,
     /// Clipping path (set by `W`/`W*`). Stored for potential future use.
     /// tiny_skia 0.12.0 does not expose a public clip API on PixmapMut,
     /// so clipping is tracked but not enforced in this version.
@@ -31,8 +31,8 @@ impl Default for GraphicsState {
             line_width: 1.0,
             fill_color: Color::BLACK,
             stroke_color: Color::BLACK,
-            fill_alpha: 1.0,
-            stroke_alpha: 1.0,
+            _fill_alpha: 1.0,
+            _stroke_alpha: 1.0,
             _clip_path: None,
             _clip_fill_rule: tiny_skia::FillRule::Winding,
         }
@@ -68,7 +68,7 @@ struct TextState {
 #[derive(Debug, Clone)]
 struct FontMetrics {
     /// Base font name (PostScript)
-    base_font: String,
+    _base_font: String,
     /// First character code with a width
     first_char: u8,
     /// Last character code with a width
@@ -86,7 +86,7 @@ struct FontMetrics {
     /// Font bounding box width
     _bbox_width: f64,
     /// Embedded font program bytes (TrueType / OpenType) for ab_glyph rendering
-    font_data: Option<Vec<u8>>,
+    _font_data: Option<Vec<u8>>,
     /// Scaled ab_glyph font for glyph outline rendering
     ab_font: Option<ab_glyph::FontArc>,
 }
@@ -205,7 +205,7 @@ impl FontMetrics {
         }
 
         Some(Self {
-            base_font,
+            _base_font: base_font,
             first_char,
             last_char,
             widths,
@@ -214,7 +214,7 @@ impl FontMetrics {
             descent,
             cap_height,
             _bbox_width: bbox_width,
-            font_data,
+            _font_data: font_data,
             ab_font,
         })
     }
@@ -741,7 +741,7 @@ impl<'a> PagePainter<'a> {
 
                 let mut total_advance = 0.0f32;
 
-                for (i, &code) in text.iter().enumerate() {
+                for (_i, &code) in text.iter().enumerate() {
                     let glyph_id = ab_glyph::GlyphId(code as u16);
 
                     if let Some(outline) = ab_font.outline(glyph_id) {
@@ -996,7 +996,7 @@ mod tests {
         d.set(CosName::new(b"Widths".to_vec()), CosObject::Array(widths));
 
         let metrics = FontMetrics::from_dict(b"F1", &d).unwrap();
-        assert_eq!(metrics.base_font, "Helvetica");
+        assert_eq!(metrics._base_font, "Helvetica");
         assert_eq!(metrics.first_char, 32);
         assert_eq!(metrics.last_char, 122);
         assert_eq!(metrics.width_for_code(32), 600.0);
@@ -1012,7 +1012,7 @@ mod tests {
         );
 
         let metrics = FontMetrics::from_dict(b"F1", &d).unwrap();
-        assert_eq!(metrics.base_font, "Times-Roman");
+        assert_eq!(metrics._base_font, "Times-Roman");
         assert_eq!(metrics.ascent, 683.0);
         assert_eq!(metrics.descent, -217.0);
     }
